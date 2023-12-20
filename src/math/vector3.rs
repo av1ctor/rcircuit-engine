@@ -38,7 +38,7 @@ impl Vector3 {
 		let x = self.x; 
         let y = self.y;
         let z = self.z;
-		let e = m.0;
+		let e = &m.0;
 
 		let w = 1.0 / (e[0][3] * x + e[1][3] * y + e[2][3] * z + e[3][3]);
 
