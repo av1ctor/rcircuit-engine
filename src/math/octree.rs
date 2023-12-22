@@ -88,10 +88,35 @@ impl Octree {
         }
     }
 
+    fn _traverse(
+        tree: &Self,
+        level: usize,
+        cb: &mut dyn FnMut(&Self, usize) -> ()
+    ) {
+        cb(tree, level);
+        for sub in &tree.sub_trees {
+            Self::_traverse(sub, level + 1, cb);
+        }
+    }
+
     pub fn build(
         &mut self
     ) {
 		self.calc_box();
 		self.split(0);
+
+        /*let mut trees = 0;
+        let mut triangles = 0;
+        Self::_traverse(
+            &self, 
+            0,
+            &mut |tree, _level| -> () {
+                trees += 1;
+                triangles += tree.triangles.len();
+            }
+        );
+
+        println!("trees: {}", trees);
+        println!("triangles: {}", triangles);*/
 	}
 }

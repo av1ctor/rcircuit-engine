@@ -18,7 +18,7 @@ fn _traverse(
 fn traverse_meshes(
     node: &gltf::Node<'_>,
     world_matrix: Option<&Matrix4>,
-    cb: &dyn Fn (&gltf::Mesh<'_>, &Matrix4)
+    cb: &mut dyn FnMut (&gltf::Mesh<'_>, &Matrix4)
 ) {
     if let Some(mesh) = node.mesh() {
         let matrix = Matrix4::new(&node.transform().matrix());
@@ -45,12 +45,14 @@ fn main() {
     let scene = gltf.default_scene().unwrap();
     let octree = Box::new(RefCell::new(Octree::new(None)));
 
+    let mut cnt = 0;
+
     for node in scene.nodes() {
         // for every node on scene..
         traverse_meshes(
             &node,
             None, 
-            &|mesh, world_matrix| {
+            &mut |mesh, world_matrix| {
                 let octree = &mut octree.as_ref().borrow_mut();
 
                 // for every primitive in a mesh..
@@ -97,7 +99,6 @@ fn main() {
                         }
 
                         for tri in triangles {
-                            //println!("Triangle:");
                             let mut a = Vector3::from_slice(&tri[0]);
                             let mut b = Vector3::from_slice(&tri[1]);
                             let mut c = Vector3::from_slice(&tri[2]);
@@ -106,7 +107,11 @@ fn main() {
                             b.apply_matrix4(world_matrix);
                             c.apply_matrix4(world_matrix);
 
-                            //println!("v1:(x:{}, y:{}, z:{}), v2:(x:{}, y:{}, z:{}), v3:(x:{}, y:{}, z:{})", a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+                            if cnt < 15 {
+                                //println!("v1:(x:{}, y:{}, z:{}), v2:(x:{}, y:{}, z:{}), v3:(x:{}, y:{}, z:{})", a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+                            }
+
+                            cnt +=1;
 
                             octree.add_triangle(Triangle::new(a, b, c));
                         }
