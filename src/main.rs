@@ -112,7 +112,6 @@ fn main() {
                             }
 
                             cnt +=1;
-
                             octree.add_triangle(Triangle::new(a, b, c));
                         }
                     }

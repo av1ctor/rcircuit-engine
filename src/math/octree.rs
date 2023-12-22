@@ -1,11 +1,16 @@
 use super::{triangle::Triangle, box3::Box3, vector3::Vector3};
 
 #[derive(Clone)]
-pub struct Octree {
+pub struct OctreeNode {
     pub bx: Option<Box3>,
     pub bounds: Box3,
-    pub sub_trees: Vec<Octree>,
-    pub triangles: Vec<Triangle>,
+    pub sub_trees: Vec<OctreeNode>,
+    pub triangles: Vec<usize>,
+}
+
+pub struct Octree {
+    pub root: OctreeNode,
+    pub triangles_buffer: Vec<Triangle>,
 }
 
 impl Octree {
@@ -13,16 +18,44 @@ impl Octree {
         bx: Option<Box3>
     ) -> Self {
         Self {
-            bx,
-            bounds: Box3::default(),
-            sub_trees: vec![],
-            triangles: vec![],
+            root: OctreeNode::new(bx),
+            triangles_buffer: vec![]
         }
     }
 
     pub fn add_triangle( 
         &mut self,
         tri: Triangle
+    ) {
+        let index = self.triangles_buffer.len();
+        self.root.add_triangle(&tri, index);
+        self.triangles_buffer.push(tri);
+    }
+
+    pub fn build(
+        &mut self
+    ) {
+		self.root.build(&self.triangles_buffer);
+    }
+    
+}
+
+impl OctreeNode {
+    pub fn new(
+        bx: Option<Box3>
+    ) -> Self {
+        Self {
+            bx,
+            bounds: Box3::default(),
+            sub_trees: vec![],
+            triangles: vec![]
+        }
+    }
+
+    pub fn add_triangle( 
+        &mut self,
+        tri: &Triangle,
+        index: usize
     ) {
 		self.bounds.min.x = f32::min(f32::min(f32::min(self.bounds.min.x, tri.a.x), tri.b.x), tri.c.x);
 		self.bounds.min.y = f32::min(f32::min(f32::min(self.bounds.min.y, tri.a.y), tri.b.y), tri.c.y);
@@ -31,7 +64,7 @@ impl Octree {
 		self.bounds.max.y = f32::max(f32::max(f32::max(self.bounds.max.y, tri.a.y), tri.b.y), tri.c.y);
 		self.bounds.max.z = f32::max(f32::max(f32::max(self.bounds.max.z, tri.a.z), tri.b.z), tri.c.z);
 
-		self.triangles.push(tri);
+        self.triangles.push(index);
 	}
 
     fn calc_box(
@@ -47,7 +80,8 @@ impl Octree {
 
     fn split( 
         &mut self,
-        level: usize
+        level: usize,
+        triangles_buffer: &Vec<Triangle>
     ) {
 		if let Some(bx) = &self.bx {
             let mut sub_trees = vec![];
@@ -60,7 +94,7 @@ impl Octree {
                         let min = bx.min.add(&v.mul(&half_size));
                         let max = min.add(&half_size);
                         
-                        sub_trees.push(Octree::new(Some(Box3::new(min, max))));
+                        sub_trees.push(Self::new(Some(Box3::new(min, max))));
                     }
                 }    
             }
@@ -68,7 +102,8 @@ impl Octree {
             while let Some(tri) = self.triangles.pop() {
                 for sub in &mut sub_trees {
                     if let Some(bx) = &sub.bx {
-                        if bx.intersects_with_triangle(&tri) {
+                        let triangle = &triangles_buffer[tri];
+                        if bx.intersects_with_triangle(triangle) {
                             sub.triangles.push(tri);
                         }
                     }
@@ -78,7 +113,7 @@ impl Octree {
             for sub in &mut sub_trees {
                 let len = sub.triangles.len();
                 if len > 8 && level < 16 {
-                    sub.split(level + 1);
+                    sub.split(level + 1, triangles_buffer);
                 }
 
                 if len != 0 {
@@ -100,12 +135,13 @@ impl Octree {
     }
 
     pub fn build(
-        &mut self
+        &mut self,
+        triangles_buffer: &Vec<Triangle>
     ) {
 		self.calc_box();
-		self.split(0);
+		self.split(0, triangles_buffer);
 
-        /*let mut trees = 0;
+        let mut trees = 0;
         let mut triangles = 0;
         Self::_traverse(
             &self, 
@@ -117,6 +153,6 @@ impl Octree {
         );
 
         println!("trees: {}", trees);
-        println!("triangles: {}", triangles);*/
+        println!("triangles: {}", triangles);
 	}
 }
