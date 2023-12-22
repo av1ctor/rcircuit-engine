@@ -106,6 +106,24 @@ impl Vector3 {
         }
     }
 
+    pub fn div(
+        &self,
+        v: &Vector3
+    ) -> Self {
+		Self {
+            x: self.x / v.x,
+            y: self.y / v.y,
+            z: self.z / v.z,
+        }
+	}
+
+    pub fn div_scalar(
+        &self,
+        scalar: f32
+    ) -> Self {
+        self.mul_scalar(1.0 / scalar)
+    }
+
     pub fn dot( 
         &self,
         other: &Self
@@ -125,6 +143,19 @@ impl Vector3 {
 		    z: self.x * other.y - self.y * other.x,
         }
     }
+
+    pub fn length(
+        &self
+    ) -> f32 {
+		(self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+	}
+
+    pub fn normalize(
+        &self
+    ) -> Self {
+		let len = self.length();
+        self.div_scalar(if len != 0.0 {len} else {1.0})
+	}
 
     pub fn apply_matrix4( 
         &mut self,

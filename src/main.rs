@@ -35,5 +35,5 @@ fn main() {
         octree
     };
 
-    println!("triangles: {}", octree.triangles_buffer.len());
+    println!("triangles: {}", octree.triangles.len());
 }

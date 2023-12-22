@@ -1,5 +1,6 @@
+use std::collections::HashSet;
 use serde::{Serialize, Deserialize};
-use super::{triangle::Triangle, box3::Box3, vector3::Vector3, matrix4::Matrix4};
+use super::{triangle::Triangle, box3::Box3, vector3::Vector3, matrix4::Matrix4, ray::Ray};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OctreeNode {
@@ -11,7 +12,7 @@ pub struct OctreeNode {
 pub struct Octree {
     pub root: OctreeNode,
     pub bounds: Box3,
-    pub triangles_buffer: Vec<Triangle>,
+    pub triangles: Vec<Triangle>,
 }
 
 impl Octree {
@@ -47,7 +48,7 @@ impl Octree {
         let mut octree = Self {
             root: OctreeNode::new(Box3::default()),
             bounds: Box3::default(),
-            triangles_buffer: vec![],
+            triangles: vec![],
         };
         
         for node in scene.nodes() {
@@ -132,9 +133,9 @@ impl Octree {
 		self.bounds.max.y = f32::max(f32::max(f32::max(self.bounds.max.y, tri.a.y), tri.b.y), tri.c.y);
 		self.bounds.max.z = f32::max(f32::max(f32::max(self.bounds.max.z, tri.a.z), tri.b.z), tri.c.z);
         
-        let index = self.triangles_buffer.len();
+        let index = self.triangles.len();
         self.root.add_triangle(index as u32);
-        self.triangles_buffer.push(tri);
+        self.triangles.push(tri);
     }
 
     fn calc_box(
@@ -151,9 +152,46 @@ impl Octree {
     ) {
         let bx = self.calc_box();
 
-        self.root.build(bx, &self.triangles_buffer);
+        self.root.build(bx, &self.triangles);
     }
     
+    pub fn ray_intersect( 
+        &self,
+        ray: &Ray
+    ) -> Option<(f32, Triangle, Vector3)> {
+		if ray.direction.length() == 0.0 {
+            return None;
+        }
+
+		let triangles = self.root.get_ray_triangles(ray);
+
+		let mut triangle = 0u32;
+        let mut position = Vector3::zero();
+        let mut distance = 1.0e-100;
+
+		for tri in triangles {
+            if let Some(intersec) = ray.intersecting_triangle(
+                &self.triangles[tri as usize], true) {
+
+				let dist = intersec.sub(&ray.origin).length();
+				if distance > dist {
+					position = intersec.add(&ray.origin);
+					distance = dist;
+					triangle = tri;
+				}
+			}
+		}
+
+		if distance < 1.0e-100 {
+            Some((
+                distance, 
+                self.triangles[triangle as usize].clone(), 
+                position
+            ))
+        } else {
+            None
+        }
+	}
 }
 
 impl OctreeNode {
@@ -251,5 +289,31 @@ impl OctreeNode {
 
         println!("trees: {}", trees);
         println!("triangles: {}", triangles);*/
+	}
+
+    pub fn get_ray_triangles(
+        &self,
+        ray: &Ray
+    ) -> HashSet<u32> {
+
+        let mut triangles = HashSet::new();
+
+		for sub in &self.sub_trees {
+			if !ray.intersects_box(&sub.bx) {
+                continue;
+            }
+
+			if sub.triangles.len() > 0 {
+				for tri in &sub.triangles {
+					triangles.insert(tri.to_owned());
+				}
+			} 
+            else {
+				triangles.extend(sub.get_ray_triangles(ray));
+			}
+
+		}
+
+		triangles
 	}
 }
