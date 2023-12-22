@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use gltf::mesh::Mode;
-use math::{octree::Octree, matrix4::Matrix4};
+use math::{octree::Octree, matrix4::Matrix4, box3::Box3};
 use crate::math::{vector3::Vector3, triangle::Triangle};
 
 mod math;
@@ -43,7 +43,7 @@ fn traverse_meshes(
 fn main() {
     let (gltf, buffers, _) = gltf::import("./level.glb").unwrap();
     let scene = gltf.default_scene().unwrap();
-    let octree = Box::new(RefCell::new(Octree::new(None)));
+    let octree = Box::new(RefCell::new(Octree::new(Box3::default())));
 
     let mut cnt = 0;
 
