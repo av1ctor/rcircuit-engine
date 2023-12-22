@@ -1,11 +1,13 @@
-use super::{triangle::Triangle, box3::Box3, vector3::Vector3};
+use serde::{Serialize, Deserialize};
+use super::{triangle::Triangle, box3::Box3, vector3::Vector3, matrix4::Matrix4};
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OctreeNode {
     pub bx: Box3,
     pub sub_trees: Vec<OctreeNode>,
     pub triangles: Vec<u32>,
 }
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Octree {
     pub root: OctreeNode,
     pub bounds: Box3,
@@ -13,14 +15,110 @@ pub struct Octree {
 }
 
 impl Octree {
-    pub fn new(
-        bx: Box3
+    fn traverse_meshes(
+        node: &gltf::Node<'_>,
+        world_matrix: Option<&Matrix4>,
+        cb: &mut dyn FnMut (&gltf::Mesh<'_>, &Matrix4)
+    ) {
+        if let Some(mesh) = node.mesh() {
+            let matrix = Matrix4::new(&node.transform().matrix());
+            let world_matrix = if let Some(m) = world_matrix {
+                m.mul(&matrix)
+            }
+            else {
+                matrix
+            };
+            cb(&mesh, &world_matrix);
+            for child in node.children() {
+                Self::traverse_meshes(&child, Some(&world_matrix), cb);
+            }
+        }
+        else {
+            for child in node.children() {
+                Self::traverse_meshes(&child, world_matrix, cb);
+            }
+        }
+    }
+
+    pub fn from_gltf<'a>(
+        scene: gltf::Scene<'_>,
+        buffers: Vec<gltf::buffer::Data>
     ) -> Self {
-        Self {
-            root: OctreeNode::new(bx),
+        let mut octree = Self {
+            root: OctreeNode::new(Box3::default()),
             bounds: Box3::default(),
             triangles_buffer: vec![],
+        };
+        
+        for node in scene.nodes() {
+            // for every node on scene..
+            Self::traverse_meshes(
+                &node,
+                None, 
+                &mut |mesh, world_matrix| {
+                    // for every primitive in a mesh..
+                    for primitive in mesh.primitives() {
+                        let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+                                
+                        if let Some(iter) = reader.read_positions() {
+                            let vertices = iter.collect::<Vec<_>>();
+                            let indices: Vec<u32> = reader.read_indices()
+                                .map(|ind| ind.into_u32().collect())
+                                .unwrap_or((0..vertices.len() as u32).collect());
+
+                            let mut triangles = vec![];
+                    
+                            match primitive.mode() {
+                                gltf::mesh::Mode::Triangles => {
+                                    for i in (0..indices.len()).step_by(3) {
+                                        triangles.push([
+                                            vertices[indices[i] as usize],
+                                            vertices[indices[i + 1] as usize],
+                                            vertices[indices[i + 2] as usize],
+                                        ]);
+                                    }
+                                }
+                                gltf::mesh::Mode::TriangleStrip => {
+                                    for i in 0..(indices.len() - 2) {
+                                        triangles.push([
+                                            vertices[indices[i] as usize + i % 2],
+                                            vertices[indices[i + 1 - i % 2] as usize],
+                                            vertices[indices[i + 2] as usize],
+                                        ]);
+                                    }
+                                }
+                                gltf::mesh::Mode::TriangleFan => {
+                                    for i in 1..(indices.len() - 1) {
+                                        triangles.push([
+                                            vertices[indices[0] as usize],
+                                            vertices[indices[i] as usize],
+                                            vertices[indices[i + 1] as usize],
+                                        ]);
+                                    }
+                                }
+                                _ => panic!("Unsupported mode"),
+                            }
+
+                            for tri in triangles {
+                                let mut a = Vector3::from_slice(&tri[0]);
+                                let mut b = Vector3::from_slice(&tri[1]);
+                                let mut c = Vector3::from_slice(&tri[2]);
+
+                                a.apply_matrix4(world_matrix);
+                                b.apply_matrix4(world_matrix);
+                                c.apply_matrix4(world_matrix);
+
+                                octree.add_triangle(Triangle::new(a, b, c));
+                            }
+                        }
+                    }
+                }
+            );
         }
+
+        octree.build();
+
+        octree
     }
 
     pub fn add_triangle( 

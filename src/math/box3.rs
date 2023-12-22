@@ -1,6 +1,7 @@
+use serde::{Serialize, Deserialize};
 use super::{vector3::Vector3, triangle::Triangle};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Box3 {
     pub min: Vector3,
     pub max: Vector3,

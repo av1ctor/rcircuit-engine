@@ -1,6 +1,7 @@
+use serde::{Serialize, Deserialize};
 use super::vector3::Vector3;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Triangle {
     pub a: Vector3,
     pub b: Vector3,
