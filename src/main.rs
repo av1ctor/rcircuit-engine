@@ -23,7 +23,7 @@ fn traverse_meshes(
     if let Some(mesh) = node.mesh() {
         let matrix = Matrix4::new(&node.transform().matrix());
         let world_matrix = if let Some(m) = world_matrix {
-            m.multiply(&matrix)
+            m.mul(&matrix)
         }
         else {
             matrix
@@ -43,7 +43,7 @@ fn traverse_meshes(
 fn main() {
     let (gltf, buffers, _) = gltf::import("./level.glb").unwrap();
     let scene = gltf.default_scene().unwrap();
-    let octree = Box::new(RefCell::new(Octree::new()));
+    let octree = Box::new(RefCell::new(Octree::new(None)));
 
     for node in scene.nodes() {
         // for every node on scene..

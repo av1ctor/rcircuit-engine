@@ -9,7 +9,7 @@ impl Matrix4 {
         Self(src.clone())
     }
 
-    pub fn multiply(
+    pub fn mul(
         &self, 
         other: &Self
     ) -> Self {
@@ -17,43 +17,43 @@ impl Matrix4 {
 		let b = &other.0;
 
 		let a11 = a[0][0];
-        let a12 = a[1][0];
-        let a13 = a[2][0];
-        let a14 = a[3][0];
-		
         let a21 = a[0][1];
-        let a22 = a[1][1];
-        let a23 = a[2][1];
-        let a24 = a[3][1];
-		
         let a31 = a[0][2];
-        let a32 = a[1][2];
-        let a33 = a[2][2];
-        let a34 = a[3][2];
-		
         let a41 = a[0][3];
+
+        let a12 = a[1][0];
+        let a22 = a[1][1];
+        let a32 = a[1][2];
         let a42 = a[1][3];
+
+        let a13 = a[2][0];
+        let a23 = a[2][1];
+        let a33 = a[2][2];
         let a43 = a[2][3];
+
+        let a14 = a[3][0];
+        let a24 = a[3][1];
+        let a34 = a[3][2];
         let a44 = a[3][3];
 
 		let b11 = b[0][0];
-        let b12 = b[1][0];
-        let b13 = b[2][0];
-        let b14 = b[3][0];
-		
         let b21 = b[0][1];
-        let b22 = b[1][1];
-        let b23 = b[2][1];
-        let b24 = b[3][1];
-		
         let b31 = b[0][2];
-        let b32 = b[1][2];
-        let b33 = b[2][2];
-        let b34 = b[3][2];
-		
         let b41 = b[0][3];
+        
+        let b12 = b[1][0];
+        let b22 = b[1][1];
+        let b32 = b[1][2];
         let b42 = b[1][3];
+        
+        let b13 = b[2][0];
+        let b23 = b[2][1];
+        let b33 = b[2][2];
         let b43 = b[2][3];
+        
+        let b14 = b[3][0];
+        let b24 = b[3][1];
+        let b34 = b[3][2];
         let b44 = b[3][3];
 
 		let mut e = [[0f32; 4]; 4];

@@ -1,6 +1,6 @@
 use super::matrix4::Matrix4;
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub struct Vector3 {
     pub x: f32,
     pub y: f32,
@@ -27,6 +27,101 @@ impl Vector3 {
             x: src[0],
             y: src[1],
             z: src[2],
+        }
+    }
+
+    pub fn from_array(
+        src: &[f32],
+        i: usize
+    ) -> Self {
+        Self {
+            x: src[i],
+            y: src[i+1],
+            z: src[i+2],
+        }
+    }
+
+    pub fn zero(
+    ) -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
+    }
+
+    pub fn add(
+        &self,
+        other: &Self
+    ) -> Self {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
+    }
+
+    pub fn sub(
+        &self,
+        other: &Self
+    ) -> Self {
+        Self {
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+        }
+    }
+
+    pub fn sub_scalar(
+        &self,
+        scalar: f32
+    ) -> Self {
+        Self {
+            x: self.x - scalar,
+            y: self.y - scalar,
+            z: self.z - scalar,
+        }
+    }
+
+    pub fn mul(
+        &self,
+        other: &Self
+    ) -> Self {
+        Self {
+            x: self.x * other.x,
+            y: self.y * other.y,
+            z: self.z * other.z,
+        }
+    }
+
+    pub fn mul_scalar(
+        &self,
+        scalar: f32
+    ) -> Self {
+        Self {
+            x: self.x * scalar,
+            y: self.y * scalar,
+            z: self.z * scalar,
+        }
+    }
+
+    pub fn dot( 
+        &self,
+        other: &Self
+    ) -> f32 {
+            self.x * other.x +
+            self.y * other.y +
+            self.z * other.z
+	}
+
+    pub fn cross( 
+        &self,
+        other: &Self
+    ) -> Self {
+		Self {
+            x: self.y * other.z - self.z * other.y,
+		    y: self.z * other.x - self.x * other.z,
+		    z: self.x * other.y - self.y * other.x,
         }
     }
 

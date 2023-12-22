@@ -1,6 +1,6 @@
 use super::vector3::Vector3;
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub struct Triangle {
     pub a: Vector3,
     pub b: Vector3,
