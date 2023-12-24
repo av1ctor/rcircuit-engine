@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use serde::{Serialize, Deserialize};
-use super::{triangle::Triangle, box3::Box3, vector3::Vector3, matrix4::Matrix4, ray::Ray};
+use super::{triangle::Triangle, box3::Box3, vector3::Vector3, matrix4::Matrix4, ray::Ray, line3::Line3, capsule::Capsule};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OctreeNode {
@@ -16,31 +16,6 @@ pub struct Octree {
 }
 
 impl Octree {
-    fn traverse_meshes(
-        node: &gltf::Node<'_>,
-        world_matrix: Option<&Matrix4>,
-        cb: &mut dyn FnMut (&gltf::Mesh<'_>, &Matrix4)
-    ) {
-        if let Some(mesh) = node.mesh() {
-            let matrix = Matrix4::new(&node.transform().matrix());
-            let world_matrix = if let Some(m) = world_matrix {
-                m.mul(&matrix)
-            }
-            else {
-                matrix
-            };
-            cb(&mesh, &world_matrix);
-            for child in node.children() {
-                Self::traverse_meshes(&child, Some(&world_matrix), cb);
-            }
-        }
-        else {
-            for child in node.children() {
-                Self::traverse_meshes(&child, world_matrix, cb);
-            }
-        }
-    }
-
     pub fn from_gltf<'a>(
         scene: gltf::Scene<'_>,
         buffers: Vec<gltf::buffer::Data>
@@ -53,7 +28,7 @@ impl Octree {
         
         for node in scene.nodes() {
             // for every node on scene..
-            Self::traverse_meshes(
+            traverse_meshes(
                 &node,
                 None, 
                 &mut |mesh, world_matrix| {
@@ -192,6 +167,39 @@ impl Octree {
             None
         }
 	}
+
+    pub fn capsule_intersect( 
+        &self,
+        capsule: &Capsule
+    ) -> Option<(Vector3, f32)> {
+
+        let triangles = self.root.get_capsule_triangles(capsule);
+		
+		let mut hit = false;
+        let mut cap = capsule.clone();
+        for tri in triangles {
+            if let Some(intersec) = capsule.intersecting_triangle(
+                &self.triangles[tri as usize]) {
+				hit = true;
+				cap = cap.translate(&intersec.0.mul_scalar(intersec.2));
+                break;
+			}
+		}
+
+		if hit {
+			let collision_vector = cap.get_center().sub(&capsule.get_center());
+			let depth = collision_vector.length();
+
+			Some((
+                collision_vector.normalize(), 
+                depth
+            ))
+		}
+        else {
+            None
+        }
+
+	}
 }
 
 impl OctreeNode {
@@ -311,9 +319,58 @@ impl OctreeNode {
             else {
 				triangles.extend(sub.get_ray_triangles(ray));
 			}
-
 		}
 
 		triangles
 	}
+
+    pub fn get_capsule_triangles(
+        &self,
+        capsule: &Capsule
+    ) -> HashSet<u32> {
+
+        let mut triangles = HashSet::new();
+
+		for sub in &self.sub_trees {
+			if !capsule.intersects_box(&sub.bx) {
+                continue;
+            }
+
+			if sub.triangles.len() > 0 {
+				for tri in &sub.triangles {
+					triangles.insert(tri.to_owned());
+				}
+			} 
+            else {
+				triangles.extend(sub.get_capsule_triangles(capsule));
+			}
+		}
+
+        triangles
+	}
+}
+
+fn traverse_meshes(
+    node: &gltf::Node<'_>,
+    world_matrix: Option<&Matrix4>,
+    cb: &mut dyn FnMut (&gltf::Mesh<'_>, &Matrix4)
+) {
+    if let Some(mesh) = node.mesh() {
+        let matrix = Matrix4::new(&node.transform().matrix());
+        let world_matrix = if let Some(m) = world_matrix {
+            m.mul(&matrix)
+        }
+        else {
+            matrix
+        };
+        cb(&mesh, &world_matrix);
+        for child in node.children() {
+            traverse_meshes(&child, Some(&world_matrix), cb);
+        }
+    }
+    else {
+        for child in node.children() {
+            traverse_meshes(&child, world_matrix, cb);
+        }
+    }
 }

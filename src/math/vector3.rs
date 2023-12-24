@@ -157,6 +157,35 @@ impl Vector3 {
         self.div_scalar(if len != 0.0 {len} else {1.0})
 	}
 
+    pub fn distance_to(
+        &self,
+        v: &Vector3
+    ) -> f32 {
+		f32::sqrt(self.distance_to_sq(v))
+	}
+
+	pub fn distance_to_sq(
+        &self,
+        v: &Vector3
+    ) -> f32 {
+		let dx = self.x - v.x;
+        let dy = self.y - v.y;
+        let dz = self.z - v.z;
+		dx * dx + dy * dy + dz * dz
+	}
+
+    pub fn lerp(
+        &self,
+        v: &Vector3,
+        alpha: f32
+    ) -> Self {
+        Self {
+            x: self.x + (v.x - self.x) * alpha,
+            y: self.y + (v.y - self.y) * alpha,
+            z: self.z + (v.z - self.z) * alpha,
+        }
+	}
+
     pub fn apply_matrix4( 
         &mut self,
         m: &Matrix4
