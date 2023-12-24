@@ -41,7 +41,7 @@ version = "0.1.0"
 dependencies = [
  "gltf",
  "postcard",
- "serde",
+ "three-rs",
 ]
 
 [[package]]
@@ -396,6 +396,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "three-rs"
+version = "0.1.0"
+dependencies = [
+ "gltf",
+ "serde",
 ]
 
 [[package]]

@@ -1,6 +1,4 @@
-use math::octree::Octree;
-
-mod math;
+use three_rs::math::octree::Octree;
 
 fn _traverse(
     node: &gltf::Node<'_>,
