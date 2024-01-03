@@ -1,14 +1,7 @@
+use navmesh::serdes;
+use recastnavigation_sys::dtNavMesh;
 use three_rs::math::octree::Octree;
-
-fn _traverse(
-    node: &gltf::Node<'_>,
-    cb: &dyn Fn (&gltf::Node<'_>)
-) {
-    cb(node);
-    for child in node.children() {
-        _traverse(&child, cb);
-    }
-}
+mod navmesh;
 
 fn main() {
     let (gltf, buffers) = if let Ok(bytes) = std::fs::read("./level-0.glb") {
@@ -22,6 +15,20 @@ fn main() {
     
     let scene = gltf.default_scene().unwrap();
 
+    let octree = load_or_gen_octree(scene, buffers);
+    println!("triangles: {}", octree.triangles.len());
+
+    let nav_mesh = load_navmesh();
+    unsafe {
+        println!("title.w: {}, title.h: {}, title.max: {}", (*nav_mesh).m_tileWidth, (*nav_mesh).m_tileHeight, (*nav_mesh).m_maxTiles);
+        println!("origin: {:?}", (*nav_mesh).m_orig);
+    }
+}
+
+fn load_or_gen_octree(
+    scene: gltf::Scene<'_>, 
+    buffers: Vec<gltf::buffer::Data>
+) -> Octree {
     let octree = if let Ok(bytes) = std::fs::read("level-0-octree.bin") {
         postcard::from_bytes(&bytes).unwrap()
     }
@@ -33,5 +40,16 @@ fn main() {
         octree
     };
 
-    println!("triangles: {}", octree.triangles.len());
+    octree
 }
+
+fn load_navmesh(
+) -> *const dtNavMesh {
+    if let Ok(bytes) = std::fs::read("level-0-navmesh.bin") {
+        serdes::import(bytes).unwrap()
+    }
+    else {
+        panic!("Error loading level-0-navmesh.bin");
+    }
+}
+ 
