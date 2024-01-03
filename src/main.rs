@@ -1,6 +1,7 @@
-use navmesh::serdes;
-use recastnavigation_sys::dtNavMesh;
-use three_rs::math::octree::Octree;
+use navmesh::{serdes, query};
+use recastnavigation_sys::{dtNavMesh, dtNavMeshQuery};
+use three_rs::math::{octree::Octree, vector3::Vector3};
+
 mod navmesh;
 
 fn main() {
@@ -20,8 +21,15 @@ fn main() {
 
     let nav_mesh = load_navmesh();
     unsafe {
-        println!("title.w: {}, title.h: {}, title.max: {}", (*nav_mesh).m_tileWidth, (*nav_mesh).m_tileHeight, (*nav_mesh).m_maxTiles);
-        println!("origin: {:?}", (*nav_mesh).m_orig);
+        let mut nav_query = dtNavMeshQuery::new();
+        nav_query.init(nav_mesh, 512);
+        let path = query::find_path(
+            &nav_query, 
+            &query::find_closest_point(&nav_query, &Vector3::new(2.0, 0.0, 0.0)), 
+            &query::find_closest_point(&nav_query, &Vector3::new(27.0, 0.0, 17.0)), 
+            256
+        );
+        println!("{:?}", path);
     }
 }
 
