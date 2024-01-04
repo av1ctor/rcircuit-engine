@@ -1,8 +1,5 @@
-use navmesh::{serdes, query};
-use recastnavigation_sys::{dtNavMesh, dtNavMeshQuery};
+use navmesh_rs::{navmesh::NavMesh, query::NavMeshQuery};
 use three_rs::math::{octree::Octree, vector3::Vector3};
-
-mod navmesh;
 
 fn main() {
     let (gltf, buffers) = if let Ok(bytes) = std::fs::read("./level-0.glb") {
@@ -20,17 +17,13 @@ fn main() {
     println!("triangles: {}", octree.triangles.len());
 
     let nav_mesh = load_navmesh();
-    unsafe {
-        let mut nav_query = dtNavMeshQuery::new();
-        nav_query.init(nav_mesh, 512);
-        let path = query::find_path(
-            &nav_query, 
-            &query::find_closest_point(&nav_query, &Vector3::new(2.0, 0.0, 0.0)), 
-            &query::find_closest_point(&nav_query, &Vector3::new(27.0, 0.0, 17.0)), 
-            256
-        );
-        println!("{:?}", path);
-    }
+    let nav_query = NavMeshQuery::new(&nav_mesh);
+    let path = nav_query.find_path(
+        &nav_query.find_closest_point(&Vector3::new(2.0, 0.0, 0.0)), 
+        &nav_query.find_closest_point(&Vector3::new(27.0, 0.0, 17.0)), 
+        256
+    );
+    println!("{:?}", path);
 }
 
 fn load_or_gen_octree(
@@ -52,9 +45,9 @@ fn load_or_gen_octree(
 }
 
 fn load_navmesh(
-) -> *const dtNavMesh {
+) -> NavMesh {
     if let Ok(bytes) = std::fs::read("level-0-navmesh.bin") {
-        serdes::import(bytes).unwrap()
+        NavMesh::from_array(bytes)
     }
     else {
         panic!("Error loading level-0-navmesh.bin");

@@ -77,8 +77,8 @@ name = "bot-engine-gltf"
 version = "0.1.0"
 dependencies = [
  "gltf",
+ "navmesh-rs",
  "postcard",
- "recastnavigation-sys",
  "three-rs",
 ]
 
@@ -386,6 +386,14 @@ checksum = "e7810e0be55b428ada41041c41f32c9f1a42817901b4ccf45fa3d4b6561e74c7"
 dependencies = [
  "adler",
  "simd-adler32",
+]
+
+[[package]]
+name = "navmesh-rs"
+version = "0.1.0"
+dependencies = [
+ "recastnavigation-sys",
+ "three-rs",
 ]
 
 [[package]]

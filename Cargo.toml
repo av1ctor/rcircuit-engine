@@ -7,4 +7,4 @@ edition = "2021"
 gltf = {version = "1.4.0", features = ["import"]}
 postcard = {version = "1.0.0", features = ["alloc"]}
 three-rs = {version = "0.1.0", path = "../three-rs"}
-recastnavigation-sys = {version = "1.0.2", features = ["detour"]}
+navmesh-rs = {version = "0.1.0", path = "../navmesh-rs"}
