@@ -8,3 +8,9 @@ gltf = {version = "1.4.0", features = ["import"]}
 postcard = {version = "1.0.0", features = ["alloc"]}
 three-rs = {version = "0.1.0", path = "../three-rs"}
 navmesh-rs = {version = "0.1.0", path = "../navmesh-rs"}
+serde = {version = "1.0", features = ["derive"]}
+rmp-serde = "1.1.2"
+rand = "0.8.5"
+strum = "0.25"
+strum_macros = "0.25"
+circular-buffer = "0.1.3"
