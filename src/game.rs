@@ -183,12 +183,12 @@ impl Env for Game {
                             PlayerAction::MoveForward =>
                                 player.base.dir.rot.clone(),
                             PlayerAction::TurnRight =>
-                                Euler::from_quartenion(
+                                Euler::from_quaternion(
                                     &player.base.dir.q.rotate_z(-player.turn_angle),
                                     EulerOrder::XYZ
                                 ).v,
                             PlayerAction::TurnLeft => 
-                                Euler::from_quartenion(
+                                Euler::from_quaternion(
                                     &player.base.dir.q.rotate_z(player.turn_angle),
                                     EulerOrder::XYZ
                                 ).v
@@ -486,7 +486,7 @@ impl Game {
             }
 
             //FIXME!!!
-            let target_dir = Euler::from_quartenion(
+            let target_dir = Euler::from_quaternion(
                 &Quaternion::from_axis_and_angle(
                     &FORWARD, 
                     player.base.pos.angle_to(&target_pos)
@@ -501,7 +501,7 @@ impl Game {
             let mut player_sensors = vec![];
 
             for _ in 0..self.options.fov.rays {
-                let dir = Euler::from_quartenion(&rot, EulerOrder::XYZ).v;
+                let dir = Euler::from_quaternion(&rot, EulerOrder::XYZ).v;
                 let sensor_pos = dir.mul_scalar(self.options.fov.max_dist);
                 
                 player_sensors.push(

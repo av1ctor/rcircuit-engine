@@ -66,6 +66,16 @@ impl ObjectDir {
             angle: q.angle(),
         }
     }
+
+    pub fn from_quaternion(
+        q: Quaternion
+    ) -> Self {
+        Self {
+            rot: Euler::from_quaternion(&q, EulerOrder::XYZ).v,
+            q,
+            angle: q.angle(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -108,11 +118,7 @@ impl Object {
         Self { 
             id: rng.gen::<usize>(),
             pos,
-            dir: ObjectDir {
-                rot: Euler::from_quartenion(&dir, EulerOrder::XYZ).v,
-                q: dir,
-                angle: dir.angle(),
-            },
+            dir: ObjectDir::from_quaternion(dir),
             dim,
             radius: 1.0,
             typ,
@@ -128,7 +134,7 @@ impl Object {
     ) {
         let q = self.dir.q.rotate_on_axis(axis, angle);
         self.dir = ObjectDir {
-            rot: Euler::from_quartenion(&q, EulerOrder::XYZ).v,
+            rot: Euler::from_quaternion(&q, EulerOrder::XYZ).v,
             q,
             angle: q.angle(),
         };
