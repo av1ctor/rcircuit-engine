@@ -1,11 +1,11 @@
 use std::f32::consts::PI;
 
 use circular_buffer::CircularBuffer;
-use rand::{rngs::StdRng, Rng};
+use rand::rngs::StdRng;
 use serde::{Serialize, Deserialize};
 use strum_macros::EnumCount;
-use three_rs::math::{vector3::Vector3, path3::Path3, euler::Euler};
-use crate::{env::EnvObs, object::{Object, ObjectVisibility, ObjectState, ObjectType}, game::GameOptions};
+use three_rs::math::{vector3::Vector3, path3::Path3, quaternion::Quaternion};
+use crate::{env::EnvObs, object::{Object, ObjectVisibility, ObjectState, ObjectType, ObjectDir}, game::GameOptions, sensor::{Sensor, SensorReading}};
 
 pub const NUM_SENSOR_FEATURES: usize = 1;
 
@@ -58,13 +58,12 @@ impl Default for PlayerSensor {
 
 #[derive(Clone, Default)]
 pub struct PlayerHistory {
-    pub dir: Euler,
+    pub dir: ObjectDir,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Player {
     pub base: Object,
-    pub dir: Euler,
     pub turn_angle: f32,
     pub max_vel: Vector3,
     pub vel: Vector3,
@@ -72,35 +71,34 @@ pub struct Player {
     pub num_keys: usize,
     pub health: f32,
     pub reward: f32,
-    pub color: [u8; 3],
     #[serde(skip)]
-    pub sensors: Vec<PlayerSensor>,
+    pub sensor: Sensor,
     #[serde(skip)]
-    pub path: Option<Path3>,
+    pub path: Path3,
     #[serde(skip)]
     pub history: CircularBuffer<10, PlayerHistory>,
 }
 
 impl Player {
     pub fn new(
-        pos: &Vector3,
-        dir: &Euler,
+        pos: Vector3,
+        dir: Quaternion,
+        dim: Vector3,
         options: &GameOptions,
         rng: &mut StdRng
     ) -> Player {
-        let base = Object { 
-            id: rng.gen::<usize>(),
-            dim: Vector3::new(1.0, 1.0, 1.0),
-            pos: pos.clone(),
-            radius: 1.0,
-            typ: ObjectType::PLAYER,
-            state: ObjectState::IDLE,
-            vis: ObjectVisibility::HIDDEN,
-        };
+        let base = Object::new(
+            ObjectType::PLAYER,
+            pos,
+            dir,
+            dim,
+            ObjectState::IDLE,
+            ObjectVisibility::HIDDEN,
+            rng
+        );
 
         Self { 
             base,
-            dir: dir.clone(),
             turn_angle: 15.0 * (PI / 180.0),
             vel: Vector3::zero(),
             max_vel: Vector3::new(1.0, 1.0, 0.0),
@@ -108,18 +106,31 @@ impl Player {
             num_keys: 0, 
             health: 100.0, 
             reward: 0.0,
-            color: [
-                127 + rng.gen_range(0..127),
-                127 + rng.gen_range(0..127),
-                127 + rng.gen_range(0..127)
-            ],
-            sensors: vec![
-                PlayerSensor::default(); 
-                options.fov.rays
-            ],
-            path: None,
+            sensor: Sensor::default(),
+            path: Path3::default(),
             history: CircularBuffer::<10, PlayerHistory>::new(),
         }
+    }
+
+    pub fn rotate_x(
+        &mut self,
+        angle: f32
+    ) {
+        self.base.rotate_x(angle);
+    }
+
+    pub fn rotate_y(
+        &mut self,
+        angle: f32
+    ) {
+        self.base.rotate_y(angle);
+    }
+
+    pub fn rotate_z(
+        &mut self,
+        angle: f32
+    ) {
+        self.base.rotate_z(angle);
     }
     
     pub fn scale(
@@ -137,7 +148,7 @@ impl Player {
     ) -> Vector3 {
         let mut dir = Vector3::zero();
         for h in &self.history {
-            dir.add_mut(&h.dir.v);
+            dir.add_mut(&h.dir.rot);
         }
 
         dir.mul_scalar(1.0 / (self.history.len() as f32).max(1.0))
@@ -148,12 +159,12 @@ impl Player {
     ) -> EnvObs {
         let mut obs = vec![];
 
-        for s in &self.sensors {
-            obs.push(match s {
-                PlayerSensor::Target(s) => {
-                    s.similarity
+        for r in &self.sensor.readings {
+            obs.push(match r {
+                SensorReading::Target(r) => {
+                    r.similarity
                 },
-                PlayerSensor::Hit(_) => {
+                SensorReading::Hit(_) => {
                     0.0
                 },
             });
@@ -166,7 +177,7 @@ impl Player {
         &mut self
     ) {
         self.history.push_back(PlayerHistory { 
-            dir: self.dir.clone()
+            dir: self.base.dir.clone()
         });
     }
 }

@@ -11,6 +11,7 @@ pub mod enemy;
 pub mod spawn_loc;
 pub mod map;
 pub mod game;
+pub mod sensor;
 
 fn main() {
     let map = if let Ok(level_bytes) = std::fs::read("./level-0.glb") {

@@ -3,11 +3,11 @@ use three_rs::math::{vector3::Vector3, quaternion::Quaternion};
 
 use crate::map::NodeTransform;
 
-pub struct SpawLocations {
+pub struct SpawnLocations {
     pub locs: Vec<(NodeTransform, usize)>,
 }
 
-impl SpawLocations {
+impl SpawnLocations {
     pub fn new(
         nodes: Vec<NodeTransform>
     ) -> Self {
