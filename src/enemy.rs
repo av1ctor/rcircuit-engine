@@ -12,13 +12,4 @@ pub struct Enemy {
 }
 
 impl Enemy {
-    pub fn scale(
-        &self,
-        value: f32
-    ) -> Self {
-        Self {
-            base: self.base.scale(value),
-            ..self.clone()
-        }
-    }
 }

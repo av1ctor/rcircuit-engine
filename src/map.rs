@@ -1,6 +1,9 @@
 use gltf::{Gltf, buffer::Data, Document, Node};
 use navmesh_rs::navmesh::NavMesh;
-use three_rs::math::{vector3::Vector3, quaternion::Quaternion};
+use three_rs::math::{
+    vector3::Vector3, 
+    quaternion::Quaternion
+};
 
 #[derive(Clone)]
 pub struct NodeTransform {

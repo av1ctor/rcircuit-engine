@@ -1,6 +1,5 @@
 use navmesh_rs::query::NavMeshQuery;
 use three_rs::math::{octree::Octree, vector3::Vector3};
-
 use crate::map::Map;
 
 pub mod env;

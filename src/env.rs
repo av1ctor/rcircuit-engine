@@ -1,6 +1,5 @@
 use rand::rngs::StdRng;
 use three_rs::math::vector3::Vector3;
-
 use crate::renderer::Renderer;
 
 pub type EnvObs = Vec<f32>;

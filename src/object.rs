@@ -1,7 +1,12 @@
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
 use strum_macros::EnumCount;
-use three_rs::math::{vector3::Vector3, quaternion::{Quaternion, X_AXIS, Y_AXIS, Z_AXIS}, euler::{EulerOrder, Euler}};
+use three_rs::math::{
+    vector3::{Vector3, RIGHT, UP, FORWARD}, 
+    quaternion::Quaternion, 
+    euler::{EulerOrder, Euler}, 
+    box3::Box3
+};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, EnumCount, Default)]
 pub enum ObjectType {
@@ -45,6 +50,22 @@ pub enum ObjectVisibility {
 pub struct ObjectDir {
     pub rot: Vector3,
     pub q: Quaternion,
+    pub angle: f32,
+}
+
+impl ObjectDir {
+    pub fn from_vector(
+        dir: &Vector3
+    ) -> Self {
+        let q = Quaternion::from_euler(
+            &Euler::from_vector(dir.clone(), EulerOrder::XYZ)
+        );
+        Self {
+            rot: dir.clone(),
+            q,
+            angle: q.angle(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -89,7 +110,8 @@ impl Object {
             pos,
             dir: ObjectDir {
                 rot: Euler::from_quartenion(&dir, EulerOrder::XYZ).v,
-                q: dir
+                q: dir,
+                angle: dir.angle(),
             },
             dim,
             radius: 1.0,
@@ -104,11 +126,11 @@ impl Object {
         axis: &Vector3,
         angle: f32
     ) {
-        let qut = self.dir.q.rotate_on_axis(axis, angle);
-        let euler = Euler::from_quartenion(&qut, EulerOrder::XYZ);
+        let q = self.dir.q.rotate_on_axis(axis, angle);
         self.dir = ObjectDir {
-            rot: euler.v,
-            q: qut,
+            rot: Euler::from_quartenion(&q, EulerOrder::XYZ).v,
+            q,
+            angle: q.angle(),
         };
     }
 
@@ -116,31 +138,30 @@ impl Object {
         &mut self,
         angle: f32
     ) {
-        self.rotate_on_axis(&X_AXIS, angle);
+        self.rotate_on_axis(&RIGHT, angle);
     }
 
     pub fn rotate_y(
         &mut self,
         angle: f32
     ) {
-        self.rotate_on_axis(&Y_AXIS, angle);
+        self.rotate_on_axis(&UP, angle);
     }
 
     pub fn rotate_z(
         &mut self,
         angle: f32
     ) {
-        self.rotate_on_axis(&Z_AXIS, angle);
+        self.rotate_on_axis(&FORWARD, angle);
     }
     
-    pub fn scale(
-        &self,
-        value: f32
-    ) -> Self {
-        Self {
-            pos: self.pos.mul_scalar(value),
-            dim: self.dim.mul_scalar(value),
-            ..self.clone()
-        }
+    pub fn calc_bb(
+        &self 
+    ) -> Box3 {
+        let half_dim = self.dim.mul_scalar(0.5);
+        Box3::new(
+            self.pos.sub(&half_dim), 
+            self.pos.add(&half_dim)
+        )
     }
 }

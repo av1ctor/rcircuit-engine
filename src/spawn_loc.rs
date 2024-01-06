@@ -1,6 +1,8 @@
 use rand::{rngs::StdRng, Rng};
-use three_rs::math::{vector3::Vector3, quaternion::Quaternion};
-
+use three_rs::math::{
+    vector3::Vector3, 
+    quaternion::Quaternion
+};
 use crate::map::NodeTransform;
 
 pub struct SpawnLocations {

@@ -1,5 +1,4 @@
 use three_rs::math::vector3::Vector3;
-
 use crate::{object::Object, player::Player};
 
 pub trait Renderer {

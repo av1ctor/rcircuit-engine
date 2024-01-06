@@ -2,13 +2,14 @@ use three_rs::math::vector3::Vector3;
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SensorReadingTarget {
+    pub dir: Vector3,
     pub similarity: f32,
     pub angle: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SensorReadingHit {
-    pub inter: Vector3,
+    pub t: f32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -20,6 +21,7 @@ pub enum SensorReading {
 impl Default for SensorReading {
     fn default() -> Self {
         SensorReading::Target(SensorReadingTarget { 
+            dir: Vector3::zero(),
             similarity: 0.0, 
             angle: 0.0 
         })

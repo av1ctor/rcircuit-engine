@@ -1,11 +1,19 @@
 use std::f32::consts::PI;
-
 use circular_buffer::CircularBuffer;
 use rand::rngs::StdRng;
 use serde::{Serialize, Deserialize};
 use strum_macros::EnumCount;
-use three_rs::math::{vector3::Vector3, path3::Path3, quaternion::Quaternion};
-use crate::{env::EnvObs, object::{Object, ObjectVisibility, ObjectState, ObjectType, ObjectDir}, game::GameOptions, sensor::{Sensor, SensorReading}};
+use three_rs::math::{
+    vector3::Vector3, 
+    path3::Path3, 
+    quaternion::Quaternion, 
+    box3::Box3
+};
+use crate::{
+    env::EnvObs, 
+    object::{Object, ObjectVisibility, ObjectState, ObjectType}, 
+    sensor::{Sensor, SensorReading}
+};
 
 pub const NUM_SENSOR_FEATURES: usize = 1;
 
@@ -52,13 +60,16 @@ pub enum PlayerSensor {
 
 impl Default for PlayerSensor {
     fn default() -> Self {
-        PlayerSensor::Target(PlayerSensorTarget { similarity: 0.0, angle: 0.0 })
+        PlayerSensor::Target(PlayerSensorTarget { 
+            similarity: 0.0, 
+            angle: 0.0 
+        })
     }
 }
 
 #[derive(Clone, Default)]
 pub struct PlayerHistory {
-    pub dir: ObjectDir,
+    pub dir: Vector3,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -84,7 +95,6 @@ impl Player {
         pos: Vector3,
         dir: Quaternion,
         dim: Vector3,
-        options: &GameOptions,
         rng: &mut StdRng
     ) -> Player {
         let base = Object::new(
@@ -133,14 +143,10 @@ impl Player {
         self.base.rotate_z(angle);
     }
     
-    pub fn scale(
-        &self,
-        value: f32
-    ) -> Self {
-        Self {
-            base: self.base.scale(value),
-            ..self.clone()
-        }
+    pub fn calc_bb(
+        &self 
+    ) -> Box3 {
+        self.base.calc_bb()
     }
     
     pub fn mean_dir(
@@ -148,10 +154,25 @@ impl Player {
     ) -> Vector3 {
         let mut dir = Vector3::zero();
         for h in &self.history {
-            dir.add_mut(&h.dir.rot);
+            dir.add_mut(&h.dir);
         }
 
         dir.mul_scalar(1.0 / (self.history.len() as f32).max(1.0))
+    }
+
+    pub fn calc_dir_away_from_hit(
+        &self
+    ) -> Vector3 {
+        let mut res = Vector3::zero();
+        for r in &self.sensor.readings {
+            match r {
+                SensorReading::Target(s) => {
+                    res.add_mut(&s.dir);
+                },
+                SensorReading::Hit(_) => (),
+            }
+        }
+        res.normalize()
     }
     
     pub fn to_obs(
@@ -177,7 +198,7 @@ impl Player {
         &mut self
     ) {
         self.history.push_back(PlayerHistory { 
-            dir: self.base.dir.clone()
+            dir: self.base.dir.rot.clone()
         });
     }
 }
