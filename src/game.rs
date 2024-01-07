@@ -20,6 +20,8 @@ use crate::{
     sensor::{SensorReading, SensorReadingTarget, SensorReadingHit}
 };
 
+const MAX_NAVMESH_PATH_LEN: usize = 64;
+
 const PLAYER_SPAWN_LOCATION_NAME: &str = "spl.";
 const _ENEMY_SPAWN_LOCATION_NAME: &str = "epl.";
 const KEY_SPAWN_LOCATION_NAME: &str = "kpl.";
@@ -196,7 +198,7 @@ impl Env for Game {
                     }
                 };
 
-                if dir.x != 0.0 || dir.y != 0.0 || dir.z != 0.0 {
+                if dir.length_sq() != 0.0 {
                     self.move_player(i, &dir, delta_time);
                 }
             }
@@ -425,8 +427,8 @@ impl Game {
         to: &Vector3,
         limit: usize
     ) -> Path3 {
-        let query = NavMeshQuery::new(&self.map.nav_mesh);
-        Path3::new(query.find_path(from, to, limit))
+        let query = NavMeshQuery::new(&self.map.nav_mesh, limit);
+        Path3::new(query.find_path(from, to))
     }
 
     fn calc_distance_to_closest_wall(
@@ -434,7 +436,7 @@ impl Game {
         from: &Vector3,
         to: &Vector3
     ) -> Option<f32> {
-        let query = NavMeshQuery::new(&self.map.nav_mesh);
+        let query = NavMeshQuery::new(&self.map.nav_mesh, MAX_NAVMESH_PATH_LEN);
         if let Some(hit) = query.raycast(from, to) {
             Some(hit.0)
         }
@@ -541,23 +543,20 @@ impl Game {
         let player = &mut self.entities.players[num];
         
         let vel = player.vel.mul(dir).mul_scalar(delta_time);
-        let pos = player.base.pos.add(&vel);
-        let query = NavMeshQuery::new(&self.map.nav_mesh);
-        if let Some((distance, _, normal)) = 
-        query.distance_to_wall(&pos, player.base.radius) {
-            player.base.pos = player.base.pos.add(&normal.neg().mul_scalar(distance));
-            let new_dir = normal;
-            if new_dir.x != 0.0 || new_dir.y != 0.0 || new_dir.z != 0.0 {
-                player.preserve();
-                player.base.dir = ObjectDir::from_vector(&new_dir);
+        let new_pos = player.base.pos.add(&vel);
+        
+        let query = NavMeshQuery::new(&self.map.nav_mesh, MAX_NAVMESH_PATH_LEN);
+        if let Some(confined_pos) = query.move_along_surface(&player.base.pos, &new_pos) {
+            if confined_pos != new_pos {
+                player.base.pos = confined_pos;
+                player.reward += PENALTY_WALL;
+                player.vel = Vector3::zero();
             }
-            player.reward += PENALTY_WALL;
-            player.vel = Vector3::zero();
-        }
-        else {
-            player.base.pos = pos;
-            player.preserve();
-            player.base.dir = ObjectDir::from_vector(dir);
+            else {
+                player.base.pos = new_pos;
+                player.preserve();
+                player.base.dir = ObjectDir::from_vector(dir);
+            }
         }
     }
 
