@@ -315,16 +315,20 @@ impl Game {
         map: &Map,
         rng: &mut StdRng
     ) -> Vec<Player> {
-        let mut locs = SpawnLocations::new(
+        let mut spawn_locs = SpawnLocations::new(
             Map::get_nodes_transform(
                 map.find_nodes_by_partial_name(PLAYER_SPAWN_LOCATION_NAME)
             )
         );
 
+        if spawn_locs.locs.len() == 0 {
+            panic!("No spawn locations '{}' for players found", PLAYER_SPAWN_LOCATION_NAME);
+        }
+
         let mut players = vec![];
 
         for i in 0..num {
-            let loc = &locs.next(i, rng);
+            let loc = &spawn_locs.next(i, rng);
             let player = Player::new(
                 loc.0, 
                 loc.1, 
@@ -345,16 +349,20 @@ impl Game {
         map: &Map,
         rng: &mut StdRng
     ) -> Vec<Object> {
-        let mut locs = SpawnLocations::new(
+        let mut spawn_locs = SpawnLocations::new(
             Map::get_nodes_transform(
                 map.find_nodes_by_partial_name(name)
             )
         );
 
+        if spawn_locs.locs.len() == 0 {
+            panic!("No spawn locations '{}' for objects found", name);
+        }
+
         let mut objects = vec![];
 
         for i in 0..num {
-            let loc = &locs.next(i, rng);
+            let loc = &spawn_locs.next(i, rng);
             let is_active = active(i);
             let obj = Object::new(
                 typ.clone(),
