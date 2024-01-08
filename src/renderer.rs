@@ -1,17 +1,45 @@
-use three_rs::math::vector3::Vector3;
-use crate::{object::Object, player::Player};
+use three_rs::math::{vector3::Vector3, quaternion::Quaternion};
+
+pub type ModelRef = usize;
 
 pub trait Renderer {
-    fn clear(&mut self);
-    fn present(&mut self);
-    fn draw_line (&mut self, x1: f32, y1: f32, x2: f32, y2: f32, color: (u8, u8, u8));
-    fn draw_rect (&mut self, x: f32, y: f32, w: f32, h: f32, color: (u8, u8, u8));
-    fn fill_rect (&mut self, x: f32, y: f32, w: f32, h: f32, color: (u8, u8, u8));
-    fn draw_pixel (&mut self, x: f32, y: f32, color: (u8, u8, u8));
-    fn draw_player (&mut self, player: &Player, pov: &Vector3);
-    fn draw_key (&mut self, obj: &Object, pov: &Vector3);
-    fn draw_door (&mut self, obj: &Object, pov: &Vector3);
-    fn draw_trap (&mut self, obj: &Object, pov: &Vector3);
-    fn draw_enemy (&mut self, obj: &Object, pov: &Vector3);
+    fn load_model(
+        &mut self,
+        name: &str
+    ) -> ModelRef;
+    
+    fn add_model(
+        &mut self,
+        model_ref: ModelRef
+    );
+
+    fn show_model(
+        &mut self,
+        model_ref: ModelRef
+    );
+
+    fn hide_model(
+        &mut self,
+        model_ref: ModelRef
+    );
+
+    fn set_position(
+        &mut self,
+        model_ref: ModelRef,
+        pos: &Vector3
+    );
+
+    fn set_rotation(
+        &mut self,
+        model_ref: ModelRef,
+        rot: &Vector3,
+        q: &Quaternion
+    );
+
+    fn set_scale(
+        &mut self,
+        model_ref: ModelRef,
+        scale: &Vector3
+    );
 }
 

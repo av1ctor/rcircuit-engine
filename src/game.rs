@@ -16,16 +16,15 @@ use crate::{
     map::Map, 
     env::{Env, EnvAction, EnvObs, EnvStep, EnvPlayer}, 
     spawn_loc::SpawnLocations, 
-    renderer::Renderer, 
     sensor::{SensorReading, SensorReadingTarget, SensorReadingHit}
 };
 
 const MAX_NAVMESH_PATH_LEN: usize = 64;
 
-const PLAYER_SPAWN_LOCATION_NAME: &str = "spl.";
-const _ENEMY_SPAWN_LOCATION_NAME: &str = "epl.";
-const KEY_SPAWN_LOCATION_NAME: &str = "kpl.";
-const EXIT_SPAWN_LOCATION_NAME: &str = "xpl.";
+const PLAYER_SPAWN_LOCATION_NAME: &str = "psl.";
+const _ENEMY_SPAWN_LOCATION_NAME: &str = "esl.";
+const KEY_SPAWN_LOCATION_NAME: &str = "ksl.";
+const EXIT_SPAWN_LOCATION_NAME: &str = "xsl.";
 
 const PENALTY_WALL: f32 = -10.0;
 const PENALTY_TRAP: f32 = -50.0;
@@ -116,13 +115,7 @@ impl Env for Game {
         rng: &mut StdRng
     ) -> Vec<EnvObs> {
         
-        self.entities = GameEntities {
-            objects: vec![],
-            players: vec![],
-            enemies: vec![],
-        };
-
-        self.spawn_entities(rng);
+        self.entities = self.spawn_entities(rng);
 
         self.map_info = MapInfo { 
             num_keys: self.options.num_players * self.options.min_keys
@@ -225,15 +218,6 @@ impl Env for Game {
         }
     }
 
-    fn render(
-        &self, 
-        _pov: &Vector3, 
-        _scale: f32, 
-        _renderer: &mut dyn Renderer
-    ) {
-        todo!()
-    }
-
     fn serialize_entities(
         &self
     ) -> Result<Vec<u8>, String> {
@@ -253,9 +237,12 @@ impl Env for Game {
 
 impl Game {
     pub fn new(
-        map: Map,
+        level_bytes: &[u8], 
+        navmesh_bytes: &[u8],
         options: GameOptions
     ) -> Self {
+        let map = Map::new(level_bytes, navmesh_bytes);
+        
         Self { 
             map,
             entities: GameEntities::default(),

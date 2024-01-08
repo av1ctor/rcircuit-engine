@@ -17,3 +17,9 @@ rand = "0.8.5"
 strum = "0.25"
 strum_macros = "0.25"
 circular-buffer = "0.1.3"
+wasm-bindgen = { version = "0.2.84", optional = true }
+getrandom = { version = "0.2", features = ["custom"], optional = true }
+
+[features]
+default = []
+js = ["dep:wasm-bindgen", "dep:getrandom"]
