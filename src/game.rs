@@ -9,7 +9,7 @@ use three_rs::math::{
     path3::Path3, triangle::Triangle
 };
 use crate::{
-    player::{Player, PlayerAction, NUM_SENSOR_FEATURES}, 
+    player::{Player, PlayerAction, NUM_SENSOR_FEATURES, PlayerSensor}, 
     object::{Object, ObjectType, ObjectState, ObjectVisibility, ObjectDir}, 
     enemy::Enemy, 
     map::Map, 
@@ -330,11 +330,20 @@ impl<'a> Game<'a> {
                 ]
             ).unwrap();
 
-            let path_ref = self.renderer.add_from_vertices([0, 255, 255], vec![]).unwrap();
+            let (path_ref, sensor_ref) = if self.options.debug {
+                (
+                    self.renderer.add_from_vertices([0, 255, 255], vec![]).unwrap(),
+                    self.renderer.add_from_vertices([255, 255, 255], vec![]).unwrap()
+                )
+            }
+            else {
+                (0, 0)
+            };
 
             self.renderer.show_model(model_ref);
             if self.options.debug {
                 self.renderer.show_model(path_ref);
+                self.renderer.show_model(sensor_ref);
             }
                 
             let loc = &spawn_locs.next(i, rng);
@@ -344,6 +353,7 @@ impl<'a> Game<'a> {
                 Vector3::one().mul_scalar(0.5), //FIXME!!!
                 model_ref,
                 path_ref,
+                sensor_ref,
                 rng
             );
             players.push(player);
@@ -572,8 +582,44 @@ impl<'a> Game<'a> {
                     player.path_ref, 
                     paths[i].nodes.clone()
                 );
+                self.renderer.set_vertices(
+                    player.sensor_ref, 
+                    Self::gen_player_sensors(
+                        &player.base.pos, 
+                        &sensors[i],
+                        self.options.fov.max_dist
+                    )
+                );
             }
         }
+    }
+
+    fn gen_player_sensors(
+        pos: &Vector3,
+        readings: &Vec<SensorReading>,
+        max_dist: f32
+    ) -> Vec<Vector3> {
+        
+        let mut vertices = vec![];
+
+        vertices.push(pos.clone());
+
+        for r in readings {
+            match r {
+                SensorReading::Hit(_) => {
+                }
+                SensorReading::Target(r) => {
+                    let q = Quaternion::from_axis_and_angle(&FORWARD, r.angle);
+                    let v = Vector3::new(0.0, 0.0, r.similarity * max_dist)
+                        .rotate_by_quaternion(&q);
+                    let to = pos.add(&v);
+
+                    vertices.push(to);
+                }
+            }
+        }
+
+        vertices
     }
 
     fn move_player(

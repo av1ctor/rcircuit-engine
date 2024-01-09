@@ -84,6 +84,8 @@ pub struct Player {
     #[serde(skip)]
     pub path_ref: ModelRef,
     #[serde(skip)]
+    pub sensor_ref: ModelRef,
+    #[serde(skip)]
     pub sensor: Sensor,
     #[serde(skip)]
     pub history: CircularBuffer<10, PlayerHistory>,
@@ -96,6 +98,7 @@ impl Player {
         dim: Vector3,
         model_ref: ModelRef,
         path_ref: ModelRef,
+        sensor_ref: ModelRef,
         rng: &mut StdRng
     ) -> Player {
         let base = Object::new(
@@ -119,6 +122,7 @@ impl Player {
             health: 100.0, 
             reward: 0.0,
             path_ref,
+            sensor_ref,
             sensor: Sensor::default(),
             history: CircularBuffer::<10, PlayerHistory>::new(),
         }
