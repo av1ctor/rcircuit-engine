@@ -48,4 +48,8 @@ pub trait Env {
         &mut self, 
         buf: &Vec<u8>
     ) -> Result<(), String>;
+
+    fn render(
+        &mut self
+    );
 }

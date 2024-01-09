@@ -1,17 +1,24 @@
+use gltf::buffer::Data;
 use three_rs::math::{vector3::Vector3, quaternion::Quaternion};
 
 pub type ModelRef = usize;
 
 pub trait Renderer {
-    fn load_model(
+    fn add_model_from_file(
         &mut self,
         name: &str
-    ) -> ModelRef;
-    
-    fn add_model(
+    ) -> Result<ModelRef, String>;
+
+    fn add_model_from_bytes(
         &mut self,
-        model_ref: ModelRef
-    );
+        bytes: &[u8]
+    ) -> Result<ModelRef, String>;
+
+    fn add_model_from_gltf(
+        &mut self,
+        doc: &gltf::Document,
+        buffers: &Vec<Data>
+    ) -> Result<ModelRef, String>;
 
     fn show_model(
         &mut self,
@@ -40,6 +47,10 @@ pub trait Renderer {
         &mut self,
         model_ref: ModelRef,
         scale: &Vector3
+    );
+
+    fn render(
+        &mut self
     );
 }
 

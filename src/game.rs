@@ -16,7 +16,8 @@ use crate::{
     map::Map, 
     env::{Env, EnvAction, EnvObs, EnvStep, EnvPlayer}, 
     spawn_loc::SpawnLocations, 
-    sensor::{SensorReading, SensorReadingTarget, SensorReadingHit}
+    sensor::{SensorReading, SensorReadingTarget, SensorReadingHit}, 
+    renderer::Renderer
 };
 
 const MAX_NAVMESH_PATH_LEN: usize = 64;
@@ -82,15 +83,16 @@ pub struct GameStep {
     pub entities: GameEntities,
 }
 
-pub struct Game{
+pub struct Game<'a> {
     pub map: Map,
     pub map_info: MapInfo,
     pub entities: GameEntities,
     pub options: GameOptions,
     pub state: GameState,
+    pub renderer: &'a mut dyn Renderer,
 }
 
-impl Env for Game {
+impl Env for Game<'_> {
     fn get_num_actions(
         &self
     ) -> usize {
@@ -233,15 +235,26 @@ impl Env for Game {
             .map_err(|err| err.to_string())?;
         Ok(())
     }
+
+    fn render(
+        &mut self
+    ) {
+        self.renderer.render();
+    }
 }
 
-impl Game {
+impl<'a> Game<'a> {
     pub fn new(
         level_bytes: &[u8], 
         navmesh_bytes: &[u8],
-        options: GameOptions
+        options: GameOptions,
+        renderer: &'a mut dyn Renderer
     ) -> Self {
         let map = Map::new(level_bytes, navmesh_bytes);
+
+        let level_ref = renderer.add_model_from_gltf(&map.gltf_doc, &map.buffers)
+            .expect("Could not load GLTF");
+        renderer.show_model(level_ref);
         
         Self { 
             map,
@@ -252,11 +265,12 @@ impl Game {
                 winner: None, 
                 step: 0,
             },
-            options
+            options,
+            renderer
         }
     }
     
-    pub fn spawn_entities(
+    fn spawn_entities(
         &mut self,
         rng: &mut StdRng
     ) -> GameEntities {
