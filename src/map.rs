@@ -1,9 +1,11 @@
 use gltf::{Gltf, buffer::Data, Document, Node};
-use navmesh_rs::navmesh::NavMesh;
+use navmesh_rs::{navmesh::NavMesh, query::NavMeshQuery};
 use three_rs::math::{
     vector3::Vector3, 
     quaternion::Quaternion
 };
+
+const MAX_NAVMESH_PATH_LEN: usize = 64;
 
 #[derive(Clone)]
 pub struct NodeTransform {
@@ -16,6 +18,7 @@ pub struct Map {
     pub gltf_doc: Document,
     pub buffers: Vec<Data>,
     pub nav_mesh: NavMesh,
+    pub query: NavMeshQuery,
 }
 
 impl Map {
@@ -26,10 +29,12 @@ impl Map {
         let gltf = Gltf::from_slice(&level_bytes).unwrap();
         let buffers = gltf::import_buffers(&gltf.document, None, gltf.blob).unwrap();
         let nav_mesh = NavMesh::from_bytes(navmesh_bytes);
+        let query = NavMeshQuery::new(&nav_mesh, MAX_NAVMESH_PATH_LEN);
         Self {
             gltf_doc: gltf.document,
             buffers,
             nav_mesh,
+            query
         }
     }
 

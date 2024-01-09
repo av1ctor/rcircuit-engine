@@ -1,5 +1,4 @@
 use std::f32::consts::PI;
-use navmesh_rs::query::NavMeshQuery;
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
@@ -19,8 +18,6 @@ use crate::{
     sensor::{SensorReading, SensorReadingTarget, SensorReadingHit}, 
     renderer::Renderer
 };
-
-const MAX_NAVMESH_PATH_LEN: usize = 64;
 
 const PLAYER_SPAWN_LOCATION_NAME: &str = "psl.";
 const _ENEMY_SPAWN_LOCATION_NAME: &str = "esl.";
@@ -478,11 +475,9 @@ impl<'a> Game<'a> {
     fn find_path_to_target(
         &self, 
         from: &Vector3,
-        to: &Vector3,
-        limit: usize
+        to: &Vector3
     ) -> Path3 {
-        let query = NavMeshQuery::new(&self.map.nav_mesh, limit);
-        Path3::new(query.find_path(from, to))
+        Path3::new(self.map.query.find_path(from, to))
     }
 
     fn calc_distance_to_closest_wall(
@@ -490,8 +485,7 @@ impl<'a> Game<'a> {
         from: &Vector3,
         to: &Vector3
     ) -> Option<f32> {
-        let query = NavMeshQuery::new(&self.map.nav_mesh, MAX_NAVMESH_PATH_LEN);
-        if let Some(hit) = query.raycast(from, to) {
+        if let Some(hit) = self.map.query.raycast(from, to) {
             Some(hit.0)
         }
         else {
@@ -525,7 +519,7 @@ impl<'a> Game<'a> {
             );
 
             // when training, it's better to just use target's position
-            let path = self.find_path_to_target(&player.base.pos, &target_obj.pos, 32);
+            let path = self.find_path_to_target(&player.base.pos, &target_obj.pos);
 
             let target_pos = path.nodes[1].clone();
             if self.options.debug {
@@ -593,8 +587,7 @@ impl<'a> Game<'a> {
         let vel = player.vel.mul(dir).mul_scalar(delta_time);
         let new_pos = player.base.pos.add(&vel);
         
-        let query = NavMeshQuery::new(&self.map.nav_mesh, MAX_NAVMESH_PATH_LEN);
-        if let Some(confined_pos) = query.move_along_surface(&player.base.pos, &new_pos) {
+        if let Some(confined_pos) = self.map.query.move_along_surface(&player.base.pos, &new_pos) {
             if confined_pos != new_pos {
                 player.base.pos = confined_pos;
                 player.reward += PENALTY_WALL;
