@@ -7,7 +7,7 @@ use three_rs::math::{
     vector3::{Vector3, FORWARD}, 
     euler::{Euler, EulerOrder}, 
     quaternion::Quaternion, 
-    path3::Path3
+    path3::Path3, triangle::Triangle
 };
 use crate::{
     player::{Player, PlayerAction, NUM_SENSOR_FEATURES}, 
@@ -117,6 +117,15 @@ impl Env for Game<'_> {
         rng: &mut StdRng
     ) -> Vec<EnvObs> {
         
+        self.renderer.reset();
+        
+        // map
+        let level_ref = self.renderer.add_model_from_gltf(
+            [255, 0, 0], &self.map.gltf_doc, &self.map.buffers
+        ).expect("Could not load GLTF");
+        self.renderer.show_model(level_ref);
+        
+        // entities
         self.entities = self.spawn_entities(rng);
 
         self.map_info = MapInfo { 
@@ -252,10 +261,6 @@ impl<'a> Game<'a> {
     ) -> Self {
         let map = Map::new(level_bytes, navmesh_bytes);
 
-        let level_ref = renderer.add_model_from_gltf(&map.gltf_doc, &map.buffers)
-            .expect("Could not load GLTF");
-        renderer.show_model(level_ref);
-        
         Self { 
             map,
             entities: GameEntities::default(),
@@ -274,33 +279,22 @@ impl<'a> Game<'a> {
         &mut self,
         rng: &mut StdRng
     ) -> GameEntities {
-        let options = &self.options;
-        let map = &self.map;
-        
         // players
-        let players = Self::spawn_players(
-            options.num_players, 
-            map, 
-            rng
-        );
+        let players = self.spawn_players(rng);
 
         // keys
-        let mut objects = Self::spawn_objects(
+        let mut objects = self.spawn_objects(
             ObjectType::KEY,
             KEY_SPAWN_LOCATION_NAME, 
-            options.num_players * options.min_keys, 
             &|i| i == 0, 
-            map, 
             rng
         );
         
         // door
-        objects.append(&mut Self::spawn_objects(
+        objects.append(&mut self.spawn_objects(
             ObjectType::EXIT,
             EXIT_SPAWN_LOCATION_NAME,
-            1,
             &|_| false, 
-            map, 
             rng
         ));
 
@@ -312,13 +306,12 @@ impl<'a> Game<'a> {
     }
 
     fn spawn_players(
-        num: usize,
-        map: &Map,
+        &mut self,
         rng: &mut StdRng
     ) -> Vec<Player> {
         let mut spawn_locs = SpawnLocations::new(
             Map::get_nodes_transform(
-                map.find_nodes_by_partial_name(PLAYER_SPAWN_LOCATION_NAME)
+                self.map.find_nodes_by_partial_name(PLAYER_SPAWN_LOCATION_NAME)
             )
         );
 
@@ -328,12 +321,27 @@ impl<'a> Game<'a> {
 
         let mut players = vec![];
 
-        for i in 0..num {
+        for i in 0..self.options.num_players {
+            let model_ref = self.renderer.add_model_from_triangles(
+                [0, 255, 0],
+                vec![
+                    Triangle::new(
+                        Vector3::new(-0.5, 0.0, -0.5),
+                        Vector3::new(0.5, 0.0, 0.0),
+                        Vector3::new(-0.5, 0.0, 0.5),
+                    )
+                ],
+                false
+            ).unwrap();
+
+            self.renderer.show_model(model_ref);
+                
             let loc = &spawn_locs.next(i, rng);
             let player = Player::new(
                 loc.0, 
                 loc.1, 
                 Vector3::one().mul_scalar(0.5), //FIXME!!!
+                model_ref,
                 rng
             );
             players.push(player);
@@ -343,16 +351,15 @@ impl<'a> Game<'a> {
     }
 
     fn spawn_objects(
+        &mut self,
         typ: ObjectType,
         name: &str,
-        num: usize,
         active: &dyn Fn(usize) -> bool,
-        map: &Map,
         rng: &mut StdRng
     ) -> Vec<Object> {
         let mut spawn_locs = SpawnLocations::new(
             Map::get_nodes_transform(
-                map.find_nodes_by_partial_name(name)
+                self.map.find_nodes_by_partial_name(name)
             )
         );
 
@@ -362,7 +369,31 @@ impl<'a> Game<'a> {
 
         let mut objects = vec![];
 
-        for i in 0..num {
+        let num_objs = if typ == ObjectType::KEY {
+            self.options.num_players * self.options.min_keys
+        } 
+        else {
+            1
+        };
+
+        for i in 0..num_objs {
+            let model_ref = self.renderer.add_model_from_triangles(
+                [0, 0, 255],
+                vec![
+                    Triangle::new(
+                        Vector3::new(-0.5, 0.0, -0.5),
+                        Vector3::new(0.5, 0.0, -0.5),
+                        Vector3::new(0.5, 0.0, 0.5),
+                    ),
+                    Triangle::new(
+                        Vector3::new(-0.5, 0.0, -0.5),
+                        Vector3::new(-0.5, 0.0, 0.5),
+                        Vector3::new(0.5, 0.0, 0.5),
+                    )
+                ],
+                false
+            ).unwrap();
+                
             let loc = &spawn_locs.next(i, rng);
             let is_active = active(i);
             let obj = Object::new(
@@ -372,8 +403,14 @@ impl<'a> Game<'a> {
                 Vector3::one().mul_scalar(0.5), //FIXME!!!
                 ObjectState::IDLE,
                 if is_active {ObjectVisibility::VISIBLE} else {ObjectVisibility::HIDDEN},
+                model_ref,
                 rng
             );
+            self.renderer.set_position(obj.model_ref, &obj.pos);
+            if is_active {
+                self.renderer.show_model(obj.model_ref);
+            }
+
             objects.push(obj);
         }
 
@@ -390,6 +427,8 @@ impl<'a> Game<'a> {
         );
         if let Some(obj) = exit {
             obj.vis = ObjectVisibility::VISIBLE;
+            self.renderer.set_position(obj.model_ref, &obj.pos);
+            self.renderer.show_model(obj.model_ref);
         }
     }
 
@@ -403,6 +442,8 @@ impl<'a> Game<'a> {
         );
         if let Some(obj) = key {
             obj.vis = ObjectVisibility::VISIBLE;
+            self.renderer.set_position(obj.model_ref, &obj.pos);
+            self.renderer.show_model(obj.model_ref);
         }
     }
 
@@ -566,6 +607,7 @@ impl<'a> Game<'a> {
                 player.preserve();
                 player.base.dir = ObjectDir::from_vector(dir);
             }
+            self.renderer.set_position(player.base.model_ref, &player.base.pos);
         }
     }
 
@@ -590,6 +632,7 @@ impl<'a> Game<'a> {
                 obj.state = ObjectState::DEAD;
                 obj.vis = ObjectVisibility::HIDDEN;
                 collected = true;
+                self.renderer.hide_model(obj.model_ref);
             }
         }
 

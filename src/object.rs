@@ -8,6 +8,8 @@ use three_rs::math::{
     box3::Box3
 };
 
+use crate::renderer::ModelRef;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, EnumCount, Default)]
 pub enum ObjectType {
     #[default]
@@ -88,6 +90,8 @@ pub struct Object {
     pub dir: ObjectDir,
     pub dim: Vector3,
     pub radius: f32,
+    #[serde(skip)]
+    pub model_ref: ModelRef,
 }
 
 impl Default for Object {
@@ -101,6 +105,7 @@ impl Default for Object {
             radius: Default::default(), 
             state: Default::default(), 
             vis: Default::default(),
+            model_ref: 0,
         }
     }
 }
@@ -113,6 +118,7 @@ impl Object {
         dim: Vector3,
         state: ObjectState,
         vis: ObjectVisibility,
+        model_ref: ModelRef,
         rng: &mut StdRng
     ) -> Self {
         Self { 
@@ -124,6 +130,7 @@ impl Object {
             typ,
             state,
             vis,
+            model_ref,
         }
     }
 

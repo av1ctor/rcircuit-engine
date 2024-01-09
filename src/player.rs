@@ -12,7 +12,7 @@ use three_rs::math::{
 use crate::{
     env::EnvObs, 
     object::{Object, ObjectVisibility, ObjectState, ObjectType}, 
-    sensor::{Sensor, SensorReading}
+    sensor::{Sensor, SensorReading}, renderer::ModelRef
 };
 
 pub const NUM_SENSOR_FEATURES: usize = 1;
@@ -95,6 +95,7 @@ impl Player {
         pos: Vector3,
         dir: Quaternion,
         dim: Vector3,
+        model_ref: ModelRef,
         rng: &mut StdRng
     ) -> Player {
         let base = Object::new(
@@ -104,6 +105,7 @@ impl Player {
             dim,
             ObjectState::IDLE,
             ObjectVisibility::HIDDEN,
+            model_ref,
             rng
         );
 

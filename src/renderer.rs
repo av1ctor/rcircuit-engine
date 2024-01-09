@@ -1,23 +1,38 @@
 use gltf::buffer::Data;
-use three_rs::math::{vector3::Vector3, quaternion::Quaternion};
+use three_rs::math::{vector3::Vector3, quaternion::Quaternion, triangle::Triangle};
 
 pub type ModelRef = usize;
+pub type RGB = [u8; 3];
 
 pub trait Renderer {
+    fn reset(
+        &mut self
+    );
+    
     fn add_model_from_file(
         &mut self,
+        color: RGB,
         name: &str
     ) -> Result<ModelRef, String>;
 
     fn add_model_from_bytes(
         &mut self,
+        color: RGB,
         bytes: &[u8]
     ) -> Result<ModelRef, String>;
 
     fn add_model_from_gltf(
         &mut self,
+        color: RGB,
         doc: &gltf::Document,
         buffers: &Vec<Data>
+    ) -> Result<ModelRef, String>;
+
+    fn add_model_from_triangles(
+        &mut self,
+        color: RGB,
+        triangles: Vec<Triangle>,
+        is_open: bool
     ) -> Result<ModelRef, String>;
 
     fn show_model(
