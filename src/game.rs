@@ -120,7 +120,7 @@ impl Env for Game<'_> {
         self.renderer.reset();
         
         // map
-        let level_ref = self.renderer.add_model_from_gltf(
+        let level_ref = self.renderer.add_from_gltf(
             [255, 0, 0], &self.map.gltf_doc, &self.map.buffers
         ).expect("Could not load GLTF");
         self.renderer.show_model(level_ref);
@@ -322,7 +322,7 @@ impl<'a> Game<'a> {
         let mut players = vec![];
 
         for i in 0..self.options.num_players {
-            let model_ref = self.renderer.add_model_from_triangles(
+            let model_ref = self.renderer.add_from_triangles(
                 [0, 255, 0],
                 vec![
                     Triangle::new(
@@ -330,11 +330,15 @@ impl<'a> Game<'a> {
                         Vector3::new(0.5, 0.0, 0.0),
                         Vector3::new(-0.5, 0.0, 0.5),
                     )
-                ],
-                false
+                ]
             ).unwrap();
 
+            let path_ref = self.renderer.add_from_vertices([0, 255, 255], vec![]).unwrap();
+
             self.renderer.show_model(model_ref);
+            if self.options.debug {
+                self.renderer.show_model(path_ref);
+            }
                 
             let loc = &spawn_locs.next(i, rng);
             let player = Player::new(
@@ -342,6 +346,7 @@ impl<'a> Game<'a> {
                 loc.1, 
                 Vector3::one().mul_scalar(0.5), //FIXME!!!
                 model_ref,
+                path_ref,
                 rng
             );
             players.push(player);
@@ -377,7 +382,7 @@ impl<'a> Game<'a> {
         };
 
         for i in 0..num_objs {
-            let model_ref = self.renderer.add_model_from_triangles(
+            let model_ref = self.renderer.add_from_triangles(
                 [0, 0, 255],
                 vec![
                     Triangle::new(
@@ -390,8 +395,7 @@ impl<'a> Game<'a> {
                         Vector3::new(-0.5, 0.0, 0.5),
                         Vector3::new(0.5, 0.0, 0.5),
                     )
-                ],
-                false
+                ]
             ).unwrap();
                 
             let loc = &spawn_locs.next(i, rng);
@@ -521,16 +525,7 @@ impl<'a> Game<'a> {
             );
 
             // when training, it's better to just use target's position
-            let path = if self.options.training {
-                Path3::new(vec![
-                    player.base.pos.clone(), 
-                    target_obj.pos.clone()
-                ])
-            }
-            // when playing, move around obstacles
-            else {
-                self.find_path_to_target(&player.base.pos, &target_obj.pos, 2)
-            };
+            let path = self.find_path_to_target(&player.base.pos, &target_obj.pos, 32);
 
             let target_pos = path.nodes[1].clone();
             if self.options.debug {
@@ -579,7 +574,10 @@ impl<'a> Game<'a> {
             let player = &mut self.entities.players[i];
             player.sensor.readings = sensors[i].to_owned();
             if self.options.debug {
-                player.path = paths[i].to_owned();
+                self.renderer.set_vertices(
+                    player.path_ref, 
+                    paths[i].nodes.clone()
+                );
             }
         }
     }

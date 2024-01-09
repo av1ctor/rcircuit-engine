@@ -9,30 +9,35 @@ pub trait Renderer {
         &mut self
     );
     
-    fn add_model_from_file(
+    fn add_from_file(
         &mut self,
         color: RGB,
         name: &str
     ) -> Result<ModelRef, String>;
 
-    fn add_model_from_bytes(
+    fn add_from_bytes(
         &mut self,
         color: RGB,
         bytes: &[u8]
     ) -> Result<ModelRef, String>;
 
-    fn add_model_from_gltf(
+    fn add_from_gltf(
         &mut self,
         color: RGB,
         doc: &gltf::Document,
         buffers: &Vec<Data>
     ) -> Result<ModelRef, String>;
 
-    fn add_model_from_triangles(
+    fn add_from_triangles(
         &mut self,
         color: RGB,
-        triangles: Vec<Triangle>,
-        is_open: bool
+        triangles: Vec<Triangle>
+    ) -> Result<ModelRef, String>;
+
+    fn add_from_vertices(
+        &mut self,
+        color: RGB,
+        vertices: Vec<Vector3>
     ) -> Result<ModelRef, String>;
 
     fn show_model(
@@ -45,6 +50,12 @@ pub trait Renderer {
         model_ref: ModelRef
     );
 
+    fn set_vertices(
+        &mut self,
+        model_ref: ModelRef,
+        vertices: Vec<Vector3>
+    );
+    
     fn set_position(
         &mut self,
         model_ref: ModelRef,

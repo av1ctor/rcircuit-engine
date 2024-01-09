@@ -5,7 +5,6 @@ use serde::{Serialize, Deserialize};
 use strum_macros::EnumCount;
 use three_rs::math::{
     vector3::Vector3, 
-    path3::Path3, 
     quaternion::Quaternion, 
     box3::Box3
 };
@@ -83,9 +82,9 @@ pub struct Player {
     pub health: f32,
     pub reward: f32,
     #[serde(skip)]
-    pub sensor: Sensor,
+    pub path_ref: ModelRef,
     #[serde(skip)]
-    pub path: Path3,
+    pub sensor: Sensor,
     #[serde(skip)]
     pub history: CircularBuffer<10, PlayerHistory>,
 }
@@ -96,6 +95,7 @@ impl Player {
         dir: Quaternion,
         dim: Vector3,
         model_ref: ModelRef,
+        path_ref: ModelRef,
         rng: &mut StdRng
     ) -> Player {
         let base = Object::new(
@@ -118,8 +118,8 @@ impl Player {
             num_keys: 0, 
             health: 100.0, 
             reward: 0.0,
+            path_ref,
             sensor: Sensor::default(),
-            path: Path3::default(),
             history: CircularBuffer::<10, PlayerHistory>::new(),
         }
     }
