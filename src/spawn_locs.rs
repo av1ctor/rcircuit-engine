@@ -1,8 +1,7 @@
 use rand::{rngs::StdRng, Rng};
-use three_rs::math::{
-    vector3::Vector3, 
-    quaternion::Quaternion
-};
+use three_rs::math::
+    vector3::{Vector3, FORWARD}
+;
 use crate::map::NodeTransform;
 
 pub struct SpawnLocations {
@@ -22,7 +21,7 @@ impl SpawnLocations {
         &mut self,
         idx: usize,
         rng: &mut StdRng
-    ) -> (Vector3, Quaternion) {
+    ) -> (Vector3, Vector3) {
         let min_cnt = self.locs.iter()
                 .map(|l| l.1)
                 .filter(|cnt| *cnt <= idx)
@@ -36,6 +35,9 @@ impl SpawnLocations {
             
         min_locs[l].1 += 1;
 
-        (min_locs[l].0.translation, min_locs[l].0.rotation)
+        (
+            min_locs[l].0.translation, 
+            FORWARD.rotate_by_quaternion(&min_locs[l].0.rotation)
+        )
     }
 }

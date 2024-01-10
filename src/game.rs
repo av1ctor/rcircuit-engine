@@ -3,17 +3,16 @@ use serde::{Serialize, Deserialize};
 use strum::EnumCount;
 use three_rs::math::{
     vector3::Vector3, 
-    euler::{Euler, EulerOrder}, triangle::Triangle, 
+    triangle::Triangle, quaternion::Quaternion, 
 };
 use crate::{
     player::{Player, PlayerAction, NUM_SENSOR_FEATURES}, 
-    object::{Object, ObjectType, ObjectState, ObjectVisibility, ObjectDir}, 
+    object::{Object, ObjectType, ObjectState, ObjectVisibility}, 
     enemy::Enemy, 
     map::Map, 
     env::{Env, EnvAction, EnvObs, EnvStep, EnvPlayer}, 
-    spawn_loc::SpawnLocations, 
-    sensor::SensorReading, 
-    renderer::Renderer
+    spawn_locs::SpawnLocations, 
+    renderer::Renderer, sensor::SensorReading
 };
 
 const PLAYER_SPAWN_LOCATION_NAME: &str = "psl.";
@@ -115,7 +114,7 @@ impl Env for Game<'_> {
         
         // map
         let level_ref = self.renderer.add_from_gltf(
-            [255, 0, 0], &self.map.gltf_doc, &self.map.buffers
+            [192, 0, 0], &self.map.gltf_doc, &self.map.buffers
         ).expect("Could not load GLTF");
         self.renderer.show_model(level_ref);
         
@@ -174,24 +173,19 @@ impl Env for Game<'_> {
                             player.calc_dir_away_from_hit()
                         }
                         else {
-                            player.base.dir.rot.clone()
+                            player.base.dir.clone()
                         }
                     },
                     Some(action) => {
-                        let player_action = PlayerAction::try_from(action.clone()).unwrap();
-                        match player_action {
+                        match PlayerAction::try_from(action.clone()).unwrap() {
                             PlayerAction::MoveForward =>
-                                player.base.dir.rot.clone(),
-                            PlayerAction::TurnRight =>
-                                Euler::from_quaternion(
-                                    &player.base.dir.q.rotate_z(-player.turn_angle),
-                                    EulerOrder::XYZ
-                                ).v,
-                            PlayerAction::TurnLeft => 
-                                Euler::from_quaternion(
-                                    &player.base.dir.q.rotate_z(player.turn_angle),
-                                    EulerOrder::XYZ
-                                ).v
+                                player.base.dir.clone(),
+                            PlayerAction::TurnRight => {
+                                player.base.dir.rotate_y(player.turn_angle)
+                            },
+                            PlayerAction::TurnLeft => {
+                                player.base.dir.rotate_y(-player.turn_angle)
+                            }
                         }
                     }
                 };
@@ -321,7 +315,7 @@ impl<'a> Game<'a> {
                 vec![
                     Triangle::new(
                         Vector3::new(-0.5, 0.0, -0.5),
-                        Vector3::new(0.5, 0.0, 0.0),
+                        Vector3::new(1.5, 0.0, 0.0),
                         Vector3::new(-0.5, 0.0, 0.5),
                     )
                 ]
@@ -347,7 +341,7 @@ impl<'a> Game<'a> {
             let player = Player::new(
                 loc.0, 
                 loc.1, 
-                Vector3::one().mul_scalar(0.5), //FIXME!!!
+                Vector3::new(0.75, 1.8, 0.5), //FIXME!!!
                 model_ref,
                 path_ref,
                 sensor_ref,
@@ -535,21 +529,30 @@ impl<'a> Game<'a> {
     ) {
         let player = &mut self.entities.players[num];
         
-        let vel = player.vel.mul(dir).mul_scalar(delta_time);
-        let new_pos = player.base.pos.add(&vel);
+        let new_pos = player.base.pos.add(&dir.mul_scalar(delta_time).mul(&player.vel));
         
-        if let Some(confined_pos) = self.map.move_along_surface(&player.base.pos, &new_pos) {
+        if let Some(confined_pos) = 
+            self.map.move_along_surface(&player.base.pos, &new_pos) {
             if confined_pos != new_pos {
                 player.base.pos = confined_pos;
                 player.reward += PENALTY_WALL;
-                player.vel = Vector3::zero();
+                player.base.dir = dir.neg();
             }
             else {
                 player.base.pos = new_pos;
                 player.preserve();
-                player.base.dir = ObjectDir::from_vector(dir);
+                player.base.dir = dir.clone();
             }
-            self.renderer.set_position(player.base.model_ref, &player.base.pos);
+            
+            self.renderer.set_position(
+                player.base.model_ref, 
+                &player.base.pos
+            );
+            self.renderer.set_rotation(
+                player.base.model_ref, 
+                &player.base.dir, 
+                &Quaternion::identity()
+            );
         }
     }
 
@@ -658,17 +661,6 @@ impl<'a> Game<'a> {
                             player.reward += REWARD_EXIT_FOUND;
                         }
                     }
-                }
-            }
-
-            {
-                let player = &mut self.entities.players[i];
-                player.vel.add_mut(&player.accel.mul_scalar(delta_time));
-                if player.vel.x > player.max_vel.x {
-                    player.vel.x = player.max_vel.x;
-                }
-                if player.vel.y > player.max_vel.y {
-                    player.vel.y = player.max_vel.y;
                 }
             }
         }

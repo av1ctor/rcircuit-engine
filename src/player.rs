@@ -5,8 +5,7 @@ use serde::{Serialize, Deserialize};
 use strum_macros::EnumCount;
 use three_rs::math::{
     vector3::{Vector3, FORWARD}, 
-    quaternion::Quaternion, 
-    box3::Box3, euler::{Euler, EulerOrder}
+    box3::Box3
 };
 use crate::{
     env::EnvObs, 
@@ -77,7 +76,6 @@ pub struct Player {
     pub turn_angle: f32,
     pub max_vel: Vector3,
     pub vel: Vector3,
-    pub accel: Vector3,
     pub num_keys: usize,
     pub health: f32,
     pub reward: f32,
@@ -94,7 +92,7 @@ pub struct Player {
 impl Player {
     pub fn new(
         pos: Vector3,
-        dir: Quaternion,
+        dir: Vector3,
         dim: Vector3,
         model_ref: ModelRef,
         path_ref: ModelRef,
@@ -114,10 +112,9 @@ impl Player {
 
         Self { 
             base,
-            turn_angle: 15.0 * (PI / 180.0),
-            vel: Vector3::zero(),
-            max_vel: Vector3::new(0.0, 0.0, 0.25),
-            accel: Vector3::new(0.0, 0.0, 0.01),
+            turn_angle: 3.0 * (PI / 180.0),
+            vel: Vector3::new(0.05, 0.05, 0.05),
+            max_vel: Vector3::new(0.1, 0.1, 0.1),
             num_keys: 0, 
             health: 100.0, 
             reward: 0.0,
@@ -128,27 +125,6 @@ impl Player {
         }
     }
 
-    pub fn rotate_x(
-        &mut self,
-        angle: f32
-    ) {
-        self.base.rotate_x(angle);
-    }
-
-    pub fn rotate_y(
-        &mut self,
-        angle: f32
-    ) {
-        self.base.rotate_y(angle);
-    }
-
-    pub fn rotate_z(
-        &mut self,
-        angle: f32
-    ) {
-        self.base.rotate_z(angle);
-    }
-    
     pub fn calc_bb(
         &self 
     ) -> Box3 {
@@ -204,28 +180,8 @@ impl Player {
         &mut self
     ) {
         self.history.push_back(PlayerHistory { 
-            dir: self.base.dir.rot.clone()
+            dir: self.base.dir.clone()
         });
-    }
-
-    fn calc_distance_to_closest_wall(
-        from: &Vector3,
-        to: &Vector3,
-        map: &Map
-    ) -> Option<f32> {
-        if let Some(hit) = map.query.raycast(from, to) {
-            Some(hit.0)
-        }
-        else {
-            None
-        }
-    }
-
-    fn calc_similarity_with_target(
-        dir: &Vector3,
-        target_dir: &Vector3
-    ) -> f32 {
-        dir.dot(&target_dir).max(0.0)
     }
 
     pub fn get_sensor_readings(
@@ -234,39 +190,35 @@ impl Player {
         fov: &ObjectFOV,
         map: &Map
     ) -> Vec<SensorReading> {
-        //FIXME!!!
-        let target_dir = Euler::from_quaternion(
-            &Quaternion::from_axis_and_angle(
-                &FORWARD, 
-                self.base.pos.angle_to(target_pos)
-            ),
-            EulerOrder::XYZ
-        ).v;
-        //target_pos.sub(&player.base.pos).normalize();
+        let target_dir = FORWARD.rotate_y(self.base.pos.angle_to(target_pos));
 
-        let mut rot = self.base.dir.q.rotate_z((fov.angle / 2.0) % (PI * 2.0));
-        let rot_step = fov.angle / ((fov.rays - 1) as f32);
+        let mut angle = self.base.dir.angle_z() + 
+                (fov.angle / 2.0) % (PI * 2.0);
+        let step = fov.angle / ((fov.rays - 1) as f32);
 
         let mut reading = vec![];
 
         for _ in 0..fov.rays {
-            let dir = Euler::from_quaternion(&rot, EulerOrder::XYZ).v;
-            let sensor_pos = dir.mul_scalar(fov.max_dist);
+            let dir = FORWARD.rotate_y(angle);
+            let sensor_pos = self.base.pos.add(&dir.mul_scalar(fov.max_dist));
             
             reading.push(
-                if let Some(t) = Self::calc_distance_to_closest_wall(
-                    &self.base.pos, &sensor_pos, map) {
+                if let Some(t) = map.calc_distance_to_closest_wall(
+                    &self.base.pos, &sensor_pos) {
                     SensorReading::Hit(SensorReadingHit{t})
                 } else {
                     SensorReading::Target(SensorReadingTarget { 
-                        similarity: Self::calc_similarity_with_target(&dir, &target_dir), 
-                        angle: rot.angle(),
+                        similarity: dir.dot(&target_dir).max(0.0), 
+                        angle,
                         dir,
                     })
                 }
             );
 
-            rot = rot.rotate_z(rot_step);
+            angle -= step;
+            if angle < 0.0 {
+                angle += PI * 2.0;
+            }
         }
 
         reading
@@ -287,10 +239,9 @@ impl Player {
                 SensorReading::Hit(_) => {
                 }
                 SensorReading::Target(r) => {
-                    let q = Quaternion::from_axis_and_angle(&FORWARD, r.angle);
-                    let v = Vector3::new(0.0, 0.0, r.similarity * max_dist)
-                        .rotate_by_quaternion(&q);
-                    let to = pos.add(&v);
+                    //let q = Quaternion::from_axis_and_angle(&UP, r.angle);
+                    //let v = FORWARD.apply_quaternion(&q).mul_scalar(r.similarity * max_dist);
+                    let to = pos.add(&r.dir.mul_scalar(r.similarity * max_dist));
 
                     vertices.push(to);
                 }

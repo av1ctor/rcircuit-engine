@@ -3,7 +3,7 @@ pub mod renderer;
 pub mod object;
 pub mod player;
 pub mod enemy;
-pub mod spawn_loc;
+pub mod spawn_locs;
 pub mod map;
 pub mod game;
 pub mod sensor;

@@ -87,4 +87,17 @@ impl Map {
     ) -> Option<Vector3> {
         self.query.move_along_surface(&from, &to)
     }
+
+    pub fn calc_distance_to_closest_wall(
+        &self,
+        from: &Vector3,
+        to: &Vector3
+    ) -> Option<f32> {
+        if let Some(hit) = self.query.raycast(from, to) {
+            Some(hit.0)
+        }
+        else {
+            None
+        }
+    }
 }

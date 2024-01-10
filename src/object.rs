@@ -48,38 +48,6 @@ pub enum ObjectVisibility {
     VISIBLE,
 }
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
-pub struct ObjectDir {
-    pub rot: Vector3,
-    pub q: Quaternion,
-    pub angle: f32,
-}
-
-impl ObjectDir {
-    pub fn from_vector(
-        dir: &Vector3
-    ) -> Self {
-        let q = Quaternion::from_euler(
-            &Euler::from_vector(dir.clone(), EulerOrder::XYZ)
-        );
-        Self {
-            rot: dir.clone(),
-            q,
-            angle: q.angle(),
-        }
-    }
-
-    pub fn from_quaternion(
-        q: Quaternion
-    ) -> Self {
-        Self {
-            rot: Euler::from_quaternion(&q, EulerOrder::XYZ).v,
-            q,
-            angle: q.angle(),
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Object {
     pub id: usize,
@@ -87,7 +55,7 @@ pub struct Object {
     pub vis: ObjectVisibility,
     pub state: ObjectState,
     pub pos: Vector3,
-    pub dir: ObjectDir,
+    pub dir: Vector3,
     pub dim: Vector3,
     pub radius: f32,
     #[serde(skip)]
@@ -114,7 +82,7 @@ impl Object {
     pub fn new(
         typ: ObjectType,
         pos: Vector3,
-        dir: Quaternion,
+        dir: Vector3,
         dim: Vector3,
         state: ObjectState,
         vis: ObjectVisibility,
@@ -124,7 +92,7 @@ impl Object {
         Self { 
             id: rng.gen::<usize>(),
             pos,
-            dir: ObjectDir::from_quaternion(dir),
+            dir,
             dim,
             radius: 1.0,
             typ,
@@ -134,40 +102,6 @@ impl Object {
         }
     }
 
-    fn rotate_on_axis(
-        &mut self,
-        axis: &Vector3,
-        angle: f32
-    ) {
-        let q = self.dir.q.rotate_on_axis(axis, angle);
-        self.dir = ObjectDir {
-            rot: Euler::from_quaternion(&q, EulerOrder::XYZ).v,
-            q,
-            angle: q.angle(),
-        };
-    }
-
-    pub fn rotate_x(
-        &mut self,
-        angle: f32
-    ) {
-        self.rotate_on_axis(&RIGHT, angle);
-    }
-
-    pub fn rotate_y(
-        &mut self,
-        angle: f32
-    ) {
-        self.rotate_on_axis(&UP, angle);
-    }
-
-    pub fn rotate_z(
-        &mut self,
-        angle: f32
-    ) {
-        self.rotate_on_axis(&FORWARD, angle);
-    }
-    
     pub fn calc_bb(
         &self 
     ) -> Box3 {
