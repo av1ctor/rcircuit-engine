@@ -629,7 +629,7 @@ impl<'a> Game<'a> {
 
     fn update_world(
         &mut self,
-        delta_time: f32
+        _delta_time: f32
     ) {
         let mut all_keys_collected = false;
 

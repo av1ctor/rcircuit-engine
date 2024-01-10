@@ -112,7 +112,7 @@ impl Player {
 
         Self { 
             base,
-            turn_angle: 3.0 * (PI / 180.0),
+            turn_angle: 15.0 * (PI / 180.0),
             vel: Vector3::new(0.05, 0.05, 0.05),
             max_vel: Vector3::new(0.1, 0.1, 0.1),
             num_keys: 0, 
@@ -165,7 +165,7 @@ impl Player {
         for r in &self.sensor.readings {
             obs.push(match r {
                 SensorReading::Target(r) => {
-                    r.similarity
+                    r.sim
                 },
                 SensorReading::Hit(_) => {
                     0.0
@@ -190,10 +190,10 @@ impl Player {
         fov: &ObjectFOV,
         map: &Map
     ) -> Vec<SensorReading> {
-        let target_dir = FORWARD.rotate_y(self.base.pos.angle_to(target_pos));
+        let target_dir = FORWARD.rotate_y(target_pos.sub(&self.base.pos).angle_z());
 
-        let mut angle = self.base.dir.angle_z() + 
-                (fov.angle / 2.0) % (PI * 2.0);
+        let mut angle = (self.base.dir.angle_z() + 
+                (fov.angle / 2.0)) % (PI * 2.0);
         let step = fov.angle / ((fov.rays - 1) as f32);
 
         let mut reading = vec![];
@@ -205,11 +205,11 @@ impl Player {
             reading.push(
                 if let Some(t) = map.calc_distance_to_closest_wall(
                     &self.base.pos, &sensor_pos) {
+                    dbg!(t);
                     SensorReading::Hit(SensorReadingHit{t})
                 } else {
                     SensorReading::Target(SensorReadingTarget { 
-                        similarity: dir.dot(&target_dir).max(0.0), 
-                        angle,
+                        sim: dir.dot(&target_dir).max(0.0), 
                         dir,
                     })
                 }
@@ -239,10 +239,7 @@ impl Player {
                 SensorReading::Hit(_) => {
                 }
                 SensorReading::Target(r) => {
-                    //let q = Quaternion::from_axis_and_angle(&UP, r.angle);
-                    //let v = FORWARD.apply_quaternion(&q).mul_scalar(r.similarity * max_dist);
-                    let to = pos.add(&r.dir.mul_scalar(r.similarity * max_dist));
-
+                    let to = pos.add(&r.dir.mul_scalar(r.sim * max_dist));
                     vertices.push(to);
                 }
             }

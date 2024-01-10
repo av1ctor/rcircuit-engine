@@ -2,9 +2,7 @@ use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
 use strum_macros::EnumCount;
 use three_rs::math::{
-    vector3::{Vector3, RIGHT, UP, FORWARD}, 
-    quaternion::Quaternion, 
-    euler::{EulerOrder, Euler}, 
+    vector3::Vector3, 
     box3::Box3
 };
 
