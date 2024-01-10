@@ -315,7 +315,7 @@ impl<'a> Game<'a> {
                 vec![
                     Triangle::new(
                         Vector3::new(-0.5, 0.0, -0.5),
-                        Vector3::new(1.5, 0.0, 0.0),
+                        Vector3::new(1.0, 0.0, 0.0),
                         Vector3::new(-0.5, 0.0, 0.5),
                     )
                 ]

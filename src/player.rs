@@ -197,9 +197,9 @@ impl Player {
         fov: &ObjectFOV,
         map: &Map
     ) -> Vec<SensorReading> {
-        let target_dir = FORWARD.rotate_y(target_pos.sub(&self.base.pos).angle_z());
+        let target_dir = FORWARD.rotate_y(target_pos.sub(&self.base.pos).angle_xz());
 
-        let mut angle = (self.base.dir.angle_z() + 
+        let mut angle = (self.base.dir.angle_xz() + 
                 (fov.angle / 2.0)) % (PI * 2.0);
         let step = fov.angle / ((fov.rays - 1) as f32);
 
