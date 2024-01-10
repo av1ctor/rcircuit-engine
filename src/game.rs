@@ -1,21 +1,18 @@
-use std::f32::consts::PI;
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
 use three_rs::math::{
-    vector3::{Vector3, FORWARD}, 
-    euler::{Euler, EulerOrder}, 
-    quaternion::Quaternion, 
-    path3::Path3, triangle::Triangle
+    vector3::Vector3, 
+    euler::{Euler, EulerOrder}, triangle::Triangle, 
 };
 use crate::{
-    player::{Player, PlayerAction, NUM_SENSOR_FEATURES, PlayerSensor}, 
+    player::{Player, PlayerAction, NUM_SENSOR_FEATURES}, 
     object::{Object, ObjectType, ObjectState, ObjectVisibility, ObjectDir}, 
     enemy::Enemy, 
     map::Map, 
     env::{Env, EnvAction, EnvObs, EnvStep, EnvPlayer}, 
     spawn_loc::SpawnLocations, 
-    sensor::{SensorReading, SensorReadingTarget, SensorReadingHit}, 
+    sensor::SensorReading, 
     renderer::Renderer
 };
 
@@ -332,8 +329,8 @@ impl<'a> Game<'a> {
 
             let (path_ref, sensor_ref) = if self.options.debug {
                 (
-                    self.renderer.add_from_vertices([0, 255, 255], vec![]).unwrap(),
-                    self.renderer.add_from_vertices([255, 255, 255], vec![]).unwrap()
+                    self.renderer.add_from_linestrips([0, 255, 255], vec![]).unwrap(),
+                    self.renderer.add_from_lines([255, 255, 255], vec![]).unwrap()
                 )
             }
             else {
@@ -482,39 +479,10 @@ impl<'a> Game<'a> {
         res
     }
 
-    fn find_path_to_target(
-        &self, 
-        from: &Vector3,
-        to: &Vector3
-    ) -> Path3 {
-        Path3::new(self.map.query.find_path(from, to))
-    }
-
-    fn calc_distance_to_closest_wall(
-        &self,
-        from: &Vector3,
-        to: &Vector3
-    ) -> Option<f32> {
-        if let Some(hit) = self.map.query.raycast(from, to) {
-            Some(hit.0)
-        }
-        else {
-            None
-        }
-    }
-
-    fn calc_similarity_with_target(
-        &self,
-        dir: &Vector3,
-        target_dir: &Vector3
-    ) -> f32 {
-        dir.dot(&target_dir).max(0.0)
-    }
-
     fn build_players_sensors(
         &mut self
     ) {
-        let mut sensors = vec![vec![]; self.entities.players.len()];
+        let mut readings = vec![vec![]; self.entities.players.len()];
         let mut paths = vec![];
 
         for (i, player) in self.entities.players.iter().enumerate() {
@@ -528,55 +496,20 @@ impl<'a> Game<'a> {
                 }
             );
 
-            // when training, it's better to just use target's position
-            let path = self.find_path_to_target(&player.base.pos, &target_obj.pos);
+            let path = self.map.find_path_to_target(&player.base.pos, &target_obj.pos);
 
             let target_pos = path.nodes[1].clone();
             if self.options.debug {
                 paths.push(path);
             }
 
-            //FIXME!!!
-            let target_dir = Euler::from_quaternion(
-                &Quaternion::from_axis_and_angle(
-                    &FORWARD, 
-                    player.base.pos.angle_to(&target_pos)
-                ),
-                EulerOrder::XYZ
-            ).v;
-            //target_pos.sub(&player.base.pos).normalize();
-
-            let mut rot = player.base.dir.q.rotate_z((self.options.fov.angle / 2.0) % (PI * 2.0));
-            let rot_step = self.options.fov.angle / ((self.options.fov.rays - 1) as f32);
-
-            let mut player_sensors = vec![];
-
-            for _ in 0..self.options.fov.rays {
-                let dir = Euler::from_quaternion(&rot, EulerOrder::XYZ).v;
-                let sensor_pos = dir.mul_scalar(self.options.fov.max_dist);
-                
-                player_sensors.push(
-                    if let Some(t) = self.calc_distance_to_closest_wall(
-                        &player.base.pos, &sensor_pos) {
-                        SensorReading::Hit(SensorReadingHit{t})
-                    } else {
-                        SensorReading::Target(SensorReadingTarget { 
-                            similarity: self.calc_similarity_with_target(&dir, &target_dir), 
-                            angle: rot.angle(),
-                            dir,
-                        })
-                    }
-                );
-
-                rot = rot.rotate_z(rot_step);
-            }
-            
-            sensors[i] = player_sensors;
+            readings[i] = player.get_sensor_readings(
+                &target_pos, &self.options.fov, &self.map);
         }
 
         for i in 0..self.entities.players.len() {
             let player = &mut self.entities.players[i];
-            player.sensor.readings = sensors[i].to_owned();
+            player.sensor.readings = readings[i].to_owned();
             if self.options.debug {
                 self.renderer.set_vertices(
                     player.path_ref, 
@@ -584,42 +517,14 @@ impl<'a> Game<'a> {
                 );
                 self.renderer.set_vertices(
                     player.sensor_ref, 
-                    Self::gen_player_sensors(
+                    Player::gen_vis_sensor_readings(
                         &player.base.pos, 
-                        &sensors[i],
+                        &readings[i],
                         self.options.fov.max_dist
                     )
                 );
             }
         }
-    }
-
-    fn gen_player_sensors(
-        pos: &Vector3,
-        readings: &Vec<SensorReading>,
-        max_dist: f32
-    ) -> Vec<Vector3> {
-        
-        let mut vertices = vec![];
-
-        vertices.push(pos.clone());
-
-        for r in readings {
-            match r {
-                SensorReading::Hit(_) => {
-                }
-                SensorReading::Target(r) => {
-                    let q = Quaternion::from_axis_and_angle(&FORWARD, r.angle);
-                    let v = Vector3::new(0.0, 0.0, r.similarity * max_dist)
-                        .rotate_by_quaternion(&q);
-                    let to = pos.add(&v);
-
-                    vertices.push(to);
-                }
-            }
-        }
-
-        vertices
     }
 
     fn move_player(
@@ -633,7 +538,7 @@ impl<'a> Game<'a> {
         let vel = player.vel.mul(dir).mul_scalar(delta_time);
         let new_pos = player.base.pos.add(&vel);
         
-        if let Some(confined_pos) = self.map.query.move_along_surface(&player.base.pos, &new_pos) {
+        if let Some(confined_pos) = self.map.move_along_surface(&player.base.pos, &new_pos) {
             if confined_pos != new_pos {
                 player.base.pos = confined_pos;
                 player.reward += PENALTY_WALL;

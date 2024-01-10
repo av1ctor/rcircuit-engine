@@ -34,7 +34,13 @@ pub trait Renderer {
         triangles: Vec<Triangle>
     ) -> Result<ModelRef, String>;
 
-    fn add_from_vertices(
+    fn add_from_linestrips(
+        &mut self,
+        color: RGB,
+        vertices: Vec<Vector3>
+    ) -> Result<ModelRef, String>;
+
+    fn add_from_lines(
         &mut self,
         color: RGB,
         vertices: Vec<Vector3>

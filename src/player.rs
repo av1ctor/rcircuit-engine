@@ -4,14 +4,14 @@ use rand::rngs::StdRng;
 use serde::{Serialize, Deserialize};
 use strum_macros::EnumCount;
 use three_rs::math::{
-    vector3::Vector3, 
+    vector3::{Vector3, FORWARD}, 
     quaternion::Quaternion, 
-    box3::Box3
+    box3::Box3, euler::{Euler, EulerOrder}
 };
 use crate::{
     env::EnvObs, 
     object::{Object, ObjectVisibility, ObjectState, ObjectType}, 
-    sensor::{Sensor, SensorReading}, renderer::ModelRef
+    sensor::{Sensor, SensorReading, SensorReadingHit, SensorReadingTarget}, renderer::ModelRef, game::ObjectFOV, map::Map
 };
 
 pub const NUM_SENSOR_FEATURES: usize = 1;
@@ -206,5 +206,97 @@ impl Player {
         self.history.push_back(PlayerHistory { 
             dir: self.base.dir.rot.clone()
         });
+    }
+
+    fn calc_distance_to_closest_wall(
+        from: &Vector3,
+        to: &Vector3,
+        map: &Map
+    ) -> Option<f32> {
+        if let Some(hit) = map.query.raycast(from, to) {
+            Some(hit.0)
+        }
+        else {
+            None
+        }
+    }
+
+    fn calc_similarity_with_target(
+        dir: &Vector3,
+        target_dir: &Vector3
+    ) -> f32 {
+        dir.dot(&target_dir).max(0.0)
+    }
+
+    pub fn get_sensor_readings(
+        &self,
+        target_pos: &Vector3,
+        fov: &ObjectFOV,
+        map: &Map
+    ) -> Vec<SensorReading> {
+        //FIXME!!!
+        let target_dir = Euler::from_quaternion(
+            &Quaternion::from_axis_and_angle(
+                &FORWARD, 
+                self.base.pos.angle_to(target_pos)
+            ),
+            EulerOrder::XYZ
+        ).v;
+        //target_pos.sub(&player.base.pos).normalize();
+
+        let mut rot = self.base.dir.q.rotate_z((fov.angle / 2.0) % (PI * 2.0));
+        let rot_step = fov.angle / ((fov.rays - 1) as f32);
+
+        let mut reading = vec![];
+
+        for _ in 0..fov.rays {
+            let dir = Euler::from_quaternion(&rot, EulerOrder::XYZ).v;
+            let sensor_pos = dir.mul_scalar(fov.max_dist);
+            
+            reading.push(
+                if let Some(t) = Self::calc_distance_to_closest_wall(
+                    &self.base.pos, &sensor_pos, map) {
+                    SensorReading::Hit(SensorReadingHit{t})
+                } else {
+                    SensorReading::Target(SensorReadingTarget { 
+                        similarity: Self::calc_similarity_with_target(&dir, &target_dir), 
+                        angle: rot.angle(),
+                        dir,
+                    })
+                }
+            );
+
+            rot = rot.rotate_z(rot_step);
+        }
+
+        reading
+    }
+
+    pub fn gen_vis_sensor_readings(
+        pos: &Vector3,
+        readings: &Vec<SensorReading>,
+        max_dist: f32
+    ) -> Vec<Vector3> {
+        
+        let mut vertices = vec![];
+
+        vertices.push(pos.clone());
+
+        for r in readings {
+            match r {
+                SensorReading::Hit(_) => {
+                }
+                SensorReading::Target(r) => {
+                    let q = Quaternion::from_axis_and_angle(&FORWARD, r.angle);
+                    let v = Vector3::new(0.0, 0.0, r.similarity * max_dist)
+                        .rotate_by_quaternion(&q);
+                    let to = pos.add(&v);
+
+                    vertices.push(to);
+                }
+            }
+        }
+
+        vertices
     }
 }

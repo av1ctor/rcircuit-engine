@@ -2,7 +2,7 @@ use gltf::{Gltf, buffer::Data, Document, Node};
 use navmesh_rs::{navmesh::NavMesh, query::NavMeshQuery};
 use three_rs::math::{
     vector3::Vector3, 
-    quaternion::Quaternion
+    quaternion::Quaternion, path3::Path3
 };
 
 const MAX_NAVMESH_PATH_LEN: usize = 64;
@@ -70,5 +70,21 @@ impl Map {
                 
             })
             .collect::<Vec<_>>()
+    }
+
+    pub fn find_path_to_target(
+        &self, 
+        from: &Vector3,
+        to: &Vector3
+    ) -> Path3 {
+        Path3::new(self.query.find_path(from, to))
+    }
+
+    pub fn move_along_surface(
+        &self,
+        from: &Vector3,
+        to: &Vector3
+    ) -> Option<Vector3> {
+        self.query.move_along_surface(&from, &to)
     }
 }
