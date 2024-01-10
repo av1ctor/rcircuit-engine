@@ -10,7 +10,10 @@ use three_rs::math::{
 use crate::{
     env::EnvObs, 
     object::{Object, ObjectVisibility, ObjectState, ObjectType}, 
-    sensor::{Sensor, SensorReading, SensorReadingHit, SensorReadingTarget}, renderer::ModelRef, game::ObjectFOV, map::Map
+    sensor::{Sensor, SensorReading, SensorReadingHit, SensorReadingTarget}, 
+    renderer::ModelRef, 
+    game::ObjectFOV, 
+    map::Map
 };
 
 pub const NUM_SENSOR_FEATURES: usize = 1;
@@ -84,6 +87,8 @@ pub struct Player {
     #[serde(skip)]
     pub sensor_ref: ModelRef,
     #[serde(skip)]
+    pub readings_ref: ModelRef,
+    #[serde(skip)]
     pub sensor: Sensor,
     #[serde(skip)]
     pub history: CircularBuffer<10, PlayerHistory>,
@@ -97,6 +102,7 @@ impl Player {
         model_ref: ModelRef,
         path_ref: ModelRef,
         sensor_ref: ModelRef,
+        readings_ref: ModelRef,
         rng: &mut StdRng
     ) -> Player {
         let base = Object::new(
@@ -120,6 +126,7 @@ impl Player {
             reward: 0.0,
             path_ref,
             sensor_ref,
+            readings_ref,
             sensor: Sensor::default(),
             history: CircularBuffer::<10, PlayerHistory>::new(),
         }
@@ -205,12 +212,17 @@ impl Player {
             reading.push(
                 if let Some(t) = map.calc_distance_to_closest_wall(
                     &self.base.pos, &sensor_pos) {
-                    dbg!(t);
-                    SensorReading::Hit(SensorReadingHit{t})
+                    SensorReading::Hit(
+                        SensorReadingHit{
+                            t,
+                            pos: sensor_pos,
+                        }
+                    )
                 } else {
                     SensorReading::Target(SensorReadingTarget { 
                         sim: dir.dot(&target_dir).max(0.0), 
                         dir,
+                        pos: sensor_pos,
                     })
                 }
             );
@@ -228,23 +240,27 @@ impl Player {
         pos: &Vector3,
         readings: &Vec<SensorReading>,
         max_dist: f32
-    ) -> Vec<Vector3> {
+    ) -> (Vec<Vector3>, Vec<Vector3>) {
         
-        let mut vertices = vec![];
+        let mut sensor_vtx = vec![];
+        let mut readings_vtx = vec![];
 
-        vertices.push(pos.clone());
+        sensor_vtx.push(pos.clone());
+        readings_vtx.push(pos.clone());
 
         for r in readings {
+
             match r {
-                SensorReading::Hit(_) => {
+                SensorReading::Hit(r) => {
+                    sensor_vtx.push(r.pos);
                 }
                 SensorReading::Target(r) => {
-                    let to = pos.add(&r.dir.mul_scalar(r.sim * max_dist));
-                    vertices.push(to);
+                    sensor_vtx.push(r.pos);
+                    readings_vtx.push(pos.add(&r.dir.mul_scalar(r.sim * max_dist)));
                 }
             }
         }
 
-        vertices
+        (sensor_vtx, readings_vtx)
     }
 }

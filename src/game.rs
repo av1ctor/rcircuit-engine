@@ -321,20 +321,22 @@ impl<'a> Game<'a> {
                 ]
             ).unwrap();
 
-            let (path_ref, sensor_ref) = if self.options.debug {
+            let (path_ref, sensor_ref, readings_ref) = if self.options.debug {
                 (
                     self.renderer.add_from_linestrips([0, 255, 255], vec![]).unwrap(),
+                    self.renderer.add_from_lines([63, 63, 63], vec![]).unwrap(),
                     self.renderer.add_from_lines([255, 255, 255], vec![]).unwrap()
                 )
             }
             else {
-                (0, 0)
+                (0, 0, 0)
             };
 
             self.renderer.show_model(model_ref);
             if self.options.debug {
                 self.renderer.show_model(path_ref);
                 self.renderer.show_model(sensor_ref);
+                self.renderer.show_model(readings_ref);
             }
                 
             let loc = &spawn_locs.next(i, rng);
@@ -345,6 +347,7 @@ impl<'a> Game<'a> {
                 model_ref,
                 path_ref,
                 sensor_ref,
+                readings_ref,
                 rng
             );
             players.push(player);
@@ -402,7 +405,7 @@ impl<'a> Game<'a> {
                 typ.clone(),
                 loc.0, 
                 loc.1, 
-                Vector3::one().mul_scalar(0.5), //FIXME!!!
+                Vector3::one(), //FIXME!!!
                 ObjectState::IDLE,
                 if is_active {ObjectVisibility::VISIBLE} else {ObjectVisibility::HIDDEN},
                 model_ref,
@@ -490,7 +493,8 @@ impl<'a> Game<'a> {
                 }
             );
 
-            let path = self.map.find_path_to_target(&player.base.pos, &target_obj.pos);
+            let path = self.map.find_path_to_target(
+                &player.base.pos, &target_obj.pos);
 
             let target_pos = path.nodes[1].clone();
             if self.options.debug {
@@ -509,13 +513,19 @@ impl<'a> Game<'a> {
                     player.path_ref, 
                     paths[i].nodes.clone()
                 );
+                let (sensor_vtx, readings_vtx) = Player::gen_vis_sensor_readings(
+                    &player.base.pos, 
+                    &readings[i],
+                    self.options.fov.max_dist
+                );
+                
                 self.renderer.set_vertices(
                     player.sensor_ref, 
-                    Player::gen_vis_sensor_readings(
-                        &player.base.pos, 
-                        &readings[i],
-                        self.options.fov.max_dist
-                    )
+                    sensor_vtx  
+                );
+                self.renderer.set_vertices(
+                    player.readings_ref, 
+                    readings_vtx
                 );
             }
         }

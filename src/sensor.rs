@@ -4,11 +4,13 @@ use three_rs::math::vector3::Vector3;
 pub struct SensorReadingTarget {
     pub dir: Vector3,
     pub sim: f32,
+    pub pos: Vector3,
 }
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SensorReadingHit {
     pub t: f32,
+    pub pos: Vector3,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -21,7 +23,8 @@ impl Default for SensorReading {
     fn default() -> Self {
         SensorReading::Target(SensorReadingTarget { 
             dir: Vector3::zero(),
-            sim: 0.0
+            sim: 0.0,
+            pos: Vector3::zero(),
         })
     }
 }
