@@ -55,7 +55,6 @@ pub struct MapInfo {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct GameOptions {
     pub fov: ObjectFOV,
-    pub fps: f32,
     pub num_players: usize,
     pub min_keys: usize,
     pub player_radius: f32,
@@ -131,6 +130,8 @@ impl Env for Game<'_> {
             step: 0
         };
 
+        self.build_players_sensors();
+
         self.entities.players
             .iter()
             .map(|p| {
@@ -158,27 +159,13 @@ impl Env for Game<'_> {
         if self.options.max_steps == 0 ||
             self.state.step < self.options.max_steps {
         
-            self.build_players_sensors();
-
             for i in 0..actions.len() {
                 let player = &mut self.entities.players[i];
                 player.reward = 0.0;
 
                 let dir = match actions[i] {
                     None => {
-                        // NOTE: when training, never correct the direction.
-                        // otherwise it will never learn from penalties/mistakes!
-                        if self.options.training {
-                            player.base.dir.clone()
-                        }
-                        else {
-                            if player.sensor.has_hits {
-                                player.calc_dir_away_from_hit()
-                            }
-                            else {
-                                player.base.dir.clone()
-                            }
-                        }
+                        player.base.dir.clone()
                     },
                     Some(action) => {
                         match PlayerAction::try_from(action.clone()).unwrap() {
@@ -200,6 +187,8 @@ impl Env for Game<'_> {
             }
 
             self.update_world(delta_time);
+            
+            self.build_players_sensors();
         }
         else {
             self.state.status = GameStatus::TIMEDOUT;
@@ -386,19 +375,21 @@ impl<'a> Game<'a> {
             1
         };
 
+        let rad = if typ == ObjectType::KEY {0.5} else {1.0};
+
         for i in 0..num_objs {
             let model_ref = self.renderer.add_from_triangles(
-                [0, 0, 255],
+                if typ == ObjectType::KEY {[0, 0, 255]} else {[0, 255, 255]},
                 vec![
                     Triangle::new(
-                        Vector3::new(-0.5, 0.0, -0.5),
-                        Vector3::new(0.5, 0.0, -0.5),
-                        Vector3::new(0.5, 0.0, 0.5),
+                        Vector3::new(-rad, 0.0, -rad),
+                        Vector3::new(rad, 0.0, -rad),
+                        Vector3::new(rad, 0.0, rad),
                     ),
                     Triangle::new(
-                        Vector3::new(-0.5, 0.0, -0.5),
-                        Vector3::new(-0.5, 0.0, 0.5),
-                        Vector3::new(0.5, 0.0, 0.5),
+                        Vector3::new(-rad, 0.0, -rad),
+                        Vector3::new(-rad, 0.0, rad),
+                        Vector3::new(rad, 0.0, rad),
                     )
                 ]
             ).unwrap();
@@ -409,7 +400,7 @@ impl<'a> Game<'a> {
                 typ.clone(),
                 loc.0, 
                 loc.1, 
-                Vector3::one(), //FIXME!!!
+                Vector3::new(rad * 2.0, rad * 2.0, rad * 2.0),
                 ObjectState::IDLE,
                 if is_active {ObjectVisibility::VISIBLE} else {ObjectVisibility::HIDDEN},
                 model_ref,
@@ -562,10 +553,8 @@ impl<'a> Game<'a> {
             self.map.move_along_surface(&player.base.pos, &new_pos) {
             if confined_pos != new_pos {
                 player.base.pos = confined_pos;
+                player.base.dir = player.calc_dir_away_from_hit();
                 player.reward += PENALTY_WALL;
-                if self.options.training {
-                    player.base.dir = dir.neg();
-                }
             }
             else {
                 player.base.pos = new_pos;
@@ -579,7 +568,7 @@ impl<'a> Game<'a> {
             );
             self.renderer.set_rotation(
                 player.base.model_ref, 
-                &player.base.dir, 
+                &player.mean_dir(), 
                 &Quaternion::identity()
             );
         }

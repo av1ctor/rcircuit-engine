@@ -152,11 +152,8 @@ impl Player {
     ) -> Vector3 {
         let mut dir = Vector3::zero();
         for r in &self.sensor.readings {
-            match r {
-                SensorReading::Target(s) => {
-                    dir.add_mut(&s.dir);
-                },
-                SensorReading::Hit(_) => (),
+            if let SensorReading::Target(s) = r {
+                dir.add_mut(&s.dir);
             }
         }
         
@@ -221,6 +218,7 @@ impl Player {
                     SensorReading::Hit(
                         SensorReadingHit{
                             t,
+                            dir,
                             pos: sensor_pos,
                         }
                     )
