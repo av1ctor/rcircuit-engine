@@ -551,6 +551,7 @@ impl<'a> Game<'a> {
         
         if let Some(confined_pos) = 
             self.map.move_along_surface(&player.base.pos, &new_pos) {
+            player.preserve();
             if confined_pos != new_pos {
                 player.base.pos = confined_pos;
                 player.base.dir = player.calc_dir_away_from_hit();
@@ -558,7 +559,6 @@ impl<'a> Game<'a> {
             }
             else {
                 player.base.pos = new_pos;
-                player.preserve();
                 player.base.dir = dir.clone();
             }
             

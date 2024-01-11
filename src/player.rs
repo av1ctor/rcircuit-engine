@@ -90,7 +90,7 @@ pub struct Player {
     #[serde(skip)]
     pub sensor: Sensor,
     #[serde(skip)]
-    pub history: CircularBuffer<10, PlayerHistory>,
+    pub history: CircularBuffer<20, PlayerHistory>,
 }
 
 impl Player {
@@ -118,7 +118,7 @@ impl Player {
         Self { 
             base,
             turn_angle: 15.0 * (PI / 180.0),
-            vel: Vector3::new(0.05, 0.05, 0.05),
+            vel: Vector3::new(0.1, 0.1, 0.1),
             num_keys: 0, 
             health: 100.0, 
             reward: 0.0,
@@ -126,7 +126,7 @@ impl Player {
             sensor_ref,
             readings_ref,
             sensor: Sensor::default(),
-            history: CircularBuffer::<10, PlayerHistory>::new(),
+            history: CircularBuffer::<20, PlayerHistory>::new(),
         }
     }
 

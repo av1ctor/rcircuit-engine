@@ -37,7 +37,7 @@ impl SpawnLocations {
 
         (
             min_locs[l].0.translation, 
-            FORWARD.rotate_by_quaternion(&min_locs[l].0.rotation)
+            FORWARD.apply_quaternion(&min_locs[l].0.rotation)
         )
     }
 }
