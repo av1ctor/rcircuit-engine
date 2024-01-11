@@ -32,4 +32,5 @@ impl Default for SensorReading {
 #[derive(Clone, Debug, Default)]
 pub struct Sensor {
     pub readings: Vec<SensorReading>,
+    pub has_hits: bool,
 }

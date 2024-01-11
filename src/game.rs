@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use strum::EnumCount;
 use three_rs::math::{
     vector3::Vector3, 
-    triangle::Triangle, quaternion::Quaternion, 
+    triangle::Triangle, quaternion::Quaternion, path3::Path3, 
 };
 use crate::{
     player::{Player, PlayerAction, NUM_SENSOR_FEATURES}, 
@@ -12,7 +12,7 @@ use crate::{
     map::Map, 
     env::{Env, EnvAction, EnvObs, EnvStep, EnvPlayer}, 
     spawn_locs::SpawnLocations, 
-    renderer::Renderer, sensor::SensorReading
+    renderer::Renderer, sensor::Sensor
 };
 
 const PLAYER_SPAWN_LOCATION_NAME: &str = "psl.";
@@ -166,14 +166,18 @@ impl Env for Game<'_> {
 
                 let dir = match actions[i] {
                     None => {
-                        if player.sensor.readings.iter().any(|r| match r {
-                            SensorReading::Target(_) => false,
-                            SensorReading::Hit(_) => true,
-                        }) {
-                            player.calc_dir_away_from_hit()
+                        // NOTE: when training, never correct the direction.
+                        // otherwise it will never learn from penalties/mistakes!
+                        if self.options.training {
+                            player.base.dir.clone()
                         }
                         else {
-                            player.base.dir.clone()
+                            if player.sensor.has_hits {
+                                player.calc_dir_away_from_hit()
+                            }
+                            else {
+                                player.base.dir.clone()
+                            }
                         }
                     },
                     Some(action) => {
@@ -479,7 +483,7 @@ impl<'a> Game<'a> {
     fn build_players_sensors(
         &mut self
     ) {
-        let mut readings = vec![vec![]; self.entities.players.len()];
+        let mut readings = vec![(false, vec![]); self.entities.players.len()];
         let mut paths = vec![];
 
         for (i, player) in self.entities.players.iter().enumerate() {
@@ -493,8 +497,18 @@ impl<'a> Game<'a> {
                 }
             );
 
-            let path = self.map.find_path_to_target(
-                &player.base.pos, &target_obj.pos);
+            // when training, it's better to just use target's position
+            let path = if self.options.training {
+                Path3::new(vec![
+                    player.base.pos.clone(),
+                    target_obj.pos.clone()
+                ])
+            }
+            // when playing, move around obstacles
+            else {
+                self.map.find_path_to_target(
+                    &player.base.pos, &target_obj.pos)
+            };
 
             let target_pos = path.nodes[1].clone();
             if self.options.debug {
@@ -507,7 +521,10 @@ impl<'a> Game<'a> {
 
         for i in 0..self.entities.players.len() {
             let player = &mut self.entities.players[i];
-            player.sensor.readings = readings[i].to_owned();
+            player.sensor = Sensor {
+                has_hits: readings[i].0,
+                readings: readings[i].1.to_owned(),
+            };
             if self.options.debug {
                 self.renderer.set_vertices(
                     player.path_ref, 
@@ -515,7 +532,7 @@ impl<'a> Game<'a> {
                 );
                 let (sensor_vtx, readings_vtx) = Player::gen_vis_sensor_readings(
                     &player.base.pos, 
-                    &readings[i],
+                    &readings[i].1,
                     self.options.fov.max_dist
                 );
                 
@@ -546,7 +563,9 @@ impl<'a> Game<'a> {
             if confined_pos != new_pos {
                 player.base.pos = confined_pos;
                 player.reward += PENALTY_WALL;
-                player.base.dir = dir.neg();
+                if self.options.training {
+                    player.base.dir = dir.neg();
+                }
             }
             else {
                 player.base.pos = new_pos;

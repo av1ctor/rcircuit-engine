@@ -77,7 +77,6 @@ pub struct PlayerHistory {
 pub struct Player {
     pub base: Object,
     pub turn_angle: f32,
-    pub max_vel: Vector3,
     pub vel: Vector3,
     pub num_keys: usize,
     pub health: f32,
@@ -120,7 +119,6 @@ impl Player {
             base,
             turn_angle: 15.0 * (PI / 180.0),
             vel: Vector3::new(0.05, 0.05, 0.05),
-            max_vel: Vector3::new(0.1, 0.1, 0.1),
             num_keys: 0, 
             health: 100.0, 
             reward: 0.0,
@@ -152,16 +150,22 @@ impl Player {
     pub fn calc_dir_away_from_hit(
         &self
     ) -> Vector3 {
-        let mut res = Vector3::zero();
+        let mut dir = Vector3::zero();
         for r in &self.sensor.readings {
             match r {
                 SensorReading::Target(s) => {
-                    res.add_mut(&s.dir);
+                    dir.add_mut(&s.dir);
                 },
                 SensorReading::Hit(_) => (),
             }
         }
-        res.normalize()
+        
+        if dir.length_sq() == 0.0 {
+            self.base.dir.neg()
+        }
+        else {
+            dir.normalize()
+        }
     }
     
     pub fn to_obs(
@@ -196,7 +200,7 @@ impl Player {
         target_pos: &Vector3,
         fov: &ObjectFOV,
         map: &Map
-    ) -> Vec<SensorReading> {
+    ) -> (bool, Vec<SensorReading>) {
         let target_dir = FORWARD.rotate_y(target_pos.sub(&self.base.pos).angle_xz());
 
         let mut angle = (self.base.dir.angle_xz() + 
@@ -204,6 +208,7 @@ impl Player {
         let step = fov.angle / ((fov.rays - 1) as f32);
 
         let mut reading = vec![];
+        let mut has_hits = false;
 
         for _ in 0..fov.rays {
             let dir = FORWARD.rotate_y(angle);
@@ -212,6 +217,7 @@ impl Player {
             reading.push(
                 if let Some(t) = map.calc_distance_to_closest_wall(
                     &self.base.pos, &sensor_pos) {
+                    has_hits = true;
                     SensorReading::Hit(
                         SensorReadingHit{
                             t,
@@ -233,7 +239,7 @@ impl Player {
             }
         }
 
-        reading
+        (has_hits, reading)
     }
 
     pub fn gen_vis_sensor_readings(
