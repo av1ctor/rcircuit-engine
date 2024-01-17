@@ -407,6 +407,9 @@ impl Game {
             if is_active {
                 self.renderer.borrow_mut().show_model(obj.model_ref);
             }
+            else {
+                self.renderer.borrow_mut().hide_model(obj.model_ref);
+            }
 
             objects.push(obj);
         }
