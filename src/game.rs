@@ -1,9 +1,16 @@
+use std::{rc::Rc, cell::RefCell};
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
-use three_rs::math::{
-    vector3::Vector3, 
-    triangle::Triangle, quaternion::Quaternion, path3::Path3, 
+use three_rs::{
+    math::{
+        vector3::Vector3, 
+        path3::Path3, 
+        Euler, 
+        EulerOrder, 
+    }, 
+    object::Mesh,
+    geometry::{Cone, Box3},
 };
 use crate::{
     player::{Player, PlayerAction, NUM_SENSOR_FEATURES}, 
@@ -75,16 +82,16 @@ pub struct GameStep {
     pub entities: GameEntities,
 }
 
-pub struct Game<'a> {
+pub struct Game {
     pub map: Map,
     pub map_info: MapInfo,
     pub entities: GameEntities,
     pub options: GameOptions,
     pub state: GameState,
-    pub renderer: &'a mut dyn Renderer,
+    pub renderer: Rc<RefCell<dyn Renderer>>,
 }
 
-impl Env for Game<'_> {
+impl Env for Game {
     fn get_num_actions(
         &self
     ) -> usize {
@@ -109,13 +116,13 @@ impl Env for Game<'_> {
         rng: &mut StdRng
     ) -> Vec<EnvObs> {
         
-        self.renderer.reset();
+        self.renderer.borrow_mut().reset();
         
         // map
-        let level_ref = self.renderer.add_from_gltf(
-            [192, 0, 0], &self.map.gltf_doc, &self.map.buffers
+        let level_ref = self.renderer.borrow_mut().add_from_gltf(
+            [192.0 / 255.0, 0.0, 0.0], &self.map.gltf_doc, &self.map.buffers
         ).expect("Could not load GLTF");
-        self.renderer.show_model(level_ref);
+        self.renderer.borrow_mut().show_model(level_ref);
         
         // entities
         self.entities = self.spawn_entities(rng);
@@ -229,16 +236,16 @@ impl Env for Game<'_> {
     fn render(
         &mut self
     ) {
-        self.renderer.render();
+        self.renderer.borrow_mut().render();
     }
 }
 
-impl<'a> Game<'a> {
+impl Game {
     pub fn new(
         level_bytes: &[u8], 
         navmesh_bytes: &[u8],
         options: GameOptions,
-        renderer: &'a mut dyn Renderer
+        renderer: Rc<RefCell<dyn Renderer>>
     ) -> Self {
         let map = Map::new(level_bytes, navmesh_bytes);
 
@@ -303,33 +310,32 @@ impl<'a> Game<'a> {
         let mut players = vec![];
 
         for i in 0..self.options.num_players {
-            let model_ref = self.renderer.add_from_triangles(
-                [0, 255, 0],
-                vec![
-                    Triangle::new(
-                        Vector3::new(-0.5, 0.0, -0.5),
-                        Vector3::new(1.0, 0.0, 0.0),
-                        Vector3::new(-0.5, 0.0, 0.5),
-                    )
-                ]
+            let model_ref = self.renderer.borrow_mut().add_from_mesh(
+                [0.0, 1.0, 0.0],
+                Mesh::new(
+                    &Cone::new(0.6, 1.8)
+                )
             ).unwrap();
 
             let (path_ref, sensor_ref, readings_ref) = if self.options.debug {
                 (
-                    self.renderer.add_from_linestrips([0, 255, 255], vec![]).unwrap(),
-                    self.renderer.add_from_lines([63, 63, 63], vec![]).unwrap(),
-                    self.renderer.add_from_lines([255, 255, 255], vec![]).unwrap()
+                    self.renderer.borrow_mut()
+                        .add_from_linestrips([0.0, 1.0, 1.0], vec![]).unwrap(),
+                    self.renderer.borrow_mut()
+                        .add_from_lines([63.0 / 255.0, 63.0 / 255.0, 63.0 / 255.0], vec![]).unwrap(),
+                    self.renderer.borrow_mut()
+                        .add_from_lines([1.0, 1.0, 1.0], vec![]).unwrap()
                 )
             }
             else {
                 (0, 0, 0)
             };
 
-            self.renderer.show_model(model_ref);
+            self.renderer.borrow_mut().show_model(model_ref);
             if self.options.debug {
-                self.renderer.show_model(path_ref);
-                self.renderer.show_model(sensor_ref);
-                self.renderer.show_model(readings_ref);
+                self.renderer.borrow_mut().show_model(path_ref);
+                self.renderer.borrow_mut().show_model(sensor_ref);
+                self.renderer.borrow_mut().show_model(readings_ref);
             }
                 
             let loc = &spawn_locs.next(i, rng);
@@ -375,30 +381,21 @@ impl<'a> Game<'a> {
             1
         };
 
-        let rad = if typ == ObjectType::KEY {0.5} else {1.0};
+        let rad = if typ == ObjectType::KEY {1.0} else {2.0};
 
         for i in 0..num_objs {
-            let model_ref = self.renderer.add_from_triangles(
-                if typ == ObjectType::KEY {[0, 0, 255]} else {[0, 255, 255]},
-                vec![
-                    Triangle::new(
-                        Vector3::new(-rad, 0.0, -rad),
-                        Vector3::new(rad, 0.0, -rad),
-                        Vector3::new(rad, 0.0, rad),
-                    ),
-                    Triangle::new(
-                        Vector3::new(-rad, 0.0, -rad),
-                        Vector3::new(-rad, 0.0, rad),
-                        Vector3::new(rad, 0.0, rad),
-                    )
-                ]
+            let model_ref = self.renderer.borrow_mut().add_from_mesh(
+                if typ == ObjectType::KEY {[0.0, 0.0, 1.0]} else {[0.0, 1.0, 1.0]},
+                Mesh::new(
+                    &Box3::new(rad, rad, rad)
+                )
             ).unwrap();
                 
             let loc = &spawn_locs.next(i, rng);
             let is_active = active(i);
             let obj = Object::new(
                 typ.clone(),
-                loc.0, 
+                loc.0.add(&Vector3::new(0.0, 2.0, 0.0)), 
                 loc.1, 
                 Vector3::new(rad * 2.0, rad * 2.0, rad * 2.0),
                 ObjectState::IDLE,
@@ -406,9 +403,9 @@ impl<'a> Game<'a> {
                 model_ref,
                 rng
             );
-            self.renderer.set_position(obj.model_ref, &obj.pos);
+            self.renderer.borrow_mut().set_position(obj.model_ref, &obj.pos);
             if is_active {
-                self.renderer.show_model(obj.model_ref);
+                self.renderer.borrow_mut().show_model(obj.model_ref);
             }
 
             objects.push(obj);
@@ -427,8 +424,8 @@ impl<'a> Game<'a> {
         );
         if let Some(obj) = exit {
             obj.vis = ObjectVisibility::VISIBLE;
-            self.renderer.set_position(obj.model_ref, &obj.pos);
-            self.renderer.show_model(obj.model_ref);
+            self.renderer.borrow_mut().set_position(obj.model_ref, &obj.pos);
+            self.renderer.borrow_mut().show_model(obj.model_ref);
         }
     }
 
@@ -442,8 +439,8 @@ impl<'a> Game<'a> {
         );
         if let Some(obj) = key {
             obj.vis = ObjectVisibility::VISIBLE;
-            self.renderer.set_position(obj.model_ref, &obj.pos);
-            self.renderer.show_model(obj.model_ref);
+            self.renderer.borrow_mut().set_position(obj.model_ref, &obj.pos);
+            self.renderer.borrow_mut().show_model(obj.model_ref);
         }
     }
 
@@ -517,7 +514,7 @@ impl<'a> Game<'a> {
                 readings: readings[i].1.to_owned(),
             };
             if self.options.debug {
-                self.renderer.set_vertices(
+                self.renderer.borrow_mut().set_vertices(
                     player.path_ref, 
                     paths[i].nodes.clone()
                 );
@@ -527,11 +524,11 @@ impl<'a> Game<'a> {
                     self.options.fov.max_dist
                 );
                 
-                self.renderer.set_vertices(
+                self.renderer.borrow_mut().set_vertices(
                     player.sensor_ref, 
                     sensor_vtx  
                 );
-                self.renderer.set_vertices(
+                self.renderer.borrow_mut().set_vertices(
                     player.readings_ref, 
                     readings_vtx
                 );
@@ -562,14 +559,13 @@ impl<'a> Game<'a> {
                 player.base.dir = dir.clone();
             }
             
-            self.renderer.set_position(
+            self.renderer.borrow_mut().set_position(
                 player.base.model_ref, 
                 &player.base.pos
             );
-            self.renderer.set_rotation(
+            self.renderer.borrow_mut().set_rotation_from_euler(
                 player.base.model_ref, 
-                &player.mean_dir(), 
-                &Quaternion::identity()
+                &Euler::from_vector(player.mean_dir(), EulerOrder::XYZ)
             );
         }
     }
@@ -595,7 +591,7 @@ impl<'a> Game<'a> {
                 obj.state = ObjectState::DEAD;
                 obj.vis = ObjectVisibility::HIDDEN;
                 collected = true;
-                self.renderer.hide_model(obj.model_ref);
+                self.renderer.borrow_mut().hide_model(obj.model_ref);
             }
         }
 

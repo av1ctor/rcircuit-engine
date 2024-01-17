@@ -1,8 +1,17 @@
+use std::{cell::RefCell, rc::Rc};
+
 use gltf::buffer::Data;
-use three_rs::math::{vector3::Vector3, quaternion::Quaternion, triangle::Triangle};
+use three_rs::{
+    math::{
+        vector3::Vector3, 
+        quaternion::Quaternion, 
+        triangle::Triangle, 
+        Euler
+    }, 
+    core::RGB, object::Mesh
+};
 
 pub type ModelRef = usize;
-pub type RGB = [u8; 3];
 
 pub trait Renderer {
     fn reset(
@@ -26,6 +35,12 @@ pub trait Renderer {
         color: RGB,
         doc: &gltf::Document,
         buffers: &Vec<Data>
+    ) -> Result<ModelRef, String>;
+
+    fn add_from_mesh(
+        &mut self,
+        color: RGB,
+        mesh: Rc<RefCell<Mesh>>
     ) -> Result<ModelRef, String>;
 
     fn add_from_triangles(
@@ -71,8 +86,13 @@ pub trait Renderer {
     fn set_rotation(
         &mut self,
         model_ref: ModelRef,
-        rot: &Vector3,
         q: &Quaternion
+    );
+
+    fn set_rotation_from_euler(
+        &mut self,
+        model_ref: ModelRef,
+        euler: &Euler
     );
 
     fn set_scale(
