@@ -249,17 +249,18 @@ impl Player {
         let mut sensor_vtx = vec![];
         let mut readings_vtx = vec![];
 
-        sensor_vtx.push(pos.clone());
-        readings_vtx.push(pos.clone());
-
         for r in readings {
 
             match r {
                 SensorReading::Hit(r) => {
+                    sensor_vtx.push(pos.clone());
                     sensor_vtx.push(r.pos);
                 }
                 SensorReading::Target(r) => {
+                    sensor_vtx.push(pos.clone());
                     sensor_vtx.push(r.pos);
+                    
+                    readings_vtx.push(pos.clone());
                     readings_vtx.push(pos.add(&r.dir.mul_scalar(r.sim * max_dist)));
                 }
             }

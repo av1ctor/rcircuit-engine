@@ -318,12 +318,13 @@ impl Game {
             ).unwrap();
 
             let (path_ref, sensor_ref, readings_ref) = if self.options.debug {
+                let mut renderer = self.renderer.borrow_mut();
                 (
-                    self.renderer.borrow_mut()
+                    renderer
                         .add_from_linestrips([0.0, 1.0, 1.0], vec![]).unwrap(),
-                    self.renderer.borrow_mut()
+                    renderer
                         .add_from_lines([63.0 / 255.0, 63.0 / 255.0, 63.0 / 255.0], vec![]).unwrap(),
-                    self.renderer.borrow_mut()
+                    renderer
                         .add_from_lines([1.0, 1.0, 1.0], vec![]).unwrap()
                 )
             }
