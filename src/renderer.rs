@@ -28,14 +28,12 @@ pub trait Renderer {
     #[cfg(not(feature = "js"))]
     fn add_from_bytes(
         &mut self,
-        color: RGB,
         bytes: &[u8]
     ) -> Result<ModelRef, String>;
 
     #[cfg(not(feature = "js"))]
     fn add_from_gltf(
         &mut self,
-        color: RGB,
         doc: &gltf::Document,
         buffers: &Vec<Data>
     ) -> Result<ModelRef, String>;

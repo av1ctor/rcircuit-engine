@@ -149,7 +149,7 @@ impl Env for Game {
         
         // map
         let level_ref = self.renderer.borrow_mut().add_from_gltf(
-            [192.0 / 255.0, 0.0, 0.0], &self.map.gltf_doc, &self.map.buffers
+            &self.map.gltf_doc, &self.map.buffers
         ).expect("Could not load GLTF");
         self.renderer.borrow_mut().show_model(level_ref);
         
