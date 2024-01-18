@@ -19,12 +19,12 @@ circular-buffer = "0.1.3"
 wasm-bindgen = { version = "0.2.84", optional = true }
 getrandom = { version = "0.2", features = ["custom"], optional = true }
 
-[target.'cfg(not(wasm32))'.dependencies.three-rs]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.three-rs]
 version = "0.1.0"
 path = "../three-rs"
 features = ["renderer", "gltf-loader"]
 
-[target.'cfg(wasm32)'.dependencies.three-rs]
+[target.'cfg(target_arch = "wasm32")'.dependencies.three-rs]
 version = "0.1.0"
 path = "../three-rs"
 features = []
