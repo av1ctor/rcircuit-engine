@@ -1,10 +1,15 @@
+#[cfg(not(feature = "js"))]
 use gltf::{Gltf, buffer::Data, Document, Node};
+#[cfg(not(feature = "js"))]
 use navmesh_rs::{navmesh::NavMesh, query::NavMeshQuery};
 use three_rs::math::{
     vector3::Vector3, 
-    quaternion::Quaternion, path3::Path3
+    quaternion::Quaternion, 
 };
+#[cfg(not(feature = "js"))]
+use three_rs::math::path3::Path3;
 
+#[cfg(not(feature = "js"))]
 const MAX_NAVMESH_PATH_LEN: usize = 64;
 
 #[derive(Clone)]
@@ -14,6 +19,7 @@ pub struct NodeTransform {
     pub scale: Vector3,
 }
 
+#[cfg(not(feature = "js"))]
 pub struct Map {
     pub gltf_doc: Document,
     pub buffers: Vec<Data>,
@@ -21,6 +27,7 @@ pub struct Map {
     pub query: NavMeshQuery,
 }
 
+#[cfg(not(feature = "js"))]
 impl Map {
     pub fn new(
         level_bytes: &[u8],
@@ -101,3 +108,18 @@ impl Map {
         }
     }
 }
+
+#[cfg(feature = "js")]
+pub struct Map {
+}
+
+#[cfg(feature = "js")]
+impl Map {
+    pub fn new(
+        _level_bytes: &[u8],
+        _navmesh_bytes: &[u8]
+    ) -> Self {
+        Self {}
+    }
+}
+ 

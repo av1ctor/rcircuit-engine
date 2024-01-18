@@ -1,23 +1,20 @@
 use wasm_bindgen::prelude::*;
 use crate::renderer::{Renderer, ModelRef};
-use three_rs::math::vector3::Vector3;
-use three_rs::math::quaternion::Quaternion;
+use three_rs::math::{
+    vector3::Vector3,
+    quaternion::Quaternion,
+    euler::Euler
+};
 
 #[wasm_bindgen]
 extern "C" {
     pub type JsRenderer;
 
     #[wasm_bindgen(method)]
-    fn load_model(
+    fn add_from_file(
         this: &JsRenderer,
         name: &str
     ) -> ModelRef;
-
-    #[wasm_bindgen(method)]
-    fn add_model(
-        this: &JsRenderer,
-        model_ref: ModelRef
-    );
 
     #[wasm_bindgen(method)]
     fn show_model(
@@ -42,8 +39,15 @@ extern "C" {
     fn set_rotation(
         this: &JsRenderer,
         model_ref: ModelRef,
-        rot: &[f32],
         q: &[f32]
+    );
+
+    #[wasm_bindgen(method)]
+    fn set_rotation_from_euler(
+        this: &JsRenderer,
+        model_ref: ModelRef,
+        vector: &[f32],
+        order: u32
     );
 
     #[wasm_bindgen(method)]
@@ -51,6 +55,16 @@ extern "C" {
         this: &JsRenderer,
         model_ref: ModelRef,
         pos: &[f32]
+    );
+
+    #[wasm_bindgen(method)]
+    fn render(
+        this: &JsRenderer
+    );
+
+    #[wasm_bindgen(method)]
+    fn reset(
+        this: &JsRenderer
     );
 }
 
@@ -69,18 +83,11 @@ impl RendererWrapper {
 }
 
 impl Renderer for RendererWrapper {
-    fn load_model(
+    fn add_from_file(
         &mut self,
         name: &str
-    ) -> ModelRef {
-        self.js_renderer.load_model(name)
-    }
-
-    fn add_model(
-        &mut self,
-        model_ref: ModelRef
-    ) {
-        self.js_renderer.add_model(model_ref)
+    ) -> Result<ModelRef, String> {
+        Ok(self.js_renderer.add_from_file(name))
     }
 
     fn show_model(
@@ -108,10 +115,17 @@ impl Renderer for RendererWrapper {
     fn set_rotation(
         &mut self,
         model_ref: ModelRef,
-        rot: &Vector3,
         q: &Quaternion
     ) {
-        self.js_renderer.set_rotation(model_ref, &rot.to_slice(), &q.to_slice())
+        self.js_renderer.set_rotation(model_ref, &q.to_slice())
+    }
+
+    fn set_rotation_from_euler(
+        &mut self,
+        model_ref: ModelRef,
+        euler: &Euler
+    ) {
+        self.js_renderer.set_rotation_from_euler(model_ref, &euler.v.to_slice(), euler.order as u32)
     }
 
     fn set_scale(
@@ -120,5 +134,17 @@ impl Renderer for RendererWrapper {
         scale: &Vector3
     ) {
         self.js_renderer.set_scale(model_ref, &scale.to_slice())
+    }
+
+    fn render(
+        &mut self
+    ) {
+        self.js_renderer.render()
+    }
+
+    fn reset(
+        &mut self
+    ) {
+        self.js_renderer.reset()
     }
 }

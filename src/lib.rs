@@ -8,6 +8,6 @@ pub mod map;
 pub mod game;
 pub mod sensor;
 #[cfg(feature = "js")]
-pub mod gamewrapper;
+pub mod game_wrapper;
 #[cfg(feature = "js")]
-pub mod rendererwrapper;
+pub mod renderer_wrapper;

@@ -1,8 +1,8 @@
 use wasm_bindgen::prelude::*;
 use crate::game::{Game, GameOptions, ObjectFOV};
 use crate::env::Env;
-use crate::rendererwrapper::RendererWrapper;
-use crate::rendererwrapper::JsRenderer;
+use crate::renderer_wrapper::RendererWrapper;
+use crate::renderer_wrapper::JsRenderer;
 
 #[wasm_bindgen]
 extern "C" {
@@ -44,23 +44,21 @@ pub struct GameOptionsWrapper {
 impl GameOptionsWrapper {
     #[wasm_bindgen(constructor)]
     pub fn new(
-        debug: bool,
         fov: ObjectFOVWrapper,
-        fps: f32,
         num_players: usize,
         min_keys: usize,
         player_radius: f32,
+        debug: bool,
         training: bool,
         max_steps: usize
     ) -> Self {
         Self {
             wrapped: GameOptions {
-                debug,
                 fov: fov.wrapped,
-                fps,
                 num_players,
                 min_keys,
                 player_radius,
+                debug,
                 training,
                 max_steps
             }

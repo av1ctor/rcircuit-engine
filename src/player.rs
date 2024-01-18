@@ -4,14 +4,20 @@ use rand::rngs::StdRng;
 use serde::{Serialize, Deserialize};
 use strum_macros::EnumCount;
 use three_rs::math::{
-    vector3::{Vector3, FORWARD}, 
+    vector3::Vector3, 
     box3::Box3
 };
+#[cfg(not(feature = "js"))]
+use three_rs::math::vector3::FORWARD;
 use crate::{
     env::EnvObs, 
     object::{Object, ObjectVisibility, ObjectState, ObjectType}, 
-    sensor::{Sensor, SensorReading, SensorReadingHit, SensorReadingTarget}, 
+    sensor::{Sensor, SensorReading}, 
     renderer::ModelRef, 
+};
+#[cfg(not(feature = "js"))]
+use crate::{
+    sensor::{SensorReadingHit, SensorReadingTarget}, 
     game::ObjectFOV, 
     map::Map
 };
@@ -192,6 +198,7 @@ impl Player {
         });
     }
 
+    #[cfg(not(feature = "js"))]
     pub fn get_sensor_readings(
         &self,
         target_pos: &Vector3,
@@ -240,6 +247,7 @@ impl Player {
         (has_hits, reading)
     }
 
+    #[cfg(not(feature = "js"))]
     pub fn gen_vis_sensor_readings(
         pos: &Vector3,
         readings: &Vec<SensorReading>,
