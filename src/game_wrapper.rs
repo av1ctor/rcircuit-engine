@@ -1,8 +1,6 @@
 use wasm_bindgen::prelude::*;
 use crate::game::{Game, GameOptions, ObjectFOV};
 use crate::env::Env;
-use crate::renderer_wrapper::RendererWrapper;
-use crate::renderer_wrapper::JsRenderer;
 
 #[wasm_bindgen]
 extern "C" {
@@ -70,22 +68,16 @@ impl GameOptionsWrapper {
 pub struct GameWrapper {
     #[wasm_bindgen(skip)]
     pub game: Game,
-    #[wasm_bindgen(skip)]
-    pub renderer: RendererWrapper,
 }
 
 #[wasm_bindgen]
 impl GameWrapper {
     #[wasm_bindgen(constructor)]
     pub fn new(
-        level_bytes: &[u8], 
-        navmesh_bytes: &[u8],
-        options: GameOptionsWrapper,
-        js_renderer: JsRenderer
+        options: GameOptionsWrapper
     ) -> Self {
         Self {
-            game: Game::new(level_bytes, navmesh_bytes, options.wrapped),
-            renderer: RendererWrapper::new(js_renderer),
+            game: Game::new(&[], &[], options.wrapped),
         }
     }
 
