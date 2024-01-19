@@ -1,9 +1,15 @@
 use wasm_bindgen::prelude::*;
+use std::{cell::RefCell, rc::Rc};
 use crate::renderer::{Renderer, ModelRef};
-use three_rs::math::{
-    vector3::Vector3,
-    quaternion::Quaternion,
-    euler::Euler
+use three_rs::{
+    math::{
+        Vector3,
+        Quaternion,
+        Euler,
+        Triangle
+    },
+    core::RGB,
+    object::Mesh
 };
 
 #[wasm_bindgen]
@@ -90,6 +96,45 @@ impl Renderer for RendererWrapper {
         Ok(self.js_renderer.add_from_file(name))
     }
 
+    fn add_from_bytes(
+        &mut self,
+        _bytes: &[u8]
+    ) -> Result<ModelRef, String> {
+        todo!()
+    }
+
+    fn add_from_mesh(
+        &mut self,
+        _color: RGB,
+        _mesh: Rc<RefCell<Mesh>>
+    ) -> Result<ModelRef, String> {
+        todo!()
+    }
+
+    fn add_from_triangles(
+        &mut self,
+        _color: RGB,
+        _triangles: Vec<Triangle>
+    ) -> Result<ModelRef, String> {
+        todo!()
+    }
+
+    fn add_from_linestrips(
+        &mut self,
+        _color: RGB,
+        _vertices: Vec<Vector3>
+    ) -> Result<ModelRef, String> {
+        todo!()
+    }
+
+    fn add_from_lines(
+        &mut self,
+        _color: RGB,
+        _vertices: Vec<Vector3>
+    ) -> Result<ModelRef, String> {
+        todo!()
+    }
+
     fn show_model(
         &mut self,
         model_ref: ModelRef
@@ -104,6 +149,14 @@ impl Renderer for RendererWrapper {
         self.js_renderer.hide_model(model_ref)
     }
 
+    fn set_vertices(
+        &mut self,
+        _model_ref: ModelRef,
+        _vertices: Vec<Vector3>
+    ) {
+        todo!()
+    }
+    
     fn set_position(
         &mut self,
         model_ref: ModelRef,

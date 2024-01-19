@@ -30,7 +30,6 @@ path = "../three-rs"
 features = []
 
 [features]
-default = ["navigation", "renderer"]
+default = ["navigation"]
 navigation = ["dep:gltf", "dep:navmesh-rs"]
-renderer = []
-js = ["renderer", "dep:wasm-bindgen", "dep:getrandom"]
+js = ["dep:wasm-bindgen", "dep:getrandom"]

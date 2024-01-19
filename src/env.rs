@@ -1,4 +1,3 @@
-use std::{rc::Rc, cell::RefCell};
 use rand::rngs::StdRng;
 use crate::renderer::Renderer;
 
@@ -28,7 +27,7 @@ pub trait Env {
     
     fn reset(
         &mut self, 
-        renderer: Rc<RefCell<dyn Renderer>>,
+        renderer: &mut dyn Renderer,
         rng: &mut StdRng
     ) -> Vec<EnvObs>;
     
@@ -36,7 +35,7 @@ pub trait Env {
         &mut self, 
         actions: &Vec<Option<EnvAction>>, 
         delta_time: f32,
-        renderer: Rc<RefCell<dyn Renderer>>
+        renderer: &mut dyn Renderer
     ) -> EnvStep;
     
     fn random_action(
@@ -55,6 +54,6 @@ pub trait Env {
 
     fn render(
         &mut self,
-        renderer: Rc<RefCell<dyn Renderer>>
+        renderer: &mut dyn Renderer
     );
 }

@@ -1,16 +1,15 @@
-#[cfg(not(target_arch = "wasm32"))]
 use std::{cell::RefCell, rc::Rc};
 #[cfg(not(target_arch = "wasm32"))]
 use gltf::buffer::Data;
-use three_rs::math::{
-    vector3::Vector3, 
-    quaternion::Quaternion, 
-    Euler
-};
-#[cfg(not(target_arch = "wasm32"))]
 use three_rs::{
-    math::triangle::Triangle, 
-    core::RGB, object::Mesh
+    math::{
+        Vector3, 
+        Quaternion, 
+        Euler,
+        Triangle
+    },
+    core::RGB, 
+    object::Mesh
 };
 
 pub type ModelRef = usize;
@@ -25,7 +24,6 @@ pub trait Renderer {
         name: &str
     ) -> Result<ModelRef, String>;
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn add_from_bytes(
         &mut self,
         bytes: &[u8]
@@ -38,28 +36,24 @@ pub trait Renderer {
         buffers: &Vec<Data>
     ) -> Result<ModelRef, String>;
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn add_from_mesh(
         &mut self,
         color: RGB,
         mesh: Rc<RefCell<Mesh>>
     ) -> Result<ModelRef, String>;
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn add_from_triangles(
         &mut self,
         color: RGB,
         triangles: Vec<Triangle>
     ) -> Result<ModelRef, String>;
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn add_from_linestrips(
         &mut self,
         color: RGB,
         vertices: Vec<Vector3>
     ) -> Result<ModelRef, String>;
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn add_from_lines(
         &mut self,
         color: RGB,
@@ -76,7 +70,6 @@ pub trait Renderer {
         model_ref: ModelRef
     );
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn set_vertices(
         &mut self,
         model_ref: ModelRef,

@@ -1,9 +1,10 @@
+#[cfg(not(feature = "js"))]
 use core::fmt;
-
 #[cfg(not(feature = "js"))]
 use gltf::{Gltf, buffer::Data, Document, Node};
 #[cfg(not(feature = "js"))]
 use navmesh_rs::{navmesh::NavMesh, query::NavMeshQuery};
+#[cfg(not(feature = "js"))]
 use serde::{Serializer, ser::SerializeTuple, de::Visitor};
 use three_rs::math::{
     vector3::Vector3, 
@@ -28,10 +29,21 @@ pub struct Map {
     pub buffers: Vec<Data>,
     pub nav_mesh: NavMesh,
     pub query: NavMeshQuery,
-    pub level_bytes: Vec<u8>, 
-    pub navmesh_bytes: Vec<u8>,
+    level_bytes: Vec<u8>, 
+    navmesh_bytes: Vec<u8>,
 }
 
+#[cfg(not(feature = "js"))]
+impl Clone for Map {
+    fn clone(&self) -> Self {
+        Map::new(
+            &self.level_bytes, 
+            &self.navmesh_bytes
+        )
+    }
+}
+
+#[cfg(not(feature = "js"))]
 pub fn serialize<S>(
     map: &Map, 
     ser: S
@@ -43,8 +55,10 @@ pub fn serialize<S>(
     tup.end()
 }
 
+#[cfg(not(feature = "js"))]
 struct MapVisitor;
 
+#[cfg(not(feature = "js"))]
 impl<'de> Visitor<'de> for MapVisitor {
     type Value = (&'de [u8], &'de [u8]);
 
@@ -56,6 +70,7 @@ impl<'de> Visitor<'de> for MapVisitor {
     }
 }
 
+#[cfg(not(feature = "js"))]
 pub fn deserialize<'de, D>(
     des: D
 ) -> Result<Map, D::Error>
@@ -65,7 +80,6 @@ pub fn deserialize<'de, D>(
         Map::new(tup.0, tup.1)
     )
 }
-
 
 #[cfg(not(feature = "js"))]
 impl Map {
@@ -164,4 +178,15 @@ impl Map {
         Self {}
     }
 }
+
+#[cfg(feature = "js")]
+impl Clone for Map {
+    fn clone(
+        &self
+    ) -> Self {
+        Self {
+        }
+    }
+}
+
  

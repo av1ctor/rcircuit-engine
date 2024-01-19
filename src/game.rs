@@ -1,5 +1,3 @@
-#[cfg(not(feature = "js"))]
-use std::{rc::Rc, cell::RefCell};
 use rand::rngs::StdRng;
 #[cfg(not(feature = "js"))]
 use rand::Rng;
@@ -12,7 +10,7 @@ use three_rs::math::{
     Euler, 
     EulerOrder, 
 };
-#[cfg(feature = "renderer")]
+#[cfg(not(feature = "js"))]
 use three_rs::{
     geometry::{Cone, Box3}, 
     object::Mesh
@@ -21,15 +19,17 @@ use crate::{
     player::{Player, PlayerAction, NUM_SENSOR_FEATURES}, 
     object::Object, 
     enemy::Enemy, 
-    map::{Map, self}, 
+    map::Map, 
     env::{Env, EnvAction, EnvObs, EnvStep, EnvPlayer}, 
+    renderer::Renderer, 
 };
 
 #[cfg(not(feature = "js"))]
 use crate::{
+    map, 
     object::{ObjectType, ObjectState, ObjectVisibility}, 
     spawn_locs::SpawnLocations, 
-    renderer::Renderer, sensor::Sensor
+    sensor::Sensor
 };
 
 #[cfg(not(feature = "js"))]
@@ -100,13 +100,13 @@ pub struct GameStep {
     pub entities: GameEntities,
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(not(feature = "js"), derive(Clone, Serialize, Deserialize))]
 pub struct Game {
     pub map_info: MapInfo,
     pub entities: GameEntities,
     pub options: GameOptions,
     pub state: GameState,
-    #[serde(with = "map")]
+    #[cfg_attr(not(feature = "js"), serde(with = "map"))]
     pub map: Map,
 }
 
@@ -142,23 +142,23 @@ impl Env for Game {
     #[cfg(not(feature = "js"))]
     fn reset(
         &mut self,
-        renderer: Rc<RefCell<dyn Renderer>>,
-        rng: &mut StdRng
+        renderer: &mut dyn Renderer,
+        rng: &mut StdRng,
     ) -> Vec<EnvObs> {
-        #[cfg(feature = "renderer")]
-        {
-            renderer.borrow_mut().reset();
-        
-            // map
-            let level_ref = renderer.borrow_mut().add_from_gltf(
-                &self.map.gltf_doc, &self.map.buffers
-            ).expect("Could not load GLTF");
+        renderer.reset();
+    
+        // map
+        #[cfg(not(target_arch = "wasm32"))]
+        let level_ref = renderer.add_from_gltf(
+            &self.map.gltf_doc, &self.map.buffers
+        ).expect("Could not load GLTF");
+        #[cfg(target_arch = "wasm32")]
+        let level_ref = 0;
 
-            renderer.borrow_mut().show_model(level_ref);
-        }
+        renderer.show_model(level_ref);
         
         // entities
-        self.entities = self.spawn_entities(&renderer, rng);
+        self.entities = self.spawn_entities(renderer, rng);
 
         self.map_info = MapInfo { 
             num_keys: self.options.num_players * self.options.min_keys
@@ -170,7 +170,7 @@ impl Env for Game {
             step: 0
         };
 
-        self.build_players_sensors(&renderer);
+        self.build_players_sensors(renderer);
 
         self.entities.players
             .iter()
@@ -183,6 +183,7 @@ impl Env for Game {
     #[cfg(feature = "js")]
     fn reset(
         &mut self,
+        _renderer: &mut dyn Renderer,
         _rng: &mut StdRng
     ) -> Vec<EnvObs> {
         vec![]
@@ -193,7 +194,7 @@ impl Env for Game {
         &mut self, 
         actions: &Vec<Option<crate::env::EnvAction>>, 
         delta_time: f32,
-        renderer: Rc<RefCell<dyn Renderer>>
+        renderer: &mut dyn Renderer
     ) -> EnvStep {
         if self.state.status != GameStatus::RUNNING {
             return EnvStep {
@@ -232,13 +233,13 @@ impl Env for Game {
                 };
 
                 if dir.length_sq() != 0.0 {
-                    self.move_player(i, &dir, delta_time, &renderer);
+                    self.move_player(i, &dir, delta_time, renderer);
                 }
             }
 
-            self.update_world(delta_time, &renderer);
+            self.update_world(delta_time, renderer);
             
-            self.build_players_sensors(&renderer);
+            self.build_players_sensors(renderer);
         }
         else {
             self.state.status = GameStatus::TIMEDOUT;
@@ -265,7 +266,7 @@ impl Env for Game {
         &mut self, 
         _actions: &Vec<Option<crate::env::EnvAction>>, 
         _delta_time: f32,
-        _renderer: Rc<RefCell<dyn Renderer>>
+        _renderer: &mut dyn Renderer
     ) -> EnvStep {
         EnvStep {
             terminated: self.state.status != GameStatus::RUNNING,
@@ -301,10 +302,9 @@ impl Env for Game {
 
     fn render(
         &mut self,
-        renderer: Rc<RefCell<dyn Renderer>>
+        renderer: &mut dyn Renderer
     ) {
-        #[cfg(feature = "renderer")]
-        renderer.borrow_mut().render();
+        renderer.render();
     }
 }
 
@@ -332,7 +332,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn spawn_entities(
         &mut self,
-        renderer: &Rc<RefCell<dyn Renderer>>,
+        renderer: &mut dyn Renderer,
         rng: &mut StdRng
     ) -> GameEntities {
         // players
@@ -366,7 +366,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn spawn_players(
         &mut self,
-        renderer: &Rc<RefCell<dyn Renderer>>,
+        renderer: &mut dyn Renderer,
         rng: &mut StdRng
     ) -> Vec<Player> {
         let mut spawn_locs = SpawnLocations::new(
@@ -382,19 +382,14 @@ impl Game {
         let mut players = vec![];
 
         for i in 0..self.options.num_players {
-            #[cfg(feature = "renderer")]
-            let model_ref = renderer.borrow_mut().add_from_mesh(
+            let model_ref = renderer.add_from_mesh(
                 [0.0, 1.0, 0.0],
                 Mesh::new(
                     &Cone::new(0.6, 1.8)
                 )
             ).unwrap();
-            #[cfg(not(feature = "renderer"))]
-            let model_ref = 0;
 
-            #[cfg(feature = "renderer")]
             let (path_ref, sensor_ref, readings_ref) = if self.options.debug {
-                let mut renderer = renderer.borrow_mut();
                 (
                     renderer
                         .add_from_linestrips([0.0, 1.0, 1.0], vec![]).unwrap(),
@@ -407,16 +402,13 @@ impl Game {
             else {
                 (0, 0, 0)
             };
-            #[cfg(not(feature = "renderer"))]
-            let (path_ref, sensor_ref, readings_ref) = (0, 0, 0);
 
-            #[cfg(feature = "renderer")]
             {
-                renderer.borrow_mut().show_model(model_ref);
+                renderer.show_model(model_ref);
                 if self.options.debug {
-                    renderer.borrow_mut().show_model(path_ref);
-                    renderer.borrow_mut().show_model(sensor_ref);
-                    renderer.borrow_mut().show_model(readings_ref);
+                    renderer.show_model(path_ref);
+                    renderer.show_model(sensor_ref);
+                    renderer.show_model(readings_ref);
                 }
             }
                 
@@ -443,7 +435,7 @@ impl Game {
         typ: ObjectType,
         name: &str,
         active: &dyn Fn(usize) -> bool,
-        renderer: &Rc<RefCell<dyn Renderer>>,
+        renderer: &mut dyn Renderer,
         rng: &mut StdRng
     ) -> Vec<Object> {
         let mut spawn_locs = SpawnLocations::new(
@@ -468,15 +460,12 @@ impl Game {
         let rad = if typ == ObjectType::KEY {1.0} else {2.0};
 
         for i in 0..num_objs {
-            #[cfg(feature = "renderer")]
-            let model_ref = renderer.borrow_mut().add_from_mesh(
+            let model_ref = renderer.add_from_mesh(
                 if typ == ObjectType::KEY {[0.0, 0.0, 1.0]} else {[0.0, 1.0, 1.0]},
                 Mesh::new(
                     &Box3::new(rad, rad, rad)
                 )
             ).unwrap();
-            #[cfg(not(feature = "renderer"))]
-            let model_ref = 0;
                 
             let loc = &spawn_locs.next(i, rng);
             let is_active = active(i);
@@ -491,15 +480,12 @@ impl Game {
                 rng
             );
 
-            #[cfg(feature = "renderer")]
-            {
-                renderer.borrow_mut().set_position(obj.model_ref, &obj.pos);
-                if is_active {
-                    renderer.borrow_mut().show_model(obj.model_ref);
-                }
-                else {
-                    renderer.borrow_mut().hide_model(obj.model_ref);
-                }
+            renderer.set_position(obj.model_ref, &obj.pos);
+            if is_active {
+                renderer.show_model(obj.model_ref);
+            }
+            else {
+                renderer.hide_model(obj.model_ref);
             }
 
             objects.push(obj);
@@ -511,7 +497,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn spawn_exit(
         &mut self,
-        renderer: &Rc<RefCell<dyn Renderer>>
+        renderer: &mut dyn Renderer
     ) {
         let exit = self.entities.objects.iter_mut().find(
             |o| o.typ == ObjectType::EXIT && 
@@ -520,18 +506,15 @@ impl Game {
         );
         if let Some(obj) = exit {
             obj.vis = ObjectVisibility::VISIBLE;
-            #[cfg(feature = "renderer")]
-            {
-                renderer.borrow_mut().set_position(obj.model_ref, &obj.pos);
-                renderer.borrow_mut().show_model(obj.model_ref);
-            }
+            renderer.set_position(obj.model_ref, &obj.pos);
+            renderer.show_model(obj.model_ref);
         }
     }
 
     #[cfg(not(feature = "js"))]
     fn spawn_key(
         &mut self,
-        renderer: &Rc<RefCell<dyn Renderer>>
+        renderer: &mut dyn Renderer
     ) {
         let key = self.entities.objects.iter_mut().find(
             |o| o.typ == ObjectType::KEY && 
@@ -540,11 +523,8 @@ impl Game {
         );
         if let Some(obj) = key {
             obj.vis = ObjectVisibility::VISIBLE;
-            #[cfg(feature = "renderer")]
-            {
-                renderer.borrow_mut().set_position(obj.model_ref, &obj.pos);
-                renderer.borrow_mut().show_model(obj.model_ref);
-            }
+            renderer.set_position(obj.model_ref, &obj.pos);
+            renderer.show_model(obj.model_ref);
         }
     }
 
@@ -576,7 +556,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn build_players_sensors(
         &mut self,
-        renderer: &Rc<RefCell<dyn Renderer>>
+        renderer: &mut dyn Renderer
     ) {
         let mut readings = vec![(false, vec![]); self.entities.players.len()];
         let mut paths = vec![];
@@ -622,27 +602,24 @@ impl Game {
                 readings: readings[i].1.to_owned(),
             };
             if self.options.debug {
-                #[cfg(feature = "renderer")]
-                {
-                    renderer.borrow_mut().set_vertices(
-                        player.path_ref, 
-                        paths[i].nodes.clone()
-                    );
-                    let (sensor_vtx, readings_vtx) = Player::gen_vis_sensor_readings(
-                        &player.base.pos, 
-                        &readings[i].1,
-                        self.options.fov.max_dist
-                    );
-                    
-                    renderer.borrow_mut().set_vertices(
-                        player.sensor_ref, 
-                        sensor_vtx  
-                    );
-                    renderer.borrow_mut().set_vertices(
-                        player.readings_ref, 
-                        readings_vtx
-                    );
-                }
+                renderer.set_vertices(
+                    player.path_ref, 
+                    paths[i].nodes.clone()
+                );
+                let (sensor_vtx, readings_vtx) = Player::gen_vis_sensor_readings(
+                    &player.base.pos, 
+                    &readings[i].1,
+                    self.options.fov.max_dist
+                );
+                
+                renderer.set_vertices(
+                    player.sensor_ref, 
+                    sensor_vtx  
+                );
+                renderer.set_vertices(
+                    player.readings_ref, 
+                    readings_vtx
+                );
             }
         }
     }
@@ -653,11 +630,13 @@ impl Game {
         num: usize,
         dir: &Vector3,
         delta_time: f32,
-        renderer: &Rc<RefCell<dyn Renderer>>
+        renderer: &mut dyn Renderer
     ) {
         let player = &mut self.entities.players[num];
         
-        let new_pos = player.base.pos.add(&dir.mul_scalar(delta_time).mul(&player.vel));
+        let new_pos = player.base.pos.add(
+            &dir.mul_scalar(delta_time).mul(&player.vel)
+        );
         
         if let Some(confined_pos) = 
             self.map.move_along_surface(&player.base.pos, &new_pos) {
@@ -672,17 +651,14 @@ impl Game {
                 player.base.dir = dir.clone();
             }
             
-            #[cfg(feature = "renderer")]
-            {
-                renderer.borrow_mut().set_position(
-                    player.base.model_ref, 
-                    &player.base.pos
-                );
-                renderer.borrow_mut().set_rotation_from_euler(
-                    player.base.model_ref, 
-                    &Euler::from_vector(player.mean_dir(), EulerOrder::XYZ)
-                );
-            }
+            renderer.set_position(
+                player.base.model_ref, 
+                &player.base.pos
+            );
+            renderer.set_rotation_from_euler(
+                player.base.model_ref, 
+                &Euler::from_vector(player.mean_dir(), EulerOrder::XYZ)
+            );
         }
     }
 
@@ -690,7 +666,7 @@ impl Game {
     fn check_keys(
         &mut self,
         num: usize,
-        renderer: &Rc<RefCell<dyn Renderer>>
+        renderer: &mut dyn Renderer
     ) -> bool {
         let mut collected = false;
         let mut player = self.entities.players[num].clone();
@@ -709,8 +685,7 @@ impl Game {
                 obj.state = ObjectState::DEAD;
                 obj.vis = ObjectVisibility::HIDDEN;
                 collected = true;
-                #[cfg(feature = "renderer")]
-                renderer.borrow_mut().hide_model(obj.model_ref);
+                renderer.hide_model(obj.model_ref);
             }
         }
 
@@ -766,7 +741,7 @@ impl Game {
     fn update_world(
         &mut self,
         _delta_time: f32,
-        renderer: &Rc<RefCell<dyn Renderer>>
+        renderer: &mut dyn Renderer
     ) {
         let mut all_keys_collected = false;
 
