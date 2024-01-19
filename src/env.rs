@@ -1,4 +1,6 @@
+use std::{rc::Rc, cell::RefCell};
 use rand::rngs::StdRng;
+use crate::renderer::Renderer;
 
 pub type EnvObs = Vec<f32>;
 pub type EnvAction = usize;
@@ -26,13 +28,15 @@ pub trait Env {
     
     fn reset(
         &mut self, 
+        renderer: Rc<RefCell<dyn Renderer>>,
         rng: &mut StdRng
     ) -> Vec<EnvObs>;
     
     fn step(
         &mut self, 
         actions: &Vec<Option<EnvAction>>, 
-        delta_time: f32
+        delta_time: f32,
+        renderer: Rc<RefCell<dyn Renderer>>
     ) -> EnvStep;
     
     fn random_action(
@@ -50,6 +54,7 @@ pub trait Env {
     ) -> Result<(), String>;
 
     fn render(
-        &mut self
+        &mut self,
+        renderer: Rc<RefCell<dyn Renderer>>
     );
 }

@@ -2,7 +2,7 @@
     "name": "bot-engine-gltf",
     "private": true,
     "scripts": {
-      "build": "wasm-pack build --target web --release --features js --no-default-features"
+      "build": "wasm-pack build --target web --release --features 'js renderer' --no-default-features"
     },
     "module": "pkg/bot-engine-gltf.js",
     "types": "pkg/bot-engine-gltf.d.ts"

@@ -1,7 +1,10 @@
+use core::fmt;
+
 #[cfg(not(feature = "js"))]
 use gltf::{Gltf, buffer::Data, Document, Node};
 #[cfg(not(feature = "js"))]
 use navmesh_rs::{navmesh::NavMesh, query::NavMeshQuery};
+use serde::{Serializer, ser::SerializeTuple, de::Visitor};
 use three_rs::math::{
     vector3::Vector3, 
     quaternion::Quaternion, 
@@ -25,7 +28,44 @@ pub struct Map {
     pub buffers: Vec<Data>,
     pub nav_mesh: NavMesh,
     pub query: NavMeshQuery,
+    pub level_bytes: Vec<u8>, 
+    pub navmesh_bytes: Vec<u8>,
 }
+
+pub fn serialize<S>(
+    map: &Map, 
+    ser: S
+) -> Result<S::Ok, S::Error> 
+    where S: Serializer {
+    let mut tup = ser.serialize_tuple(2)?;
+    serde::ser::SerializeTuple::serialize_element(&mut tup, &map.level_bytes)?;
+    serde::ser::SerializeTuple::serialize_element(&mut tup, &map.navmesh_bytes)?;
+    tup.end()
+}
+
+struct MapVisitor;
+
+impl<'de> Visitor<'de> for MapVisitor {
+    type Value = (&'de [u8], &'de [u8]);
+
+    fn expecting(
+        &self, 
+        formatter: &mut fmt::Formatter
+    ) -> fmt::Result {
+        write!(formatter, "not a two byte arrays tuple")
+    }
+}
+
+pub fn deserialize<'de, D>(
+    des: D
+) -> Result<Map, D::Error>
+    where D: serde::Deserializer<'de> {
+    let tup = des.deserialize_tuple(2, MapVisitor)?;
+    Ok(
+        Map::new(tup.0, tup.1)
+    )
+}
+
 
 #[cfg(not(feature = "js"))]
 impl Map {
@@ -41,7 +81,9 @@ impl Map {
             gltf_doc: gltf.document,
             buffers,
             nav_mesh,
-            query
+            query,
+            level_bytes: level_bytes.to_vec(),
+            navmesh_bytes: navmesh_bytes.to_vec(),
         }
     }
 
