@@ -26,7 +26,6 @@ use crate::{
 
 #[cfg(not(feature = "js"))]
 use crate::{
-    map, 
     object::{ObjectType, ObjectState, ObjectVisibility}, 
     spawn_locs::SpawnLocations, 
     sensor::Sensor
@@ -106,7 +105,6 @@ pub struct Game {
     pub entities: GameEntities,
     pub options: GameOptions,
     pub state: GameState,
-    #[cfg_attr(not(feature = "js"), serde(with = "map"))]
     pub map: Map,
 }
 

@@ -1,11 +1,9 @@
 #[cfg(not(feature = "js"))]
-use core::fmt;
-#[cfg(not(feature = "js"))]
 use gltf::{Gltf, Node};
 #[cfg(not(feature = "js"))]
 use navmesh_rs::{navmesh::NavMesh, query::NavMeshQuery};
 #[cfg(not(feature = "js"))]
-use serde::{Serializer, ser::SerializeTuple, de::Visitor};
+use serde::{Serialize, Deserialize};
 use three_rs::math::{
     vector3::Vector3, 
     quaternion::Quaternion, 
@@ -30,9 +28,13 @@ pub struct MapGltf {
 }
 
 #[cfg(not(feature = "js"))]
+#[derive(Serialize, Deserialize)]
 pub struct Map {
+    #[serde(skip)]
     gltf: Option<MapGltf>,
+    #[serde(skip)]
     nav_mesh: Option<NavMesh>,
+    #[serde(skip)]
     nav_query: Option<NavMeshQuery>,
     level_bytes: Vec<u8>, 
     navmesh_bytes: Vec<u8>,
@@ -46,44 +48,6 @@ impl Clone for Map {
             &self.navmesh_bytes
         )
     }
-}
-
-#[cfg(not(feature = "js"))]
-pub fn serialize<S>(
-    map: &Map, 
-    ser: S
-) -> Result<S::Ok, S::Error> 
-    where S: Serializer {
-    let mut tup = ser.serialize_tuple(2)?;
-    serde::ser::SerializeTuple::serialize_element(&mut tup, &map.level_bytes)?;
-    serde::ser::SerializeTuple::serialize_element(&mut tup, &map.navmesh_bytes)?;
-    tup.end()
-}
-
-#[cfg(not(feature = "js"))]
-struct MapVisitor;
-
-#[cfg(not(feature = "js"))]
-impl<'de> Visitor<'de> for MapVisitor {
-    type Value = (&'de [u8], &'de [u8]);
-
-    fn expecting(
-        &self, 
-        formatter: &mut fmt::Formatter
-    ) -> fmt::Result {
-        write!(formatter, "not a two byte arrays tuple")
-    }
-}
-
-#[cfg(not(feature = "js"))]
-pub fn deserialize<'de, D>(
-    des: D
-) -> Result<Map, D::Error>
-    where D: serde::Deserializer<'de> {
-    let tup = des.deserialize_tuple(2, MapVisitor)?;
-    Ok(
-        Map::new(tup.0, tup.1)
-    )
 }
 
 #[cfg(not(feature = "js"))]
@@ -106,7 +70,8 @@ impl Map {
     ) -> &Option<MapGltf> {
         if self.gltf.is_none() {
             let gltf = Gltf::from_slice(&self.level_bytes).unwrap();
-            let buffers = gltf::import_buffers(&gltf.document, None, gltf.blob).unwrap();
+            let buffers = gltf::import_buffers(
+                &gltf.document, None, gltf.blob).unwrap();
             self.gltf = Some(MapGltf{
                 doc: gltf.document,
                 buffers,
@@ -145,7 +110,8 @@ impl Map {
         &mut self,
         node_name: &str
     ) -> Vec<Node> {
-        let scene = self.get_gltf().as_ref().unwrap().doc.default_scene().unwrap();
+        let scene = self.get_gltf().as_ref().unwrap()
+            .doc.default_scene().unwrap();
         
         scene.nodes()
             .filter(|n| {
@@ -180,7 +146,9 @@ impl Map {
         from: &Vector3,
         to: &Vector3
     ) -> Path3 {
-        Path3::new(self.get_nav_query().as_ref().unwrap().find_path(from, to))
+        Path3::new(self.get_nav_query().as_ref().unwrap()
+            .find_path(from, to)
+        )
     }
 
     pub fn move_along_surface(
@@ -188,7 +156,8 @@ impl Map {
         from: &Vector3,
         to: &Vector3
     ) -> Option<Vector3> {
-        self.get_nav_query().as_ref().unwrap().move_along_surface(&from, &to)
+        self.get_nav_query().as_ref().unwrap()
+            .move_along_surface(&from, &to)
     }
 
     pub fn calc_distance_to_closest_wall(
@@ -196,7 +165,8 @@ impl Map {
         from: &Vector3,
         to: &Vector3
     ) -> Option<f32> {
-        if let Some(hit) = self.get_nav_query().as_ref().unwrap().raycast(from, to) {
+        if let Some(hit) = self.get_nav_query().as_ref()
+            .unwrap().raycast(from, to) {
             Some(hit.0)
         }
         else {
