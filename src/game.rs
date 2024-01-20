@@ -149,8 +149,10 @@ impl Env for Game {
     
         // map
         #[cfg(not(target_arch = "wasm32"))]
+        let gltf = self.map.get_gltf().as_ref().unwrap();
+        #[cfg(not(target_arch = "wasm32"))]
         let level_ref = renderer.add_from_gltf(
-            &self.map.gltf_doc, &self.map.buffers
+            &gltf.doc, &gltf.buffers
         ).expect("Could not load GLTF");
         #[cfg(target_arch = "wasm32")]
         let level_ref = 0;
@@ -592,7 +594,7 @@ impl Game {
             }
 
             readings[i] = player.get_sensor_readings(
-                &target_pos, &self.options.fov, &self.map);
+                &target_pos, &self.options.fov, &mut self.map);
         }
 
         for i in 0..self.entities.players.len() {

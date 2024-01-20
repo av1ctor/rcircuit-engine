@@ -203,7 +203,7 @@ impl Player {
         &self,
         target_pos: &Vector3,
         fov: &ObjectFOV,
-        map: &Map
+        map: &mut Map
     ) -> (bool, Vec<SensorReading>) {
         let target_dir = FORWARD.rotate_y(target_pos.sub(&self.base.pos).angle_xz());
 

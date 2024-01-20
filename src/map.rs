@@ -1,7 +1,7 @@
 #[cfg(not(feature = "js"))]
 use core::fmt;
 #[cfg(not(feature = "js"))]
-use gltf::{Gltf, buffer::Data, Document, Node};
+use gltf::{Gltf, Node};
 #[cfg(not(feature = "js"))]
 use navmesh_rs::{navmesh::NavMesh, query::NavMeshQuery};
 #[cfg(not(feature = "js"))]
@@ -24,11 +24,16 @@ pub struct NodeTransform {
 }
 
 #[cfg(not(feature = "js"))]
+pub struct MapGltf {
+    pub doc: gltf::Document,
+    pub buffers: Vec<gltf::buffer::Data>,
+}
+
+#[cfg(not(feature = "js"))]
 pub struct Map {
-    pub gltf_doc: Document,
-    pub buffers: Vec<Data>,
-    pub nav_mesh: NavMesh,
-    pub query: NavMeshQuery,
+    gltf: Option<MapGltf>,
+    nav_mesh: Option<NavMesh>,
+    nav_query: Option<NavMeshQuery>,
     level_bytes: Vec<u8>, 
     navmesh_bytes: Vec<u8>,
 }
@@ -87,25 +92,60 @@ impl Map {
         level_bytes: &[u8],
         navmesh_bytes: &[u8]
     ) -> Self {
-        let gltf = Gltf::from_slice(&level_bytes).unwrap();
-        let buffers = gltf::import_buffers(&gltf.document, None, gltf.blob).unwrap();
-        let nav_mesh = NavMesh::from_bytes(navmesh_bytes);
-        let query = NavMeshQuery::new(&nav_mesh, MAX_NAVMESH_PATH_LEN);
         Self {
-            gltf_doc: gltf.document,
-            buffers,
-            nav_mesh,
-            query,
+            gltf: None,
+            nav_mesh: None,
+            nav_query: None,
             level_bytes: level_bytes.to_vec(),
             navmesh_bytes: navmesh_bytes.to_vec(),
         }
     }
 
+    pub fn get_gltf(
+        &mut self
+    ) -> &Option<MapGltf> {
+        if self.gltf.is_none() {
+            let gltf = Gltf::from_slice(&self.level_bytes).unwrap();
+            let buffers = gltf::import_buffers(&gltf.document, None, gltf.blob).unwrap();
+            self.gltf = Some(MapGltf{
+                doc: gltf.document,
+                buffers,
+            });
+        }
+
+        &self.gltf
+    }
+
+    pub fn get_nav_mesh(
+        &mut self
+    ) -> &Option<NavMesh> {
+        if self.nav_mesh.is_none() {
+            self.nav_mesh = Some(
+                NavMesh::from_bytes(&self.navmesh_bytes)
+            );
+        }
+
+        &self.nav_mesh
+    }
+
+    pub fn get_nav_query(
+        &mut self
+    ) -> &Option<NavMeshQuery> {
+        if self.nav_query.is_none() {
+            let nav_mesh = self.get_nav_mesh().as_ref().unwrap();
+            self.nav_query = Some(
+                NavMeshQuery::new(nav_mesh, MAX_NAVMESH_PATH_LEN)
+            );
+        }
+
+        &self.nav_query
+    }
+
     pub fn find_nodes_by_partial_name(
-        &self,
+        &mut self,
         node_name: &str
     ) -> Vec<Node> {
-        let scene = self.gltf_doc.default_scene().unwrap();
+        let scene = self.get_gltf().as_ref().unwrap().doc.default_scene().unwrap();
         
         scene.nodes()
             .filter(|n| {
@@ -136,27 +176,27 @@ impl Map {
     }
 
     pub fn find_path_to_target(
-        &self, 
+        &mut self, 
         from: &Vector3,
         to: &Vector3
     ) -> Path3 {
-        Path3::new(self.query.find_path(from, to))
+        Path3::new(self.get_nav_query().as_ref().unwrap().find_path(from, to))
     }
 
     pub fn move_along_surface(
-        &self,
+        &mut self,
         from: &Vector3,
         to: &Vector3
     ) -> Option<Vector3> {
-        self.query.move_along_surface(&from, &to)
+        self.get_nav_query().as_ref().unwrap().move_along_surface(&from, &to)
     }
 
     pub fn calc_distance_to_closest_wall(
-        &self,
+        &mut self,
         from: &Vector3,
         to: &Vector3
     ) -> Option<f32> {
-        if let Some(hit) = self.query.raycast(from, to) {
+        if let Some(hit) = self.get_nav_query().as_ref().unwrap().raycast(from, to) {
             Some(hit.0)
         }
         else {
