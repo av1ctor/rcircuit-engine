@@ -1,9 +1,9 @@
 {
-    "name": "bot-engine-gltf",
+    "name": "brains-engine",
     "private": true,
     "scripts": {
       "build": "wasm-pack build --target web --release --features js --no-default-features"
     },
-    "module": "pkg/bot-engine-gltf.js",
-    "types": "pkg/bot-engine-gltf.d.ts"
+    "module": "pkg/brains-engine.js",
+    "types": "pkg/brains-engine.d.ts"
 }
