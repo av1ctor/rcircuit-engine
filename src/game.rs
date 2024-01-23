@@ -79,7 +79,13 @@ pub struct MapInfo {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct LevelOptions {
+    pub name: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct GameOptions {
+    pub level: LevelOptions,
     pub fov: ObjectFOV,
     pub num_players: usize,
     pub min_keys: usize,
@@ -184,7 +190,7 @@ impl Env for Game {
 
         // map
         let level_ref = renderer.add_model(
-            "level-0".to_string()
+            self.options.level.name.clone()
         ).expect("Could not load level-0");
 
         renderer.show_model(level_ref);
@@ -553,7 +559,7 @@ impl Game {
         let rad = if typ == ObjectType::KEY {1.0} else {2.0};
 
         for i in 0..num_objs {
-            let id = if typ == ObjectType::KEY {format!("key-{}", i)} else {format!("obj-{}", i)};
+            let id = if typ == ObjectType::KEY {format!("key-{}", i)} else {format!("exit-{}", i)};
             let model_ref = renderer.add_model(
                 id.clone()
             ).unwrap();
