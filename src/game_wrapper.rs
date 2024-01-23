@@ -1,5 +1,5 @@
 use wasm_bindgen::prelude::*;
-use crate::game::{Game, GameOptions, ObjectFOV};
+use crate::game::{Game, GameOptions, LevelOptions, ObjectFOV};
 use crate::env::Env;
 use crate::js_renderer::JsRenderer;
 
@@ -53,6 +53,9 @@ impl GameOptionsWrapper {
     ) -> Self {
         Self {
             wrapped: GameOptions {
+                level: LevelOptions {
+                    name: "".to_string(),
+                },
                 fov: fov.wrapped,
                 num_players,
                 min_keys,
