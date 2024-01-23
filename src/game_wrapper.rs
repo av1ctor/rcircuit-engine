@@ -102,10 +102,10 @@ impl GameWrapper {
     }
 
     #[wasm_bindgen]
-    pub fn render(
+    pub async fn render(
         &mut self,
         renderer: JsRenderer
     ) {
-        self.game.render(renderer)
+        self.game.render(renderer).await
     }
 }

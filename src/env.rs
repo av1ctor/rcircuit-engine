@@ -63,7 +63,8 @@ pub trait Env {
     );
 
     #[cfg(feature = "js")]
-    fn render(
+    #[allow(async_fn_in_trait)]
+    async fn render(
         &mut self,
         renderer: JsRenderer
     );

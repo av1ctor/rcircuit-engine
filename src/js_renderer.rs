@@ -6,11 +6,11 @@ extern "C" {
     pub type JsRenderer;
 
     #[wasm_bindgen(method)]
-    pub fn add_model(
+    pub async fn add_model(
         this: &JsRenderer,
         id: &str,
         model_ref: Option<ModelRef>
-    ) -> ModelRef;
+    ) -> JsValue;
 
     #[wasm_bindgen(method)]
     pub fn show_model(

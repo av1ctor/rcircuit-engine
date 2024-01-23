@@ -16,6 +16,7 @@ strum = "0.25"
 strum_macros = "0.25"
 circular-buffer = "0.1.3"
 wasm-bindgen = { version = "0.2.84", optional = true }
+wasm-bindgen-futures = {version = "0.4.40", optional = true}
 getrandom = { version = "0.2", features = ["custom"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.three-rs]
@@ -31,4 +32,4 @@ features = []
 [features]
 default = ["navigation"]
 navigation = ["dep:gltf", "dep:navmesh-rs"]
-js = ["dep:wasm-bindgen", "dep:getrandom"]
+js = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:getrandom"]

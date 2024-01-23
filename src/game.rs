@@ -341,14 +341,14 @@ impl Env for Game {
     }
 
     #[cfg(feature = "js")]
-    fn render(
+    async fn render(
         &mut self,
         renderer: JsRenderer,
     ) {
         for event in &self.events {
             match event {
                 GameEvent::ObjectCreated(e) => {
-                    renderer.add_model(&e.id, Some(e.model_ref));
+                    renderer.add_model(&e.id, Some(e.model_ref)).await;
                 },
                 
                 GameEvent::ObjectSpawned(e) => {
