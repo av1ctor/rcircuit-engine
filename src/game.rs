@@ -471,6 +471,7 @@ impl Game {
                 id,
             }));
 
+            #[cfg(not(target_arch = "wasm32"))]
             let (path_ref, sensor_ref, readings_ref) = if self.options.debug {
                 (
                     renderer
@@ -479,11 +480,13 @@ impl Game {
                         .add_from_lines([63.0 / 255.0, 63.0 / 255.0, 63.0 / 255.0], vec![]).unwrap(),
                     renderer
                         .add_from_lines([1.0, 1.0, 1.0], vec![]).unwrap()
-                )
+                )                
             }
             else {
                 (0, 0, 0)
             };
+            #[cfg(target_arch = "wasm32")]
+            let (path_ref, sensor_ref, readings_ref) = (0, 0, 0);
 
             let loc = &spawn_locs.next(i, rng);
             let player = Player::new(
@@ -515,6 +518,7 @@ impl Game {
                     model_ref
                 }));
                 
+                #[cfg(not(target_arch = "wasm32"))]
                 if self.options.debug {
                     renderer.show_model(path_ref);
                     renderer.show_model(sensor_ref);
@@ -692,6 +696,7 @@ impl Game {
     }
 
     #[cfg(not(feature = "js"))]
+    #[cfg_attr(target_arch = "wasm32", allow(unused_variables))]
     fn build_players_sensors(
         &mut self,
         renderer: &mut dyn Renderer
@@ -739,6 +744,8 @@ impl Game {
                 has_hits: readings[i].0,
                 readings: readings[i].1.to_owned(),
             };
+            
+            #[cfg(not(target_arch = "wasm32"))]
             if self.options.debug {
                 renderer.set_vertices(
                     player.path_ref, 
