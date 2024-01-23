@@ -1,5 +1,9 @@
+#[cfg(not(feature = "js"))]
 use rand::rngs::StdRng;
+#[cfg(not(feature = "js"))]
 use crate::renderer::Renderer;
+#[cfg(feature = "js")]
+use crate::js_renderer::JsRenderer;
 
 pub type EnvObs = Vec<f32>;
 pub type EnvAction = usize;
@@ -25,12 +29,20 @@ pub trait Env {
         &self
     ) -> usize;
     
+    #[cfg(not(feature = "js"))]
     fn reset(
         &mut self, 
         renderer: &mut dyn Renderer,
         rng: &mut StdRng
     ) -> Vec<EnvObs>;
-    
+
+    #[cfg(feature = "js")]
+    fn reset(
+        &mut self, 
+        renderer: JsRenderer
+    ) -> Vec<EnvObs>;
+
+    #[cfg(not(feature = "js"))]
     fn step(
         &mut self, 
         actions: &Vec<Option<EnvAction>>, 
@@ -38,11 +50,24 @@ pub trait Env {
         renderer: &mut dyn Renderer
     ) -> EnvStep;
     
+    #[cfg(not(feature = "js"))]
     fn random_action(
         &mut self, 
         rng: &mut StdRng
     ) -> EnvAction;
     
+    #[cfg(not(feature = "js"))]
+    fn render(
+        &mut self,
+        renderer: &mut dyn Renderer
+    );
+
+    #[cfg(feature = "js")]
+    fn render(
+        &mut self,
+        renderer: JsRenderer
+    );
+
     fn serialize_entities(
         &self
     ) -> Result<Vec<u8>, String>;
@@ -60,9 +85,4 @@ pub trait Env {
         &mut self, 
         buf: &Vec<u8>
     ) -> Result<(), String>;
-
-    fn render(
-        &mut self,
-        renderer: &mut dyn Renderer
-    );
 }

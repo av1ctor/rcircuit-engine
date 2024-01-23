@@ -25,6 +25,7 @@ use crate::{
 pub const NUM_SENSOR_FEATURES: usize = 1;
 
 #[derive(EnumCount)]
+#[repr(C)]
 pub enum PlayerAction {
     MoveForward,
     TurnRight,

@@ -9,6 +9,7 @@ use three_rs::math::{
 use crate::renderer::ModelRef;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, EnumCount, Default)]
+#[repr(C)]
 pub enum ObjectType {
     #[default]
     UNKNOWN,
@@ -20,6 +21,7 @@ pub enum ObjectType {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+#[repr(C)]
 pub enum ObjectState {
     #[default]
     IDLE,
@@ -40,6 +42,7 @@ pub enum ObjectState {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+#[repr(C)]
 pub enum ObjectVisibility {
     #[default]
     HIDDEN,

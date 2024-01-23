@@ -10,4 +10,4 @@ pub mod sensor;
 #[cfg(feature = "js")]
 pub mod game_wrapper;
 #[cfg(feature = "js")]
-pub mod renderer_wrapper;
+pub mod js_renderer;

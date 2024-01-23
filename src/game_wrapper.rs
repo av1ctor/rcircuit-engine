@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 use crate::game::{Game, GameOptions, ObjectFOV};
 use crate::env::Env;
+use crate::js_renderer::JsRenderer;
 
 #[wasm_bindgen]
 extern "C" {
@@ -87,5 +88,21 @@ impl GameWrapper {
         buf: Vec<u8>
     ) -> Result<(), String> {
         self.game.deserialize_entities(&buf)
+    }
+
+    #[wasm_bindgen]
+    pub fn deserialize_events(
+        &mut self,
+        buf: Vec<u8>
+    ) -> Result<(), String> {
+        self.game.deserialize_events(&buf)
+    }
+
+    #[wasm_bindgen]
+    pub fn render(
+        &mut self,
+        renderer: JsRenderer
+    ) {
+        self.game.render(renderer)
     }
 }
