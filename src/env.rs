@@ -52,6 +52,15 @@ pub trait Env {
         buf: &Vec<u8>
     ) -> Result<(), String>;
 
+    fn serialize_events(
+        &self
+    ) -> Result<Vec<u8>, String>;
+	
+    fn deserialize_events(
+        &mut self, 
+        buf: &Vec<u8>
+    ) -> Result<(), String>;
+
     fn render(
         &mut self,
         renderer: &mut dyn Renderer

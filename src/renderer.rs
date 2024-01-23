@@ -21,23 +21,33 @@ pub trait Renderer {
     
     fn add_from_file(
         &mut self,
+        id: String,
         name: &str
     ) -> Result<ModelRef, String>;
 
     fn add_from_bytes(
         &mut self,
+        id: String,
         bytes: &[u8]
     ) -> Result<ModelRef, String>;
 
     #[cfg(not(target_arch = "wasm32"))]
     fn add_from_gltf(
         &mut self,
+        id: String,
         doc: &gltf::Document,
         buffers: &Vec<Data>
     ) -> Result<ModelRef, String>;
 
+    #[cfg(target_arch = "wasm32")]
+    fn add_from_gltf(
+        &mut self,
+        id: String
+    ) -> Result<ModelRef, String>;
+
     fn add_from_mesh(
         &mut self,
+        id: String,
         color: RGB,
         mesh: Rc<RefCell<Mesh>>
     ) -> Result<ModelRef, String>;

@@ -19,7 +19,28 @@ extern "C" {
     #[wasm_bindgen(method)]
     fn add_from_file(
         this: &JsRenderer,
+        id: &str,
         name: &str
+    ) -> ModelRef;
+
+    #[wasm_bindgen(method)]
+    fn add_from_gltf(
+        this: &JsRenderer,
+        id: &str
+    ) -> ModelRef;
+
+    #[wasm_bindgen(method)]
+    fn add_from_bytes(
+        this: &JsRenderer,
+        id: &str,
+        bytes: &[u8]
+    ) -> ModelRef;
+
+    #[wasm_bindgen(method)]
+    fn add_from_mesh(
+        this: &JsRenderer,
+        id: &str,
+        color: &[f32]
     ) -> ModelRef;
 
     #[wasm_bindgen(method)]
@@ -91,24 +112,34 @@ impl RendererWrapper {
 impl Renderer for RendererWrapper {
     fn add_from_file(
         &mut self,
+        id: String,
         name: &str
     ) -> Result<ModelRef, String> {
-        Ok(self.js_renderer.add_from_file(name))
+        Ok(self.js_renderer.add_from_file(&id, name))
     }
 
     fn add_from_bytes(
         &mut self,
-        _bytes: &[u8]
+        id: String,
+        bytes: &[u8]
     ) -> Result<ModelRef, String> {
-        todo!()
+        Ok(self.js_renderer.add_from_bytes(&id, bytes))
+    }
+
+    fn add_from_gltf(
+        &mut self,
+        id: String
+    ) -> Result<ModelRef, String> {
+        Ok(self.js_renderer.add_from_gltf(&id))
     }
 
     fn add_from_mesh(
         &mut self,
-        _color: RGB,
+        id: String,
+        color: RGB,
         _mesh: Rc<RefCell<Mesh>>
     ) -> Result<ModelRef, String> {
-        todo!()
+        Ok(self.js_renderer.add_from_mesh(&id, &color))
     }
 
     fn add_from_triangles(

@@ -4,20 +4,22 @@ use rand::Rng;
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
 #[cfg(not(feature = "js"))]
-use three_rs::math::{
-    vector3::Vector3, 
-    path3::Path3, 
-    Euler, 
-    EulerOrder, 
-};
-#[cfg(not(feature = "js"))]
 use three_rs::{
+    math::{
+        path3::Path3, 
+        Euler, 
+        EulerOrder, 
+    },
     geometry::{Cone, Box3}, 
     object::Mesh
 };
+use three_rs::math::
+    vector3::Vector3
+;
+use crate::renderer::ModelRef;
 use crate::{
     player::{Player, PlayerAction, NUM_SENSOR_FEATURES}, 
-    object::Object, 
+    object::{Object, ObjectType}, 
     enemy::Enemy, 
     map::Map, 
     env::{Env, EnvAction, EnvObs, EnvStep, EnvPlayer}, 
@@ -26,7 +28,7 @@ use crate::{
 
 #[cfg(not(feature = "js"))]
 use crate::{
-    object::{ObjectType, ObjectState, ObjectVisibility}, 
+    object::{ObjectState, ObjectVisibility}, 
     spawn_locs::SpawnLocations, 
     sensor::Sensor
 };
@@ -94,14 +96,53 @@ pub struct GameEntities {
     pub enemies: Vec<Enemy>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Default)]
-pub struct GameStep {
-    pub entities: GameEntities,
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ObjectCreatedEvent {
+    pub model_ref: ModelRef,
+    pub typ: ObjectType,
+    pub id: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ObjectSpawnedEvent {
+    pub model_ref: ModelRef,
+    pub position: Vector3,
+    pub direction: Vector3,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ObjectMovedEvent {
+    pub model_ref: ModelRef,
+    pub position: Vector3,
+    pub direction: Vector3,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum GameEvent {
+    PlayerCreated(ObjectCreatedEvent),
+    PlayerSpawned(ObjectSpawnedEvent),
+    PlayerMoved(ObjectMovedEvent),
+    PlayerDied(ModelRef),
+    
+    ObjectCreated(ObjectCreatedEvent),
+    ObjectSpawned(ObjectSpawnedEvent),
+    ObjectShown(ModelRef),
+    ObjectHidden(ModelRef),
+    ObjectMoved(ObjectMovedEvent),
+    ObjectDied(ModelRef),
+    
+    EnemyCreated(ObjectCreatedEvent),
+    EnemySpawned(ObjectSpawnedEvent),
+    EnemyShown(ModelRef),
+    EnemyHidden(ModelRef),
+    EnemyMoved(ObjectMovedEvent),
+    EnemyDied(ModelRef),
 }
 
 #[cfg_attr(not(feature = "js"), derive(Clone, Serialize, Deserialize))]
 pub struct Game {
     pub map_info: MapInfo,
+    pub events: Vec<GameEvent>,
     pub entities: GameEntities,
     pub options: GameOptions,
     pub state: GameState,
@@ -144,22 +185,25 @@ impl Env for Game {
         rng: &mut StdRng,
     ) -> Vec<EnvObs> {
         renderer.reset();
-    
+        self.events = vec![];
+
         // map
         #[cfg(not(target_arch = "wasm32"))]
         let gltf = self.map.get_gltf().as_ref().unwrap();
         #[cfg(not(target_arch = "wasm32"))]
         let level_ref = renderer.add_from_gltf(
-            &gltf.doc, &gltf.buffers
-        ).expect("Could not load GLTF");
+            "level-0".to_string(), &gltf.doc, &gltf.buffers
+        ).expect("Could not load level-0");
         #[cfg(target_arch = "wasm32")]
-        let level_ref = 0;
+        let level_ref = renderer.add_from_gltf(
+            "level-0".to_string()
+        ).expect("Could not load level-0");
 
         renderer.show_model(level_ref);
         
         // entities
         self.entities = self.spawn_entities(renderer, rng);
-
+        
         self.map_info = MapInfo { 
             num_keys: self.options.num_players * self.options.min_keys
         };
@@ -206,6 +250,8 @@ impl Env for Game {
         }
 
         self.state.step += 1;
+
+        self.events = vec![];
         
         if self.options.max_steps == 0 ||
             self.state.step < self.options.max_steps {
@@ -300,6 +346,22 @@ impl Env for Game {
         Ok(())
     }
 
+    fn serialize_events(
+        &self
+    ) -> Result<Vec<u8>, String> {
+        rmp_serde::to_vec(&self.events)
+            .map_err(|err| err.to_string())
+    }
+
+    fn deserialize_events(
+        &mut self,
+        buf: &Vec<u8>
+    ) -> Result<(), String> {
+        self.events = rmp_serde::from_slice(buf)
+            .map_err(|err| err.to_string())?;
+        Ok(())
+    }
+
     fn render(
         &mut self,
         renderer: &mut dyn Renderer
@@ -319,6 +381,7 @@ impl Game {
         Self { 
             map,
             entities: GameEntities::default(),
+            events: vec![],
             map_info: MapInfo::default(),
             state: GameState { 
                 status: GameStatus::IDLE, 
@@ -382,12 +445,19 @@ impl Game {
         let mut players = vec![];
 
         for i in 0..self.options.num_players {
+            let id = format!("player-{}", i);
             let model_ref = renderer.add_from_mesh(
+                id.clone(),
                 [0.0, 1.0, 0.0],
                 Mesh::new(
                     &Cone::new(0.6, 1.8)
                 )
             ).unwrap();
+            self.events.push(GameEvent::PlayerCreated(ObjectCreatedEvent {
+                model_ref,
+                typ: ObjectType::PLAYER,
+                id,
+            }));
 
             let (path_ref, sensor_ref, readings_ref) = if self.options.debug {
                 (
@@ -403,15 +473,6 @@ impl Game {
                 (0, 0, 0)
             };
 
-            {
-                renderer.show_model(model_ref);
-                if self.options.debug {
-                    renderer.show_model(path_ref);
-                    renderer.show_model(sensor_ref);
-                    renderer.show_model(readings_ref);
-                }
-            }
-                
             let loc = &spawn_locs.next(i, rng);
             let player = Player::new(
                 loc.0, 
@@ -423,6 +484,28 @@ impl Game {
                 readings_ref,
                 rng
             );
+
+            self.events.push(GameEvent::PlayerSpawned({
+                ObjectSpawnedEvent {
+                    model_ref,
+                    position: loc.0,
+                    direction: loc.1,
+                }
+            }));
+
+            {
+                renderer.show_model(model_ref);
+                self.events.push(GameEvent::ObjectShown(
+                    model_ref
+                ));
+                
+                if self.options.debug {
+                    renderer.show_model(path_ref);
+                    renderer.show_model(sensor_ref);
+                    renderer.show_model(readings_ref);
+                }
+            }
+            
             players.push(player);
         }
 
@@ -460,12 +543,19 @@ impl Game {
         let rad = if typ == ObjectType::KEY {1.0} else {2.0};
 
         for i in 0..num_objs {
+            let id = if typ == ObjectType::KEY {format!("key-{}", i)} else {format!("obj-{}", i)};
             let model_ref = renderer.add_from_mesh(
+                id.clone(),
                 if typ == ObjectType::KEY {[0.0, 0.0, 1.0]} else {[0.0, 1.0, 1.0]},
                 Mesh::new(
                     &Box3::new(rad, rad, rad)
                 )
             ).unwrap();
+            self.events.push(GameEvent::ObjectCreated(ObjectCreatedEvent {
+                model_ref,
+                typ: typ.clone(),
+                id,
+            }));
                 
             let loc = &spawn_locs.next(i, rng);
             let is_active = active(i);
@@ -480,12 +570,26 @@ impl Game {
                 rng
             );
 
-            renderer.set_position(obj.model_ref, &obj.pos);
+            renderer.set_position(model_ref, &obj.pos);
+            self.events.push(GameEvent::ObjectSpawned({
+                ObjectSpawnedEvent {
+                    model_ref,
+                    position: loc.0,
+                    direction: loc.1,
+                }
+            }));
+
             if is_active {
-                renderer.show_model(obj.model_ref);
+                renderer.show_model(model_ref);
+                self.events.push(GameEvent::ObjectShown(
+                    model_ref
+                ));
             }
             else {
-                renderer.hide_model(obj.model_ref);
+                renderer.hide_model(model_ref);
+                self.events.push(GameEvent::ObjectHidden(
+                    model_ref
+                ));
             }
 
             objects.push(obj);
@@ -506,8 +610,18 @@ impl Game {
         );
         if let Some(obj) = exit {
             obj.vis = ObjectVisibility::VISIBLE;
+            
             renderer.set_position(obj.model_ref, &obj.pos);
+            self.events.push(GameEvent::ObjectMoved(ObjectMovedEvent{
+                model_ref: obj.model_ref,
+                position: obj.pos,
+                direction: obj.dir,
+            }));
+            
             renderer.show_model(obj.model_ref);
+            self.events.push(GameEvent::ObjectShown(
+                obj.model_ref
+            ));
         }
     }
 
@@ -523,8 +637,20 @@ impl Game {
         );
         if let Some(obj) = key {
             obj.vis = ObjectVisibility::VISIBLE;
+            
             renderer.set_position(obj.model_ref, &obj.pos);
+            self.events.push(GameEvent::ObjectMoved(
+                ObjectMovedEvent {
+                    model_ref: obj.model_ref,
+                    position: obj.pos,
+                    direction: obj.dir,
+                }
+            ));
+            
             renderer.show_model(obj.model_ref);
+            self.events.push(GameEvent::ObjectShown(
+                obj.model_ref
+            ));
         }
     }
 
@@ -650,6 +776,16 @@ impl Game {
                 player.base.pos = new_pos;
                 player.base.dir = dir.clone();
             }
+
+            let mean_dir = player.mean_dir();
+
+            self.events.push(GameEvent::PlayerMoved(
+                ObjectMovedEvent {
+                    model_ref: player.base.model_ref,
+                    position: player.base.pos,
+                    direction: mean_dir,
+                }
+            ));
             
             renderer.set_position(
                 player.base.model_ref, 
@@ -657,7 +793,7 @@ impl Game {
             );
             renderer.set_rotation_from_euler(
                 player.base.model_ref, 
-                &Euler::from_vector(player.mean_dir(), EulerOrder::XYZ)
+                &Euler::from_vector(mean_dir, EulerOrder::XYZ)
             );
         }
     }
@@ -685,7 +821,11 @@ impl Game {
                 obj.state = ObjectState::DEAD;
                 obj.vis = ObjectVisibility::HIDDEN;
                 collected = true;
+
                 renderer.hide_model(obj.model_ref);
+                self.events.push(GameEvent::ObjectHidden(
+                    obj.model_ref
+                ));
             }
         }
 
@@ -701,7 +841,8 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn check_traps(
         &mut self,
-        num: usize
+        num: usize,
+        renderer: &mut dyn Renderer
     ) -> bool {
         let mut triggered = false;
         let mut player = self.entities.players[num].clone();
@@ -718,6 +859,11 @@ impl Game {
                 player.reward += PENALTY_TRAP;
                 obj.state = ObjectState::DEAD;
                 triggered = true;
+                
+                renderer.hide_model(obj.model_ref);
+                self.events.push(GameEvent::ObjectHidden(
+                    obj.model_ref
+                ));
             }
         }
 
@@ -753,7 +899,7 @@ impl Game {
                 }
             }
 
-            if self.check_traps(i) {
+            if self.check_traps(i, renderer) {
                 let player = &self.entities.players[i];
                 if player.health <= 0.0 {
                     self.state.status = GameStatus::FINISHED;
