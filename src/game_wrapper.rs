@@ -108,4 +108,12 @@ impl GameWrapper {
     ) {
         self.game.render(renderer).await
     }
+
+    #[wasm_bindgen]
+    pub fn reset(
+        &mut self,
+        renderer: JsRenderer
+    ) {
+        self.game.reset(renderer);
+    }
 }

@@ -226,8 +226,9 @@ impl Env for Game {
     #[cfg(feature = "js")]
     fn reset(
         &mut self,
-        _renderer: JsRenderer,
+        renderer: JsRenderer,
     ) -> Vec<EnvObs> {
+        renderer.reset();
         vec![]
     }
 
@@ -582,7 +583,7 @@ impl Game {
             let is_active = active(i);
             let obj = Object::new(
                 typ.clone(),
-                loc.0.add(&Vector3::new(0.0, 2.0, 0.0)), 
+                loc.0.add(&Vector3::new(0.0, rad / 2.0, 0.0)), 
                 loc.1, 
                 Vector3::new(rad * 2.0, rad * 2.0, rad * 2.0),
                 ObjectState::IDLE,
