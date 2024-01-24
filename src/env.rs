@@ -86,4 +86,8 @@ pub trait Env {
         &mut self, 
         buf: &Vec<u8>
     ) -> Result<(), String>;
+
+    fn clear_events(
+        &mut self
+    );
 }

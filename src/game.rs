@@ -1,22 +1,23 @@
+use std::vec;
 #[cfg(not(feature = "js"))]
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
+use three_rs::math::{
+    vector3::Vector3,
+    EulerOrder, 
+};
 #[cfg(not(feature = "js"))]
 use three_rs::math::{
     path3::Path3,
     Euler
 };
-use three_rs::math::{
-    vector3::Vector3,
-    EulerOrder, 
-};
-use crate::renderer::ModelRef;
-#[cfg(not(feature = "js"))]
-use crate::renderer::Renderer;
 #[cfg(feature = "js")]
 use crate::js_renderer::JsRenderer;
+#[cfg(not(feature = "js"))]
+use crate::renderer::Renderer;
 use crate::{
+    renderer::ModelRef,
     player::{Player, PlayerAction, NUM_SENSOR_FEATURES}, 
     object::{Object, ObjectType}, 
     enemy::Enemy, 
@@ -24,10 +25,8 @@ use crate::{
     env::{Env, EnvObs}
 };
 #[cfg(not(feature = "js"))]
-use crate::env::{EnvAction, EnvStep, EnvPlayer};
-
-#[cfg(not(feature = "js"))]
 use crate::{
+    env::{EnvAction, EnvStep, EnvPlayer},
     object::{ObjectState, ObjectVisibility}, 
     spawn_locs::SpawnLocations, 
     sensor::Sensor
@@ -192,6 +191,12 @@ impl Env for Game {
         let level_ref = renderer.add_model(
             self.options.level.name.clone()
         ).expect("Could not load level-0");
+        
+        self.events.push(GameEvent::ObjectCreated(ObjectCreatedEvent {
+            model_ref: level_ref,
+            typ: ObjectType::UNKNOWN,
+            id: self.options.level.name.clone(),
+        }));
 
         renderer.show_model(level_ref);
         
@@ -244,8 +249,6 @@ impl Env for Game {
 
         self.state.step += 1;
 
-        self.events = vec![];
-        
         if self.options.max_steps == 0 ||
             self.state.step < self.options.max_steps {
         
@@ -332,6 +335,12 @@ impl Env for Game {
         Ok(())
     }
 
+    fn clear_events(
+        &mut self
+    ) {
+        self.events = vec![];
+    }
+
     #[cfg(not(feature = "js"))]
     fn render(
         &mut self,
@@ -348,7 +357,7 @@ impl Env for Game {
         for event in &self.events {
             match event {
                 GameEvent::ObjectCreated(e) => {
-                    renderer.add_model(&e.id, Some(e.model_ref)).await;
+                    renderer.add_model(&e.id, e.model_ref).await;
                 },
                 
                 GameEvent::ObjectSpawned(e) => {
@@ -382,6 +391,8 @@ impl Env for Game {
                 },
             }
         }
+
+        renderer.render();
     }
 }
 
@@ -508,22 +519,16 @@ impl Game {
                 }
             }));
 
+            renderer.show_model(model_ref);
             self.events.push(GameEvent::ObjectShown(ObjectShownEvent {
                 model_ref
             }));
 
-            {
-                renderer.show_model(model_ref);
-                self.events.push(GameEvent::ObjectShown(ObjectShownEvent {
-                    model_ref
-                }));
-                
-                #[cfg(not(target_arch = "wasm32"))]
-                if self.options.debug {
-                    renderer.show_model(path_ref);
-                    renderer.show_model(sensor_ref);
-                    renderer.show_model(readings_ref);
-                }
+            #[cfg(not(target_arch = "wasm32"))]
+            if self.options.debug {
+                renderer.show_model(path_ref);
+                renderer.show_model(sensor_ref);
+                renderer.show_model(readings_ref);
             }
             
             players.push(player);
@@ -590,7 +595,7 @@ impl Game {
             self.events.push(GameEvent::ObjectSpawned({
                 ObjectSpawnedEvent {
                     model_ref,
-                    position: loc.0,
+                    position: loc.0.add(&Vector3::new(0.0, 2.0, 0.0)),
                     direction: loc.1,
                 }
             }));

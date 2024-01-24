@@ -9,7 +9,7 @@ extern "C" {
     pub async fn add_model(
         this: &JsRenderer,
         id: &str,
-        model_ref: Option<ModelRef>
+        model_ref: ModelRef
     ) -> JsValue;
 
     #[wasm_bindgen(method)]
@@ -50,7 +50,7 @@ extern "C" {
     pub fn set_scale(
         this: &JsRenderer,
         model_ref: ModelRef,
-        pos: &[f32]
+        scale: &[f32]
     );
 
     #[wasm_bindgen(method)]
