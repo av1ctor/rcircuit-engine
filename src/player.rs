@@ -212,14 +212,14 @@ impl Player {
                 (fov.angle / 2.0)) % (PI * 2.0);
         let step = fov.angle / ((fov.rays - 1) as f32);
 
-        let mut reading = vec![];
+        let mut readings = vec![];
         let mut has_hits = false;
 
         for _ in 0..fov.rays {
             let dir = FORWARD.rotate_y(angle);
             let sensor_pos = self.base.pos.add(&dir.mul_scalar(fov.max_dist));
             
-            reading.push(
+            readings.push(
                 if let Some(t) = map.calc_distance_to_closest_wall(
                     &self.base.pos, &sensor_pos) {
                     has_hits = true;
@@ -245,7 +245,7 @@ impl Player {
             }
         }
 
-        (has_hits, reading)
+        (has_hits, readings)
     }
 
     #[cfg(not(feature = "js"))]
