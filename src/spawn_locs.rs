@@ -1,7 +1,7 @@
 use rand::{rngs::StdRng, Rng};
-use three_rs::math::
-    vector3::{Vector3, FORWARD}
-;
+use three_rs::math::{
+    vector3::Vector3, Euler
+};
 use crate::map::NodeTransform;
 
 pub struct SpawnLocations {
@@ -13,7 +13,10 @@ impl SpawnLocations {
         nodes: Vec<NodeTransform>
     ) -> Self {
         Self {
-            locs: nodes.iter().map(|n| (n.clone(), 0usize)).collect::<Vec<_>>(),
+            locs: 
+                nodes.iter()
+                    .map(|n| (n.clone(), 0usize))
+                    .collect::<Vec<_>>(),
         }   
     }
 
@@ -37,7 +40,10 @@ impl SpawnLocations {
 
         (
             min_locs[l].0.translation, 
-            FORWARD.apply_quaternion(&min_locs[l].0.rotation)
+            Euler::from_quaternion(
+                &min_locs[l].0.rotation, 
+                three_rs::math::EulerOrder::XYZ
+            ).v
         )
     }
 }

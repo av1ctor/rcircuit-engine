@@ -592,6 +592,10 @@ impl Game {
             );
 
             renderer.set_position(model_ref, &obj.pos);
+            renderer.set_rotation_from_euler(
+                model_ref, 
+                &Euler::from_vector(obj.dir, EulerOrder::XYZ)
+            );
             self.events.push(GameEvent::ObjectSpawned({
                 ObjectSpawnedEvent {
                     model_ref,
