@@ -4,11 +4,10 @@ use rand::rngs::StdRng;
 use serde::{Serialize, Deserialize};
 use strum_macros::EnumCount;
 use three_rs::math::{
-    vector3::Vector3, 
-    box3::Box3
+    box3::Box3, vector3::Vector3, Quaternion
 };
 #[cfg(not(feature = "js"))]
-use three_rs::math::vector3::FORWARD;
+use three_rs::math::vector3::{FORWARD, UP};
 use crate::{
     env::EnvObs, 
     object::{Object, ObjectVisibility, ObjectState, ObjectType}, 
@@ -77,7 +76,7 @@ impl Default for PlayerSensor {
 
 #[derive(Clone, Default)]
 pub struct PlayerHistory {
-    pub dir: Vector3,
+    pub rot: Quaternion,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -103,7 +102,7 @@ pub struct Player {
 impl Player {
     pub fn new(
         pos: Vector3,
-        dir: Vector3,
+        rot: Quaternion,
         dim: Vector3,
         model_ref: ModelRef,
         path_ref: ModelRef,
@@ -114,7 +113,7 @@ impl Player {
         let base = Object::new(
             ObjectType::PLAYER,
             pos,
-            dir,
+            rot,
             dim,
             ObjectState::IDLE,
             ObjectVisibility::HIDDEN,
@@ -143,21 +142,21 @@ impl Player {
         self.base.calc_bb()
     }
     
-    pub fn mean_dir(
+    pub fn mean_rot(
         &self
-    ) -> Vector3 {
-        let mut dir = Vector3::zero();
+    ) -> Quaternion {
+        let mut rot = Quaternion::identity();
         for h in &self.history {
-            dir.add_mut(&h.dir);
+            rot = rot.mul(&h.rot);
         }
 
-        dir.mul_scalar(1.0 / (self.history.len() as f32).max(1.0))
+        rot.mul_scalar(1.0 / (self.history.len() as f32))
     }
 
-    pub fn calc_dir_away_from_hit(
+    pub fn calc_rot_away_from_hit(
         &self
-    ) -> Vector3 {
-        let mut dir = Vector3::zero();
+    ) -> Quaternion {
+        /*let mut dir = Vector3::zero();
         for r in &self.sensor.readings {
             if let SensorReading::Target(s) = r {
                 dir.add_mut(&s.dir);
@@ -169,7 +168,9 @@ impl Player {
         }
         else {
             dir.normalize()
-        }
+        }*/
+
+        self.base.rot.mul(&Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0))
     }
     
     pub fn to_obs(
@@ -195,7 +196,7 @@ impl Player {
         &mut self
     ) {
         self.history.push_back(PlayerHistory { 
-            dir: self.base.dir.clone()
+            rot: self.base.rot.clone()
         });
     }
 
@@ -208,28 +209,27 @@ impl Player {
     ) -> (bool, Vec<SensorReading>) {
         let target_dir = FORWARD.rotate_y(target_pos.sub(&self.base.pos).angle_xz());
 
-        let mut angle = (self.base.dir.angle_xz() + 
-                (fov.angle / 2.0)) % (PI * 2.0);
-        let step = fov.angle / ((fov.rays - 1) as f32);
+        let mut rot = self.base.rot.mul(
+            &Quaternion::from_axis_and_angle(&UP, (fov.angle / 2.0) % (PI * 2.0))
+        );
+        let step = Quaternion::from_axis_and_angle(&UP, -fov.angle / ((fov.rays - 1) as f32));
 
         let mut readings = vec![];
         let mut has_hits = false;
 
         for _ in 0..fov.rays {
-            let dir = FORWARD.rotate_y(angle);
+            let dir = FORWARD.apply_quaternion(&rot);
             let sensor_pos = self.base.pos.add(&dir.mul_scalar(fov.max_dist));
             
             readings.push(
                 if let Some(t) = map.calc_distance_to_closest_wall(
                     &self.base.pos, &sensor_pos) {
                     has_hits = true;
-                    SensorReading::Hit(
-                        SensorReadingHit{
-                            t,
-                            dir,
-                            pos: sensor_pos,
-                        }
-                    )
+                    SensorReading::Hit(SensorReadingHit{
+                        t,
+                        dir,
+                        pos: sensor_pos,
+                    })
                 } else {
                     SensorReading::Target(SensorReadingTarget { 
                         sim: dir.dot(&target_dir).max(0.0), 
@@ -239,10 +239,7 @@ impl Player {
                 }
             );
 
-            angle -= step;
-            if angle < 0.0 {
-                angle += PI * 2.0;
-            }
+            rot = rot.mul(&step);
         }
 
         (has_hits, readings)
@@ -261,9 +258,7 @@ impl Player {
         for r in readings {
 
             match r {
-                SensorReading::Hit(r) => {
-                    sensor_vtx.push(pos.clone());
-                    sensor_vtx.push(r.pos);
+                SensorReading::Hit(_) => {
                 }
                 SensorReading::Target(r) => {
                     sensor_vtx.push(pos.clone());

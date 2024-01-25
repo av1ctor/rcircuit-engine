@@ -2,8 +2,7 @@ use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
 use strum_macros::EnumCount;
 use three_rs::math::{
-    vector3::Vector3, 
-    box3::Box3
+    box3::Box3, vector3::Vector3, Quaternion
 };
 
 use crate::renderer::ModelRef;
@@ -56,7 +55,7 @@ pub struct Object {
     pub vis: ObjectVisibility,
     pub state: ObjectState,
     pub pos: Vector3,
-    pub dir: Vector3,
+    pub rot: Quaternion,
     pub dim: Vector3,
     pub radius: f32,
     #[serde(skip)]
@@ -69,7 +68,7 @@ impl Default for Object {
             id: Default::default(), 
             typ: Default::default(), 
             pos: Default::default(), 
-            dir: Default::default(),
+            rot: Default::default(),
             dim: Default::default(), 
             radius: Default::default(), 
             state: Default::default(), 
@@ -83,7 +82,7 @@ impl Object {
     pub fn new(
         typ: ObjectType,
         pos: Vector3,
-        dir: Vector3,
+        rot: Quaternion,
         dim: Vector3,
         state: ObjectState,
         vis: ObjectVisibility,
@@ -93,7 +92,7 @@ impl Object {
         Self { 
             id: rng.gen::<usize>(),
             pos,
-            dir,
+            rot,
             dim,
             radius: 1.0,
             typ,

@@ -39,14 +39,6 @@ extern "C" {
     );
 
     #[wasm_bindgen(method)]
-    pub fn set_rotation_from_euler(
-        this: &JsRenderer,
-        model_ref: ModelRef,
-        vector: &[f32],
-        order: u32
-    );
-
-    #[wasm_bindgen(method)]
     pub fn set_scale(
         this: &JsRenderer,
         model_ref: ModelRef,

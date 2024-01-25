@@ -3,14 +3,12 @@ use std::vec;
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
-use three_rs::math::{
-    vector3::Vector3,
-    EulerOrder, 
-};
+use three_rs::math::vector3::Vector3;
 #[cfg(not(feature = "js"))]
 use three_rs::math::{
     path3::Path3,
-    Euler
+    Quaternion,
+    FORWARD, UP
 };
 #[cfg(feature = "js")]
 use crate::js_renderer::JsRenderer;
@@ -111,15 +109,15 @@ pub struct ObjectCreatedEvent {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ObjectSpawnedEvent {
     pub model_ref: ModelRef,
-    pub position: Vector3,
-    pub direction: Vector3,
+    pub pos: Vector3,
+    pub rot: Quaternion,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ObjectMovedEvent {
     pub model_ref: ModelRef,
-    pub position: Vector3,
-    pub direction: Vector3,
+    pub pos: Vector3,
+    pub rot: Quaternion,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -257,27 +255,29 @@ impl Env for Game {
                 let player = &mut self.entities.players[i];
                 player.reward = 0.0;
 
-                let dir = match actions[i] {
+                let rot = match actions[i] {
                     None => {
-                        player.base.dir.clone()
+                        player.base.rot.clone()
                     },
                     Some(action) => {
                         match PlayerAction::try_from(action.clone()).unwrap() {
                             PlayerAction::MoveForward =>
-                                player.base.dir.clone(),
+                                player.base.rot.clone(),
                             PlayerAction::TurnRight => {
-                                player.base.dir.rotate_y(player.turn_angle)
+                                player.base.rot.mul(
+                                    &Quaternion::from_axis_and_angle(&UP, player.turn_angle)
+                                )
                             },
                             PlayerAction::TurnLeft => {
-                                player.base.dir.rotate_y(-player.turn_angle)
+                                player.base.rot.mul(
+                                    &Quaternion::from_axis_and_angle(&UP, -player.turn_angle)
+                                )
                             }
                         }
                     }
                 };
 
-                if dir.length_sq() != 0.0 {
-                    self.move_player(i, &dir, delta_time, renderer);
-                }
+                self.move_player(i, &rot, delta_time, renderer);
             }
 
             self.update_world(delta_time, renderer);
@@ -363,19 +363,19 @@ impl Env for Game {
                 
                 GameEvent::ObjectSpawned(e) => {
                     renderer.set_position(
-                        e.model_ref, &e.position.to_slice()
+                        e.model_ref, &e.pos.to_slice()
                     );
-                    renderer.set_rotation_from_euler(
-                        e.model_ref, &e.direction.to_slice(), EulerOrder::XYZ as u32
+                    renderer.set_rotation(
+                        e.model_ref, &e.rot.to_slice()
                     );
                 },
                 
                 GameEvent::ObjectMoved(e) => {
                     renderer.set_position(
-                        e.model_ref, &e.position.to_slice()
+                        e.model_ref, &e.pos.to_slice()
                     );
-                    renderer.set_rotation_from_euler(
-                        e.model_ref, &e.direction.to_slice(), EulerOrder::XYZ as u32
+                    renderer.set_rotation(
+                        e.model_ref, &e.rot.to_slice()
                     );
                 },
 
@@ -515,8 +515,8 @@ impl Game {
             self.events.push(GameEvent::ObjectSpawned({
                 ObjectSpawnedEvent {
                     model_ref,
-                    position: loc.0,
-                    direction: loc.1,
+                    pos: loc.0,
+                    rot: loc.1,
                 }
             }));
 
@@ -583,7 +583,7 @@ impl Game {
             let is_active = active(i);
             let obj = Object::new(
                 typ.clone(),
-                loc.0.add(&Vector3::new(0.0, rad / 2.0, 0.0)), 
+                loc.0, 
                 loc.1, 
                 Vector3::new(rad * 2.0, rad * 2.0, rad * 2.0),
                 ObjectState::IDLE,
@@ -593,15 +593,12 @@ impl Game {
             );
 
             renderer.set_position(model_ref, &obj.pos);
-            renderer.set_rotation_from_euler(
-                model_ref, 
-                &Euler::from_vector(obj.dir, EulerOrder::XYZ)
-            );
+            renderer.set_rotation(model_ref, &obj.rot);
             self.events.push(GameEvent::ObjectSpawned({
                 ObjectSpawnedEvent {
                     model_ref,
-                    position: loc.0.add(&Vector3::new(0.0, 2.0, 0.0)),
-                    direction: loc.1,
+                    pos: loc.0.add(&Vector3::new(0.0, 2.0, 0.0)),
+                    rot: loc.1,
                 }
             }));
 
@@ -640,8 +637,8 @@ impl Game {
             renderer.set_position(obj.model_ref, &obj.pos);
             self.events.push(GameEvent::ObjectMoved(ObjectMovedEvent{
                 model_ref: obj.model_ref,
-                position: obj.pos,
-                direction: obj.dir,
+                pos: obj.pos,
+                rot: obj.rot,
             }));
             
             renderer.show_model(obj.model_ref);
@@ -668,8 +665,8 @@ impl Game {
             self.events.push(GameEvent::ObjectMoved(
                 ObjectMovedEvent {
                     model_ref: obj.model_ref,
-                    position: obj.pos,
-                    direction: obj.dir,
+                    pos: obj.pos,
+                    rot: obj.rot,
                 }
             ));
             
@@ -734,7 +731,6 @@ impl Game {
             }
             // when playing, move around obstacles
             else {
-                
                 self.map.find_path_to_target(
                     &player.base.pos, &target_obj.pos)
             };
@@ -761,16 +757,16 @@ impl Game {
                     player.path_ref, 
                     paths[i].nodes.clone()
                 );
-                let (sensor_vtx, readings_vtx) = Player::gen_vis_sensor_readings(
+                let (_sensor_vtx, readings_vtx) = Player::gen_vis_sensor_readings(
                     &player.base.pos, 
                     &readings[i].1,
                     self.options.fov.max_dist
                 );
                 
-                renderer.set_vertices(
+                /*renderer.set_vertices(
                     player.sensor_ref, 
                     sensor_vtx  
-                );
+                );*/
                 renderer.set_vertices(
                     player.readings_ref, 
                     readings_vtx
@@ -783,46 +779,49 @@ impl Game {
     fn move_player(
         &mut self,
         num: usize,
-        dir: &Vector3,
+        rot: &Quaternion,
         delta_time: f32,
         renderer: &mut dyn Renderer
     ) {
         let player = &mut self.entities.players[num];
         
-        let new_pos = player.base.pos.add(
-            &dir.mul_scalar(delta_time).mul(&player.vel)
+        let dir = FORWARD.apply_quaternion(&rot);
+        
+        let new_pos = player.base.pos.add(&dir
+            .mul(&player.vel)
+            .mul_scalar(delta_time)
         );
         
         if let Some(confined_pos) = 
             self.map.move_along_surface(&player.base.pos, &new_pos) {
             player.preserve();
-            if confined_pos != new_pos {
-                player.base.pos = confined_pos;
-                player.base.dir = player.calc_dir_away_from_hit();
+            if confined_pos.x != new_pos.x || confined_pos.z != new_pos.z {
+                player.base.pos = confined_pos.mul(&Vector3::new(1.0, 0.0, 1.0));
+                player.base.rot = player.calc_rot_away_from_hit();
                 player.reward += PENALTY_WALL;
             }
             else {
                 player.base.pos = new_pos;
-                player.base.dir = dir.clone();
+                player.base.rot = rot.clone();
             }
 
-            let mean_dir = player.mean_dir();
+            let mean_rot = player.base.rot; //player.mean_rot();
 
             self.events.push(GameEvent::ObjectMoved(
                 ObjectMovedEvent {
                     model_ref: player.base.model_ref,
-                    position: player.base.pos,
-                    direction: mean_dir,
+                    pos: player.base.pos,
+                    rot: mean_rot,
                 }
             ));
             
             renderer.set_position(
                 player.base.model_ref, 
-                &player.base.pos
+                &player.base.pos.add(&Vector3::new(0.0, 0.9, 0.0))
             );
-            renderer.set_rotation_from_euler(
+            renderer.set_rotation(
                 player.base.model_ref, 
-                &Euler::from_vector(mean_dir, EulerOrder::XYZ)
+                &mean_rot
             );
         }
     }

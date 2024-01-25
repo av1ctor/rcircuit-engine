@@ -1,6 +1,6 @@
 use rand::{rngs::StdRng, Rng};
 use three_rs::math::{
-    vector3::Vector3, Euler
+    vector3::Vector3,  Quaternion
 };
 use crate::map::NodeTransform;
 
@@ -24,7 +24,7 @@ impl SpawnLocations {
         &mut self,
         idx: usize,
         rng: &mut StdRng
-    ) -> (Vector3, Vector3) {
+    ) -> (Vector3, Quaternion) {
         let min_cnt = self.locs.iter()
                 .map(|l| l.1)
                 .filter(|cnt| *cnt <= idx)
@@ -40,10 +40,7 @@ impl SpawnLocations {
 
         (
             min_locs[l].0.translation, 
-            Euler::from_quaternion(
-                &min_locs[l].0.rotation, 
-                three_rs::math::EulerOrder::XYZ
-            ).v
+            min_locs[l].0.rotation, 
         )
     }
 }

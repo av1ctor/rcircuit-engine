@@ -1,7 +1,6 @@
 use three_rs::math::{
     Vector3, 
-    Quaternion, 
-    Euler
+    Quaternion
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -60,12 +59,6 @@ pub trait Renderer {
         &mut self,
         model_ref: ModelRef,
         q: &Quaternion
-    );
-
-    fn set_rotation_from_euler(
-        &mut self,
-        model_ref: ModelRef,
-        euler: &Euler
     );
 
     fn set_scale(
