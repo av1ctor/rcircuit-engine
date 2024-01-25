@@ -4,7 +4,7 @@ use rand::rngs::StdRng;
 use serde::{Serialize, Deserialize};
 use strum_macros::EnumCount;
 use three_rs::math::{
-    box3::Box3, vector3::Vector3, Quaternion
+    Box3, Vector3, Quaternion
 };
 #[cfg(not(feature = "js"))]
 use three_rs::math::vector3::{FORWARD, UP};
@@ -142,6 +142,7 @@ impl Player {
         self.base.calc_bb()
     }
     
+    #[cfg(not(feature = "js"))]
     pub fn mean_rot(
         &self
     ) -> Quaternion {
@@ -153,6 +154,7 @@ impl Player {
         rot.mul_scalar(1.0 / (self.history.len() as f32))
     }
 
+    #[cfg(not(feature = "js"))]
     pub fn calc_rot_away_from_hit(
         &self
     ) -> Quaternion {

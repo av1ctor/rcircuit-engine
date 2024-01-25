@@ -3,11 +3,13 @@ use std::vec;
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
-use three_rs::math::vector3::Vector3;
+use three_rs::math::{
+    Vector3, 
+    Quaternion
+};
 #[cfg(not(feature = "js"))]
 use three_rs::math::{
     path3::Path3,
-    Quaternion,
     FORWARD, UP
 };
 #[cfg(feature = "js")]
