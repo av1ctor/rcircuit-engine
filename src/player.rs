@@ -123,7 +123,7 @@ impl Player {
 
         Self { 
             base,
-            turn_angle: 15.0 * (PI / 180.0),
+            turn_angle: 45.0 * (PI / 180.0),
             vel: Vector3::new(0.1, 0.1, 0.1),
             num_keys: 0, 
             health: 100.0, 
