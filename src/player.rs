@@ -96,7 +96,7 @@ pub struct Player {
     #[serde(skip)]
     pub sensor: Sensor,
     #[serde(skip)]
-    pub history: CircularBuffer<20, PlayerHistory>,
+    pub history: CircularBuffer<10, PlayerHistory>,
 }
 
 impl Player {
@@ -132,7 +132,7 @@ impl Player {
             sensor_ref,
             readings_ref,
             sensor: Sensor::default(),
-            history: CircularBuffer::<20, PlayerHistory>::new(),
+            history: CircularBuffer::<10, PlayerHistory>::new(),
         }
     }
 
@@ -146,33 +146,29 @@ impl Player {
     pub fn mean_rot(
         &self
     ) -> Quaternion {
-        let mut rot = Quaternion::identity();
-        for h in &self.history {
-            rot = rot.mul(&h.rot);
-        }
-
-        rot.mul_scalar(1.0 / (self.history.len() as f32))
+        Quaternion::average(&self.history.iter().map(|h| h.rot).collect())
     }
 
     #[cfg(not(feature = "js"))]
     pub fn calc_rot_away_from_hit(
         &self
     ) -> Quaternion {
-        /*let mut dir = Vector3::zero();
+        let mut acc = Vector3::zero();
+        let mut cnt = 0;
+        
         for r in &self.sensor.readings {
             if let SensorReading::Target(s) = r {
-                dir.add_mut(&s.dir);
+                acc.add_mut(&s.rot.to_angular_velocity());
+                cnt += 1;
             }
         }
-        
-        if dir.length_sq() == 0.0 {
-            self.base.dir.neg()
+
+        if cnt > 0 {
+            Quaternion::from_angular_velocity(&acc.mul_scalar(1.0 / cnt as f32))
         }
         else {
-            dir.normalize()
-        }*/
-
-        self.base.rot.mul(&Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0))
+            self.base.rot.mul(&Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0))
+        }
     }
     
     pub fn to_obs(
@@ -229,14 +225,15 @@ impl Player {
                     has_hits = true;
                     SensorReading::Hit(SensorReadingHit{
                         t,
-                        dir,
                         pos: sensor_pos,
+                        dir,
                     })
                 } else {
                     SensorReading::Target(SensorReadingTarget { 
                         sim: dir.dot(&target_dir).max(0.0), 
-                        dir,
                         pos: sensor_pos,
+                        dir,
+                        rot,
                     })
                 }
             );

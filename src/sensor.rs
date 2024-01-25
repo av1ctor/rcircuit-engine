@@ -1,17 +1,18 @@
-use three_rs::math::vector3::Vector3;
+use three_rs::math::{vector3::Vector3, Quaternion};
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SensorReadingTarget {
     pub sim: f32,
-    pub dir: Vector3,
     pub pos: Vector3,
+    pub dir: Vector3,
+    pub rot: Quaternion,
 }
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SensorReadingHit {
     pub t: f32,
-    pub dir: Vector3,
     pub pos: Vector3,
+    pub dir: Vector3,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -25,6 +26,7 @@ impl Default for SensorReading {
         SensorReading::Target(SensorReadingTarget { 
             sim: 0.0,
             dir: Vector3::zero(),
+            rot: Quaternion::identity(),
             pos: Vector3::zero(),
         })
     }

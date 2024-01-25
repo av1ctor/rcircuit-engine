@@ -807,7 +807,7 @@ impl Game {
                 player.base.rot = rot.clone();
             }
 
-            let mean_rot = player.base.rot; //player.mean_rot();
+            let mean_rot = player.mean_rot();
 
             self.events.push(GameEvent::ObjectMoved(
                 ObjectMovedEvent {
