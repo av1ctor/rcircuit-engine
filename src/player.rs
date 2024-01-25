@@ -153,21 +153,39 @@ impl Player {
     pub fn calc_rot_away_from_hit(
         &self
     ) -> Quaternion {
-        let mut acc = Vector3::zero();
-        let mut cnt = 0;
+        let mut sum_sim = 0.0;
         
-        for r in &self.sensor.readings {
-            if let SensorReading::Target(s) = r {
-                acc.add_mut(&s.rot.to_angular_velocity());
-                cnt += 1;
-            }
-        }
+        let mut rots_weights = self.sensor.readings.iter()
+            .filter(|r| 
+                if let SensorReading::Target(_) = r {
+                    true
+                } 
+                else {
+                    false
+                }
+            )
+            .map(|r| {
+                if let SensorReading::Target(t) = r {
+                    sum_sim += t.sim;
+                    (t.rot, t.sim)
+                }
+                else {
+                    (Quaternion::identity(), 0.0)
+                }
+            })
+            .collect::<Vec<_>>();
 
-        if cnt > 0 {
-            Quaternion::from_angular_velocity(&acc.mul_scalar(1.0 / cnt as f32))
+        rots_weights = rots_weights.iter()
+            .map(|e| (e.0, e.1 / sum_sim))
+            .collect();
+
+        if rots_weights.len() > 0 && sum_sim > 1.0 {
+            Quaternion::average_weighted(&rots_weights)
         }
         else {
-            self.base.rot.mul(&Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0))
+            self.base.rot.mul(
+                &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
+            )
         }
     }
     
@@ -205,7 +223,12 @@ impl Player {
         fov: &ObjectFOV,
         map: &mut Map
     ) -> (bool, Vec<SensorReading>) {
-        let target_dir = FORWARD.rotate_y(target_pos.sub(&self.base.pos).angle_xz());
+        let target_dir = FORWARD.apply_quaternion(
+            &Quaternion::from_axis_and_angle(
+                &UP,
+                target_pos.sub(&self.base.pos).angle_xz()
+            )
+        );
 
         let mut rot = self.base.rot.mul(
             &Quaternion::from_axis_and_angle(&UP, (fov.angle / 2.0) % (PI * 2.0))
