@@ -50,7 +50,7 @@ const REWARD_KEY_FOUND: f32 = 100.0;
 #[cfg(not(feature = "js"))]
 const REWARD_EXIT_FOUND: f32 = 1000.0;
 
-#[derive(PartialEq, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum GameStatus {
     IDLE,
     RUNNING,
@@ -58,31 +58,31 @@ pub enum GameStatus {
     FINISHED,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct ObjectFOV {
     pub rays: usize,
     pub angle: f32,
     pub max_dist: f32,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GameState {
     pub status: GameStatus,
     pub winner: Option<usize>,
     pub step: usize,
 }
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MapInfo {
     pub num_keys: usize,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LevelOptions {
     pub num: usize,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GameOptions {
     pub level: LevelOptions,
     pub fov: ObjectFOV,
@@ -94,14 +94,14 @@ pub struct GameOptions {
     pub max_steps: usize,
 }
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct GameEntities {
     pub objects: Vec<Object>,
     pub players: Vec<Player>,
     pub enemies: Vec<Enemy>,
 }
 
-#[cfg_attr(not(feature = "js"), derive(Clone, Serialize, Deserialize))]
+#[cfg_attr(not(feature = "js"), derive(Clone, Debug, Serialize, Deserialize))]
 pub struct Game {
     pub map_info: MapInfo,
     pub events: Vec<GameEvent>,

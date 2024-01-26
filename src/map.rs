@@ -22,13 +22,14 @@ pub struct NodeTransform {
 }
 
 #[cfg(not(feature = "js"))]
+#[derive(Debug)]
 pub struct MapGltf {
     pub doc: gltf::Document,
     pub buffers: Vec<gltf::buffer::Data>,
 }
 
 #[cfg(not(feature = "js"))]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Map {
     #[serde(skip)]
     gltf: Option<MapGltf>,

@@ -74,12 +74,12 @@ impl Default for PlayerSensor {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PlayerHistory {
     pub rot: Quaternion,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Player {
     pub base: Object,
     pub turn_angle: f32,
