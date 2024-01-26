@@ -1,4 +1,4 @@
-use std::vec;
+use std::{collections::HashMap, vec};
 #[cfg(not(feature = "js"))]
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
@@ -17,12 +17,13 @@ use crate::js_renderer::JsRenderer;
 #[cfg(not(feature = "js"))]
 use crate::renderer::Renderer;
 use crate::{
-    renderer::ModelRef,
-    player::{Player, PlayerAction, NUM_SENSOR_FEATURES}, 
-    object::{Object, ObjectType}, 
+    asset::{GameAsset, GameAssetId, ASSETS}, 
     enemy::Enemy, 
+    env::{AssetId, Env, EnvObs}, 
+    event::*, 
     map::Map, 
-    env::{Env, EnvObs}
+    object::{Object, ObjectType}, 
+    player::{Player, PlayerAction, NUM_SENSOR_FEATURES}
 };
 #[cfg(not(feature = "js"))]
 use crate::{
@@ -79,7 +80,7 @@ pub struct MapInfo {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct LevelOptions {
-    pub name: String,
+    pub num: usize,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -101,52 +102,6 @@ pub struct GameEntities {
     pub enemies: Vec<Enemy>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ObjectCreatedEvent {
-    pub model_ref: ModelRef,
-    pub typ: ObjectType,
-    pub id: String,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ObjectSpawnedEvent {
-    pub model_ref: ModelRef,
-    pub pos: Vector3,
-    pub rot: Quaternion,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ObjectMovedEvent {
-    pub model_ref: ModelRef,
-    pub pos: Vector3,
-    pub rot: Quaternion,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ObjectDiedEvent {
-    pub model_ref: ModelRef,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ObjectShownEvent {
-    pub model_ref: ModelRef,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ObjectHiddenEvent {
-    pub model_ref: ModelRef,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub enum GameEvent {
-    ObjectCreated(ObjectCreatedEvent),
-    ObjectSpawned(ObjectSpawnedEvent),
-    ObjectShown(ObjectShownEvent),
-    ObjectHidden(ObjectHiddenEvent),
-    ObjectMoved(ObjectMovedEvent),
-    ObjectDied(ObjectDiedEvent),
-}
-
 #[cfg_attr(not(feature = "js"), derive(Clone, Serialize, Deserialize))]
 pub struct Game {
     pub map_info: MapInfo,
@@ -157,7 +112,17 @@ pub struct Game {
     pub map: Map,
 }
 
-impl Env for Game {
+impl Env<GameAsset> for Game {
+    fn get_assets(
+        &self
+    ) -> HashMap<AssetId, GameAsset> {
+        let mut map = HashMap::default();
+        for asset in ASSETS {
+            map.insert(asset.0, asset.1.clone());
+        }
+        map
+    }
+    
     fn get_num_actions(
         &self
     ) -> usize {
@@ -181,21 +146,20 @@ impl Env for Game {
     #[cfg(not(feature = "js"))]
     fn reset(
         &mut self,
-        renderer: &mut dyn Renderer,
+        renderer: &mut dyn Renderer<GameAsset>,
         rng: &mut StdRng,
     ) -> Vec<EnvObs> {
         renderer.reset();
         self.events = vec![];
 
         // map
-        let level_ref = renderer.add_model(
-            self.options.level.name.clone()
-        ).expect("Could not load level-0");
+        let level_ref = renderer.add_model(GameAssetId::Level0 as _)
+            .expect("Could not load level-0");
         
         self.events.push(GameEvent::ObjectCreated(ObjectCreatedEvent {
             model_ref: level_ref,
             typ: ObjectType::UNKNOWN,
-            id: self.options.level.name.clone(),
+            id: GameAssetId::Level0.into(),
         }));
 
         renderer.show_model(level_ref);
@@ -237,7 +201,7 @@ impl Env for Game {
         &mut self, 
         actions: &Vec<Option<crate::env::EnvAction>>, 
         delta_time: f32,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer<GameAsset>
     ) -> EnvStep {
         if self.state.status != GameStatus::RUNNING {
             return EnvStep {
@@ -347,7 +311,7 @@ impl Env for Game {
     #[cfg(not(feature = "js"))]
     fn render(
         &mut self,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer<GameAsset>
     ) {
         renderer.render();
     }
@@ -360,7 +324,7 @@ impl Env for Game {
         for event in &self.events {
             match event {
                 GameEvent::ObjectCreated(e) => {
-                    renderer.add_model(&e.id, e.model_ref).await;
+                    renderer.add_model(e.id, e.model_ref).await;
                 },
                 
                 GameEvent::ObjectSpawned(e) => {
@@ -424,7 +388,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn spawn_entities(
         &mut self,
-        renderer: &mut dyn Renderer,
+        renderer: &mut dyn Renderer<GameAsset>,
         rng: &mut StdRng
     ) -> GameEntities {
         // players
@@ -458,7 +422,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn spawn_players(
         &mut self,
-        renderer: &mut dyn Renderer,
+        renderer: &mut dyn Renderer<GameAsset>,
         rng: &mut StdRng
     ) -> Vec<Player> {
         let mut spawn_locs = SpawnLocations::new(
@@ -474,15 +438,14 @@ impl Game {
         let mut players = vec![];
 
         for i in 0..self.options.num_players {
-            let id = format!("player-{}", i);
             let model_ref = renderer.add_model(
-                id.clone()
+                GameAssetId::Player as _
             ).unwrap();
             
             self.events.push(GameEvent::ObjectCreated(ObjectCreatedEvent {
                 model_ref,
                 typ: ObjectType::PLAYER,
-                id,
+                id: GameAssetId::Player as _,
             }));
 
             #[cfg(not(target_arch = "wasm32"))]
@@ -546,7 +509,7 @@ impl Game {
         typ: ObjectType,
         name: &str,
         active: &dyn Fn(usize) -> bool,
-        renderer: &mut dyn Renderer,
+        renderer: &mut dyn Renderer<GameAsset>,
         rng: &mut StdRng
     ) -> Vec<Object> {
         let mut spawn_locs = SpawnLocations::new(
@@ -571,10 +534,8 @@ impl Game {
         let rad = if typ == ObjectType::KEY {1.0} else {2.0};
 
         for i in 0..num_objs {
-            let id = if typ == ObjectType::KEY {format!("key-{}", i)} else {format!("exit-{}", i)};
-            let model_ref = renderer.add_model(
-                id.clone()
-            ).unwrap();
+            let id = if typ == ObjectType::KEY {GameAssetId::Key as _} else {GameAssetId::Exit as _};
+            let model_ref = renderer.add_model(id).unwrap();
             self.events.push(GameEvent::ObjectCreated(ObjectCreatedEvent {
                 model_ref,
                 typ: typ.clone(),
@@ -626,7 +587,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn spawn_exit(
         &mut self,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer<GameAsset>
     ) {
         let exit = self.entities.objects.iter_mut().find(
             |o| o.typ == ObjectType::EXIT && 
@@ -653,7 +614,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn spawn_key(
         &mut self,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer<GameAsset>
     ) {
         let key = self.entities.objects.iter_mut().find(
             |o| o.typ == ObjectType::KEY && 
@@ -708,7 +669,7 @@ impl Game {
     #[cfg_attr(target_arch = "wasm32", allow(unused_variables))]
     fn build_players_sensors(
         &mut self,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer<GameAsset>
     ) {
         let mut readings = vec![(false, vec![]); self.entities.players.len()];
         let mut paths = vec![];
@@ -783,7 +744,7 @@ impl Game {
         num: usize,
         rot: &Quaternion,
         delta_time: f32,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer<GameAsset>
     ) {
         let player = &mut self.entities.players[num];
         
@@ -832,7 +793,7 @@ impl Game {
     fn check_keys(
         &mut self,
         num: usize,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer<GameAsset>
     ) -> bool {
         let mut collected = false;
         let mut player = self.entities.players[num].clone();
@@ -872,7 +833,7 @@ impl Game {
     fn check_traps(
         &mut self,
         num: usize,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer<GameAsset>
     ) -> bool {
         let mut triggered = false;
         let mut player = self.entities.players[num].clone();
@@ -917,7 +878,7 @@ impl Game {
     fn update_world(
         &mut self,
         _delta_time: f32,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer<GameAsset>
     ) {
         let mut all_keys_collected = false;
 

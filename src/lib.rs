@@ -7,6 +7,8 @@ pub mod spawn_locs;
 pub mod map;
 pub mod game;
 pub mod sensor;
+pub mod event;
+pub mod asset;
 #[cfg(feature = "js")]
 pub mod game_wrapper;
 #[cfg(feature = "js")]

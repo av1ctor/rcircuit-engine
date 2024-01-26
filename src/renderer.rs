@@ -5,17 +5,24 @@ use three_rs::math::{
 
 #[cfg(not(target_arch = "wasm32"))]
 use three_rs::core::RGB;
+use crate::env::AssetId;
 
 pub type ModelRef = usize;
 
-pub trait Renderer {
+pub trait Renderer<T> {
     fn reset(
         &mut self
     );
+
+    fn load_asset(
+        &mut self,
+        id: AssetId,
+        asset: &T
+    ) -> Result<(), String>;
     
     fn add_model(
         &mut self,
-        id: String
+        id: AssetId
     ) -> Result<ModelRef, String>;
 
     #[cfg(not(target_arch = "wasm32"))]

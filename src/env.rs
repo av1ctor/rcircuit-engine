@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 #[cfg(not(feature = "js"))]
 use rand::rngs::StdRng;
 #[cfg(not(feature = "js"))]
@@ -7,6 +8,7 @@ use crate::js_renderer::JsRenderer;
 
 pub type EnvObs = Vec<f32>;
 pub type EnvAction = usize;
+pub type AssetId = usize;
 
 pub struct EnvPlayer {
     pub reward: f32,
@@ -20,7 +22,11 @@ pub struct EnvStep {
     pub players: Vec<EnvPlayer>,
 }
 
-pub trait Env {
+pub trait Env<T> {
+    fn get_assets(
+        &self
+    ) -> HashMap<AssetId, T>;
+    
     fn get_num_actions(
         &self
     ) -> usize;
@@ -32,7 +38,7 @@ pub trait Env {
     #[cfg(not(feature = "js"))]
     fn reset(
         &mut self, 
-        renderer: &mut dyn Renderer,
+        renderer: &mut dyn Renderer<T>,
         rng: &mut StdRng
     ) -> Vec<EnvObs>;
 
@@ -47,7 +53,7 @@ pub trait Env {
         &mut self, 
         actions: &Vec<Option<EnvAction>>, 
         delta_time: f32,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer<T>
     ) -> EnvStep;
     
     #[cfg(not(feature = "js"))]
@@ -59,7 +65,7 @@ pub trait Env {
     #[cfg(not(feature = "js"))]
     fn render(
         &mut self,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer<T>
     );
 
     #[cfg(feature = "js")]

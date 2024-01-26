@@ -1,14 +1,22 @@
 use wasm_bindgen::prelude::*;
 use crate::renderer::ModelRef;
+use crate::env::AssetId;
+use crate::asset::GameAsset;
 
 #[wasm_bindgen]
 extern "C" {
     pub type JsRenderer;
 
-    #[wasm_bindgen(method)]
-    pub async fn add_model(
+    pub fn load_asset(
         this: &JsRenderer,
-        id: &str,
+        id: AssetId,
+        asset: GameAsset
+    ) -> JsValue;
+
+    #[wasm_bindgen(method)]
+    pub fn add_model(
+        this: &JsRenderer,
+        id: AssetId,
         model_ref: ModelRef
     ) -> JsValue;
 
