@@ -1,5 +1,7 @@
 use wasm_bindgen::prelude::*;
-use crate::game::{Game, GameOptions, LevelOptions, ObjectFOV};
+use crate::game::{
+    Game, GameOptions, LevelOptions, ObjectFOV
+};
 use crate::env::Env;
 use crate::js_renderer::JsRenderer;
 
@@ -54,7 +56,7 @@ impl GameOptionsWrapper {
         Self {
             wrapped: GameOptions {
                 level: LevelOptions {
-                    name: "".to_string(),
+                    num: 0,
                 },
                 fov: fov.wrapped,
                 num_players,
@@ -102,11 +104,11 @@ impl GameWrapper {
     }
 
     #[wasm_bindgen]
-    pub async fn render(
+    pub fn render(
         &mut self,
         renderer: JsRenderer
     ) {
-        self.game.render(renderer).await
+        self.game.render(renderer)
     }
 
     #[wasm_bindgen]

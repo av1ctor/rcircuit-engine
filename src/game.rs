@@ -3,32 +3,31 @@ use std::{collections::HashMap, vec};
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
-use three_rs::math::{
-    Vector3, 
-    Quaternion
-};
 #[cfg(not(feature = "js"))]
 use three_rs::math::{
     path3::Path3,
-    FORWARD, UP
+    FORWARD, UP,
+    Vector3, 
+    Quaternion
 };
 #[cfg(feature = "js")]
 use crate::js_renderer::JsRenderer;
 #[cfg(not(feature = "js"))]
 use crate::renderer::Renderer;
 use crate::{
-    asset::{GameAsset, GameAssetId, ASSETS}, 
+    asset::{GameAsset, ASSETS}, 
     enemy::Enemy, 
     env::{AssetId, Env, EnvObs}, 
     event::*, 
     map::Map, 
-    object::{Object, ObjectType}, 
+    object::Object, 
     player::{Player, PlayerAction, NUM_SENSOR_FEATURES}
 };
 #[cfg(not(feature = "js"))]
 use crate::{
+    asset::GameAssetId, 
     env::{EnvAction, EnvStep, EnvPlayer},
-    object::{ObjectState, ObjectVisibility}, 
+    object::{ObjectState, ObjectVisibility, ObjectType}, 
     spawn_locs::SpawnLocations, 
     sensor::Sensor
 };
@@ -317,14 +316,14 @@ impl Env<GameAsset> for Game {
     }
 
     #[cfg(feature = "js")]
-    async fn render(
+    fn render(
         &mut self,
         renderer: JsRenderer,
     ) {
         for event in &self.events {
             match event {
                 GameEvent::ObjectCreated(e) => {
-                    renderer.add_model(e.id, e.model_ref).await;
+                    renderer.add_model(e.id, e.model_ref);
                 },
                 
                 GameEvent::ObjectSpawned(e) => {

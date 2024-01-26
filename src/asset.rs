@@ -1,11 +1,14 @@
+#[cfg(feature = "js")]
+use wasm_bindgen::prelude::*;
 use crate::env::AssetId;
 
 #[repr(usize)]
+#[cfg_attr(feature = "js", wasm_bindgen)]
 pub enum GameAssetId {
-    Level0 = 0,
-    Player,
-    Key,
-    Exit,
+    Level0  = 0,
+    Player  = 1,
+    Key     = 2,
+    Exit    = 3,
 }
 
 impl From<AssetId> for GameAssetId {
@@ -24,8 +27,17 @@ impl From<GameAssetId> for AssetId {
     }
 }
 
+#[cfg(not(feature = "js"))]
 #[derive(Clone)]
 pub struct GameAsset {
+    pub path: Option<String>,
+}
+
+#[cfg(feature = "js")]
+#[derive(Clone)]
+#[wasm_bindgen]
+pub struct GameAsset {
+    #[wasm_bindgen(skip)]
     pub path: Option<String>,
 }
 
