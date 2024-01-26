@@ -4,6 +4,7 @@ use crate::game::{
 };
 use crate::env::Env;
 use crate::js_renderer::JsRenderer;
+use crate::map::Map;
 
 #[wasm_bindgen]
 extern "C" {
@@ -83,32 +84,21 @@ impl GameWrapper {
         options: GameOptionsWrapper
     ) -> Self {
         Self {
-            game: Game::new(&[], &[], options.wrapped),
+            game: Game::new(Map::new(&[], &[]), options.wrapped),
         }
-    }
-
-    #[wasm_bindgen]
-    pub fn deserialize_entities(
-        &mut self,
-        buf: Vec<u8>
-    ) -> Result<(), String> {
-        self.game.deserialize_entities(&buf)
-    }
-
-    #[wasm_bindgen]
-    pub fn deserialize_events(
-        &mut self,
-        buf: Vec<u8>
-    ) -> Result<(), String> {
-        self.game.deserialize_events(&buf)
     }
 
     #[wasm_bindgen]
     pub fn render(
         &mut self,
+        entities: Vec<u8>,
+        events: Vec<u8>,
         renderer: JsRenderer
-    ) {
-        self.game.render(renderer)
+    ) -> Result<(), String> {
+        self.game.deserialize_entities(&entities)?;
+        self.game.deserialize_events(&events)?;
+        self.game.render(renderer);
+        Ok(())
     }
 
     #[wasm_bindgen]

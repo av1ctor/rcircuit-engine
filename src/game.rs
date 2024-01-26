@@ -158,7 +158,7 @@ impl Env<GameAsset> for Game {
         self.events.push(GameEvent::ObjectCreated(ObjectCreatedEvent {
             model_ref: level_ref,
             typ: ObjectType::UNKNOWN,
-            id: GameAssetId::Level0.into(),
+            id: GameAssetId::Level0 as _,
         }));
 
         renderer.show_model(level_ref);
@@ -364,12 +364,9 @@ impl Env<GameAsset> for Game {
 
 impl Game {
     pub fn new(
-        level_bytes: &[u8], 
-        navmesh_bytes: &[u8],
+        map: Map, 
         options: GameOptions
     ) -> Self {
-        let map = Map::new(level_bytes, navmesh_bytes);
-
         Self { 
             map,
             entities: GameEntities::default(),
@@ -769,14 +766,6 @@ impl Game {
 
             let mean_rot = player.mean_rot();
 
-            self.events.push(GameEvent::ObjectMoved(
-                ObjectMovedEvent {
-                    model_ref: player.base.model_ref,
-                    pos: player.base.pos,
-                    rot: mean_rot,
-                }
-            ));
-            
             renderer.set_position(
                 player.base.model_ref, 
                 &player.base.pos.add(&Vector3::new(0.0, 0.9, 0.0))
@@ -785,6 +774,14 @@ impl Game {
                 player.base.model_ref, 
                 &mean_rot
             );
+
+            self.events.push(GameEvent::ObjectMoved(
+                ObjectMovedEvent {
+                    model_ref: player.base.model_ref,
+                    pos: player.base.pos,
+                    rot: mean_rot,
+                }
+            ));
         }
     }
 
