@@ -25,7 +25,7 @@ pub enum AssetValue {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, CandidType)]
-pub struct AssetData(HashMap<AssetKey, AssetValue>);
+pub struct AssetData(pub HashMap<AssetKey, AssetValue>);
 
 impl AssetData {
     pub fn new(

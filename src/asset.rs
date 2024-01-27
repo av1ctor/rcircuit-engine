@@ -36,8 +36,10 @@ pub(crate) enum GameAssetRef {
     Level = 0,
     Player1 = 1,
     Player2 = 2,
-    Key = 3,
-    Exit = 4,
+    Player3 = 3,
+    Player4 = 4,
+    Key = 5,
+    Exit = 6,
 }
 
 #[cfg(not(feature = "js"))]
@@ -47,6 +49,8 @@ pub fn get_game_assets(
         Asset::new(GameAssetType::Level as _, AssetData::new(&[("path", &AssetValue::None)])),
         Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(0))])),
         Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(1))])),
+        Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(2))])),
+        Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(3))])),
         Asset::new(GameAssetType::Key as _, AssetData::new(&[])),
         Asset::new(GameAssetType::Exit as _, AssetData::new(&[])),
     ]
