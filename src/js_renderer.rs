@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 use crate::renderer::ModelRef;
-use crate::env::AssetId;
+use crate::env::AssetRef;
 
 #[wasm_bindgen]
 extern "C" {
@@ -9,7 +9,7 @@ extern "C" {
     #[wasm_bindgen(method)]
     pub fn add_model(
         this: &JsRenderer,
-        id: AssetId,
+        asset_ref: AssetRef,
         model_ref: ModelRef
     ) -> JsValue;
 

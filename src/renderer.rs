@@ -2,27 +2,25 @@ use three_rs::math::{
     Vector3, 
     Quaternion
 };
-
 #[cfg(not(target_arch = "wasm32"))]
 use three_rs::core::RGB;
-use crate::env::AssetId;
+use crate::env::{Asset, AssetRef};
 
 pub type ModelRef = usize;
 
-pub trait Renderer<T> {
+pub trait Renderer {
     fn reset(
         &mut self
     );
 
     fn load_asset(
         &mut self,
-        id: AssetId,
-        asset: &T
+        asset: &Asset
     ) -> Result<(), String>;
     
     fn add_model(
         &mut self,
-        id: AssetId
+        asset_ref: AssetRef
     ) -> Result<ModelRef, String>;
 
     #[cfg(not(target_arch = "wasm32"))]

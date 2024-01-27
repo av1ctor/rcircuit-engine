@@ -84,7 +84,10 @@ impl GameWrapper {
         options: GameOptionsWrapper
     ) -> Self {
         Self {
-            game: Game::new(Map::new(&[], &[]), options.wrapped),
+            game: Game::new(
+                Map::new(&[], &[]), 
+                options.wrapped
+            ),
         }
     }
 
@@ -95,8 +98,12 @@ impl GameWrapper {
         events: Vec<u8>,
         renderer: JsRenderer
     ) -> Result<(), String> {
-        self.game.deserialize_entities(&entities)?;
-        self.game.deserialize_events(&events)?;
+        if entities.len() > 0 {
+            self.game.deserialize_entities(&entities)?;
+        }
+        if events.len() > 0 {
+            self.game.deserialize_events(&events)?;
+        }
         self.game.render(renderer);
         Ok(())
     }

@@ -1,50 +1,54 @@
 #[cfg(feature = "js")]
 use wasm_bindgen::prelude::*;
-use crate::env::AssetId;
+use crate::env::AssetType;
+#[cfg(not(feature = "js"))]
+use crate::env::{Asset, AssetData, AssetValue};
 
 #[repr(usize)]
 #[cfg_attr(feature = "js", wasm_bindgen)]
-pub enum GameAssetId {
-    Level0  = 0,
+pub enum GameAssetType {
+    Level   = 0,
     Player  = 1,
     Key     = 2,
     Exit    = 3,
 }
 
-impl From<AssetId> for GameAssetId {
+impl From<AssetType> for GameAssetType {
     fn from(
-        value: AssetId
+        value: AssetType
     ) -> Self {
         unsafe { std::mem::transmute(value) }
     }
 }
 
-impl From<GameAssetId> for AssetId {
+impl From<GameAssetType> for AssetType {
     fn from(
-        value: GameAssetId
+        value: GameAssetType
     ) -> Self {
         value as _
     }
 }
 
 #[cfg(not(feature = "js"))]
-#[derive(Clone)]
-pub struct GameAsset {
-    pub path: Option<String>,
+#[repr(C)]
+#[allow(dead_code)]
+pub(crate) enum GameAssetRef {
+    Level = 0,
+    Player1 = 1,
+    Player2 = 2,
+    Key = 3,
+    Exit = 4,
 }
 
-#[cfg(feature = "js")]
-#[derive(Clone)]
-#[wasm_bindgen]
-pub struct GameAsset {
-    #[wasm_bindgen(skip)]
-    pub path: Option<String>,
+#[cfg(not(feature = "js"))]
+pub fn get_game_assets(
+) -> Vec<Asset> {
+    vec![
+        Asset::new(GameAssetType::Level as _, AssetData::new(&[("path", &AssetValue::None)])),
+        Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(0))])),
+        Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(1))])),
+        Asset::new(GameAssetType::Key as _, AssetData::new(&[])),
+        Asset::new(GameAssetType::Exit as _, AssetData::new(&[])),
+    ]
 }
-
-pub const ASSETS: &[(AssetId, GameAsset)] = &[
-    (GameAssetId::Level0 as _, GameAsset{path: None}),
-    (GameAssetId::Player as _, GameAsset{path: None}),
-    (GameAssetId::Key as _, GameAsset{path: None}),
-    (GameAssetId::Exit as _, GameAsset{path: None}),
-];
 

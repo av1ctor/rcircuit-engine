@@ -1,3 +1,5 @@
+use candid::CandidType;
+use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 #[cfg(not(feature = "js"))]
 use rand::rngs::StdRng;
@@ -8,7 +10,52 @@ use crate::js_renderer::JsRenderer;
 
 pub type EnvObs = Vec<f32>;
 pub type EnvAction = usize;
-pub type AssetId = usize;
+
+pub type AssetRef = usize;
+pub type AssetType = usize;
+pub type AssetKey = String;
+
+#[derive(Clone, Debug, Serialize, Deserialize, CandidType)]
+pub enum AssetValue {
+    None,
+    Bool(bool),
+    U32(u32),
+    F32(f32),
+    Text(String),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, CandidType)]
+pub struct AssetData(HashMap<AssetKey, AssetValue>);
+
+impl AssetData {
+    pub fn new(
+        entries: &[(&str, &AssetValue)]
+    ) -> Self {
+        let mut data = HashMap::default();
+        for e in entries {
+            data.insert(e.0.to_string(), e.1.clone());
+        }
+        Self(data)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, CandidType)]
+pub struct Asset {
+    pub typ: AssetType,
+    pub data: AssetData,
+}
+
+impl Asset {
+    pub fn new(
+        typ: AssetType,
+        data: AssetData
+    ) -> Self {
+        Self {
+            typ,
+            data,
+        }
+    }
+}
 
 pub struct EnvPlayer {
     pub reward: f32,
@@ -22,10 +69,11 @@ pub struct EnvStep {
     pub players: Vec<EnvPlayer>,
 }
 
-pub trait Env<T> {
+pub trait Env {
+    #[cfg(not(feature = "js"))]
     fn get_assets(
         &self
-    ) -> HashMap<AssetId, T>;
+    ) -> Vec<Asset>;
     
     fn get_num_actions(
         &self
@@ -38,7 +86,7 @@ pub trait Env<T> {
     #[cfg(not(feature = "js"))]
     fn reset(
         &mut self, 
-        renderer: &mut dyn Renderer<T>,
+        renderer: &mut dyn Renderer,
         rng: &mut StdRng
     ) -> Vec<EnvObs>;
 
@@ -53,7 +101,7 @@ pub trait Env<T> {
         &mut self, 
         actions: &Vec<Option<EnvAction>>, 
         delta_time: f32,
-        renderer: &mut dyn Renderer<T>
+        renderer: &mut dyn Renderer
     ) -> EnvStep;
     
     #[cfg(not(feature = "js"))]
@@ -65,7 +113,7 @@ pub trait Env<T> {
     #[cfg(not(feature = "js"))]
     fn render(
         &mut self,
-        renderer: &mut dyn Renderer<T>
+        renderer: &mut dyn Renderer
     );
 
     #[cfg(feature = "js")]

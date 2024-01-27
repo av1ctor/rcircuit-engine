@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 use three_rs::math::{Quaternion, Vector3};
 use crate::{
-    env::AssetId, 
+    env::AssetRef, 
     object::ObjectType, 
     renderer::ModelRef
 };
@@ -10,7 +10,7 @@ use crate::{
 pub struct ObjectCreatedEvent {
     pub model_ref: ModelRef,
     pub typ: ObjectType,
-    pub id: AssetId,
+    pub asset_ref: AssetRef,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
