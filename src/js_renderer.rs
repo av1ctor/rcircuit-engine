@@ -47,6 +47,14 @@ extern "C" {
     );
 
     #[wasm_bindgen(method)]
+    pub fn change_state(
+        this: &JsRenderer,
+        model_ref: ModelRef,
+        from: u32,
+        to: u32
+    );
+
+    #[wasm_bindgen(method)]
     pub fn render(
         this: &JsRenderer
     );

@@ -215,29 +215,31 @@ impl Env for Game {
                 let player = &mut self.entities.players[i];
                 player.reward = 0.0;
 
-                let rot = match actions[i] {
-                    None => {
-                        player.base.rot.clone()
-                    },
-                    Some(action) => {
-                        match PlayerAction::try_from(action.clone()).unwrap() {
-                            PlayerAction::MoveForward =>
-                                player.base.rot.clone(),
-                            PlayerAction::TurnRight => {
-                                player.base.rot.mul(
-                                    &Quaternion::from_axis_and_angle(&UP, player.turn_angle)
-                                )
-                            },
-                            PlayerAction::TurnLeft => {
-                                player.base.rot.mul(
-                                    &Quaternion::from_axis_and_angle(&UP, -player.turn_angle)
-                                )
+                if player.is_moving() {
+                    let rot = match actions[i] {
+                        None => {
+                            player.base.rot.clone()
+                        },
+                        Some(action) => {
+                            match PlayerAction::try_from(action.clone()).unwrap() {
+                                PlayerAction::MoveForward =>
+                                    player.base.rot.clone(),
+                                PlayerAction::TurnRight => {
+                                    player.base.rot.mul(
+                                        &Quaternion::from_axis_and_angle(&UP, player.turn_angle)
+                                    )
+                                },
+                                PlayerAction::TurnLeft => {
+                                    player.base.rot.mul(
+                                        &Quaternion::from_axis_and_angle(&UP, -player.turn_angle)
+                                    )
+                                }
                             }
                         }
-                    }
-                };
+                    };
 
-                self.move_player(i, &rot, delta_time, renderer);
+                    self.move_player(i, &rot, delta_time, renderer);
+                }
             }
 
             self.update_world(delta_time, renderer);
@@ -337,6 +339,10 @@ impl Env for Game {
                     renderer.set_rotation(
                         e.model_ref, &e.rot.to_slice()
                     );
+                },
+
+                GameEvent::ObjectStateChanged(e) => {
+                    renderer.change_state(e.model_ref, e.from as u32, e.to as u32);
                 },
 
                 GameEvent::ObjectDied(e) => {
@@ -461,6 +467,8 @@ impl Game {
                 loc.0, 
                 loc.1, 
                 Vector3::new(0.75, 1.8, 0.5), //FIXME!!!
+                ObjectState::IDLE,
+                ObjectVisibility::VISIBLE,
                 model_ref,
                 path_ref,
                 sensor_ref,
@@ -668,7 +676,7 @@ impl Game {
         for (i, player) in self.entities.players.iter().enumerate() {
             let target_obj = self.find_closest_object(
                 &player.base.pos, 
-                if player.num_keys == self.options.min_keys {
+                if player.num_brains == self.options.min_keys {
                     ObjectType::EXIT
                 }
                 else {
@@ -781,14 +789,17 @@ impl Game {
     }
 
     #[cfg(not(feature = "js"))]
-    fn check_keys(
+    fn check_brains(
         &mut self,
         num: usize,
         renderer: &mut dyn Renderer
     ) -> bool {
-        let mut collected = false;
-        let mut player = self.entities.players[num].clone();
+        let player = &mut self.entities.players[num];
+        if player.base.state == ObjectState::EATING {
+            return false;
+        }
         
+        let mut collected = false;
         for obj in self.entities.objects.iter_mut().filter(|o| 
             o.vis == ObjectVisibility::VISIBLE && 
             o.state != ObjectState::DEAD &&
@@ -798,20 +809,30 @@ impl Game {
             let item_bb = obj.calc_bb();
 
             if player_bb.intersects_with_box(&item_bb) {
-                player.num_keys += 1;
+                player.num_brains += 1;
                 player.reward += REWARD_KEY_FOUND;
-                obj.state = ObjectState::DEAD;
+                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                    model_ref: player.base.model_ref,
+                    from: player.base.state,
+                    to: ObjectState::EATING
+                }));
+                player.set_state(ObjectState::EATING, self.state.step);
+                
+                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                    model_ref: obj.model_ref,
+                    from: obj.state,
+                    to: ObjectState::DEAD
+                }));
+                obj.set_state(ObjectState::DEAD, self.state.step);
                 obj.vis = ObjectVisibility::HIDDEN;
-                collected = true;
-
                 renderer.hide_model(obj.model_ref);
                 self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent {
                     model_ref: obj.model_ref
                 }));
+
+                collected = true;
             }
         }
-
-        self.entities.players[num] = player;
 
         if collected {
             self.spawn_key(renderer);
@@ -839,13 +860,26 @@ impl Game {
 
             if player_bb.intersects_with_box(&item_bb) {
                 player.reward += PENALTY_TRAP;
-                obj.state = ObjectState::DEAD;
-                triggered = true;
                 
+                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                    model_ref: player.base.model_ref,
+                    from: player.base.state,
+                    to: ObjectState::HURTING
+                }));
+                player.set_state(ObjectState::HURTING, self.state.step);
+                
+                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                    model_ref: obj.model_ref,
+                    from: obj.state,
+                    to: ObjectState::DEAD
+                }));
+                obj.set_state(ObjectState::DEAD, self.state.step);
                 renderer.hide_model(obj.model_ref);
                 self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent {
                     model_ref: obj.model_ref
                 }));
+                
+                triggered = true;
             }
         }
 
@@ -874,9 +908,10 @@ impl Game {
         let mut all_keys_collected = false;
 
         for i in 0..self.entities.players.len() {
-            if self.check_keys(i, renderer) {
+            //
+            if self.check_brains(i, renderer) {
                 let player = &mut self.entities.players[i];
-                if player.num_keys >= self.options.min_keys {
+                if player.num_brains >= self.options.min_keys {
                     all_keys_collected = true;
                 }
             }
@@ -891,7 +926,7 @@ impl Game {
 
             {
                 let player = &self.entities.players[i];
-                if player.num_keys >= self.options.min_keys {
+                if player.num_brains >= self.options.min_keys {
                     let door = self.entities.objects.iter().find(|o| o.typ == ObjectType::EXIT);
                     if let Some(door) = door {
                         if Self::check_exit(&player.base, door) {
@@ -899,9 +934,26 @@ impl Game {
                             self.state.winner = Some(i);
                             let player = &mut self.entities.players[i];
                             player.reward += REWARD_EXIT_FOUND;
+                            self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                model_ref: player.base.model_ref,
+                                from: player.base.state,
+                                to: ObjectState::CELEBRATING
+                            }));
+                            player.set_state(ObjectState::CELEBRATING, self.state.step);
                         }
                     }
                 }
+            }
+
+            {
+                let player = &mut self.entities.players[i];
+                if let Some((from, to)) = player.update_state(self.state.step) {
+                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                        model_ref: player.base.model_ref,
+                        from,
+                        to
+                    }));
+                };
             }
         }
 

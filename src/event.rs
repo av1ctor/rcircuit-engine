@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use three_rs::math::{Quaternion, Vector3};
 use crate::{
     env::AssetRef, 
-    object::ObjectType, 
+    object::{ObjectType, ObjectState}, 
     renderer::ModelRef
 };
 
@@ -43,11 +43,19 @@ pub struct ObjectHiddenEvent {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ObjectStateChangedEvent {
+    pub model_ref: ModelRef,
+    pub from: ObjectState,
+    pub to: ObjectState
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum GameEvent {
     ObjectCreated(ObjectCreatedEvent),
     ObjectSpawned(ObjectSpawnedEvent),
     ObjectShown(ObjectShownEvent),
     ObjectHidden(ObjectHiddenEvent),
     ObjectMoved(ObjectMovedEvent),
+    ObjectStateChanged(ObjectStateChangedEvent),
     ObjectDied(ObjectDiedEvent),
 }

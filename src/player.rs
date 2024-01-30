@@ -84,7 +84,7 @@ pub struct Player {
     pub base: Object,
     pub turn_angle: f32,
     pub vel: Vector3,
-    pub num_keys: usize,
+    pub num_brains: usize,
     pub health: f32,
     pub reward: f32,
     #[serde(skip)]
@@ -104,6 +104,8 @@ impl Player {
         pos: Vector3,
         rot: Quaternion,
         dim: Vector3,
+        state: ObjectState,
+        vis: ObjectVisibility,
         model_ref: ModelRef,
         path_ref: ModelRef,
         sensor_ref: ModelRef,
@@ -115,8 +117,8 @@ impl Player {
             pos,
             rot,
             dim,
-            ObjectState::IDLE,
-            ObjectVisibility::HIDDEN,
+            state,
+            vis,
             model_ref,
             rng
         );
@@ -125,7 +127,7 @@ impl Player {
             base,
             turn_angle: 45.0 * (PI / 180.0),
             vel: Vector3::new(0.1, 0.1, 0.1),
-            num_keys: 0, 
+            num_brains: 0, 
             health: 100.0, 
             reward: 0.0,
             path_ref,
@@ -136,12 +138,33 @@ impl Player {
         }
     }
 
+    pub fn set_state(
+        &mut self,
+        to: ObjectState,
+        step: usize
+    ) {
+        self.base.set_state(to, step);
+    }
+
+    pub fn update_state(
+        &mut self,
+        step: usize
+    ) -> Option<(ObjectState, ObjectState)> {
+        self.base.update_state(step)
+    }
+
+    pub fn is_moving(
+        &self 
+    ) -> bool {
+        self.base.is_moving()
+    }
+    
     pub fn calc_bb(
         &self 
     ) -> Box3 {
         self.base.calc_bb()
     }
-    
+
     #[cfg(not(feature = "js"))]
     pub fn mean_rot(
         &self
