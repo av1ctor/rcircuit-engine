@@ -559,7 +559,7 @@ impl Game {
             self.events.push(GameEvent::ObjectSpawned({
                 ObjectSpawnedEvent {
                     model_ref,
-                    pos: loc.0.add(&Vector3::new(0.0, 2.0, 0.0)),
+                    pos: loc.0,
                     rot: loc.1,
                 }
             }));
@@ -771,7 +771,7 @@ impl Game {
 
             renderer.set_position(
                 player.base.model_ref, 
-                &player.base.pos.add(&Vector3::new(0.0, 0.9, 0.0))
+                &player.base.pos
             );
             renderer.set_rotation(
                 player.base.model_ref, 
