@@ -113,7 +113,8 @@ pub trait Env {
     #[cfg(not(feature = "js"))]
     fn render(
         &mut self,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer,
+        events_only: bool
     );
 
     #[cfg(feature = "js")]
@@ -140,8 +141,4 @@ pub trait Env {
         &mut self, 
         buf: &Vec<u8>
     ) -> Result<(), String>;
-
-    fn clear_events(
-        &mut self
-    );
 }

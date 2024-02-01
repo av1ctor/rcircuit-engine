@@ -9,7 +9,7 @@ use crate::env::{Asset, AssetData, AssetValue};
 pub enum GameAssetType {
     Level   = 0,
     Player  = 1,
-    Key     = 2,
+    Brain   = 2,
     Exit    = 3,
 }
 
@@ -38,7 +38,7 @@ pub(crate) enum GameAssetRef {
     Player2 = 2,
     Player3 = 3,
     Player4 = 4,
-    Key = 5,
+    Brain = 5,
     Exit = 6,
 }
 
@@ -51,7 +51,7 @@ pub fn get_game_assets(
         Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(1))])),
         Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(2))])),
         Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(3))])),
-        Asset::new(GameAssetType::Key as _, AssetData::new(&[])),
+        Asset::new(GameAssetType::Brain as _, AssetData::new(&[])),
         Asset::new(GameAssetType::Exit as _, AssetData::new(&[])),
     ]
 }

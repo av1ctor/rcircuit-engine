@@ -4,7 +4,10 @@ use three_rs::math::{
 };
 #[cfg(not(target_arch = "wasm32"))]
 use three_rs::core::RGB;
-use crate::env::{Asset, AssetRef};
+use crate::{
+    env::{Asset, AssetRef}, 
+    object::ObjectState
+};
 
 pub type ModelRef = usize;
 
@@ -70,6 +73,13 @@ pub trait Renderer {
         &mut self,
         model_ref: ModelRef,
         scale: &Vector3
+    );
+
+    fn change_state(
+        &mut self,
+        model_ref: ModelRef,
+        from: ObjectState,
+        to: ObjectState
     );
 
     fn render(

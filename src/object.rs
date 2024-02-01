@@ -17,7 +17,7 @@ pub enum ObjectType {
     UNKNOWN = 0,
     PLAYER  = 1,
     ENEMY   = 2,
-    KEY     = 3,
+    BRAIN     = 3,
     TRAP    = 4,
     EXIT    = 5,
 }

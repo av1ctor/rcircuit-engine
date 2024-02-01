@@ -35,7 +35,7 @@ const PLAYER_SPAWN_LOCATION_NAME: &str = "psl.";
 #[cfg(not(feature = "js"))]
 const _ENEMY_SPAWN_LOCATION_NAME: &str = "esl.";
 #[cfg(not(feature = "js"))]
-const KEY_SPAWN_LOCATION_NAME: &str = "ksl.";
+const BRAIN_SPAWN_LOCATION_NAME: &str = "ksl.";
 #[cfg(not(feature = "js"))]
 const EXIT_SPAWN_LOCATION_NAME: &str = "xsl.";
 
@@ -44,7 +44,7 @@ const PENALTY_WALL: f32 = -10.0;
 #[cfg(not(feature = "js"))]
 const PENALTY_TRAP: f32 = -50.0;
 #[cfg(not(feature = "js"))]
-const REWARD_KEY_FOUND: f32 = 100.0;
+const REWARD_BRAIN_FOUND: f32 = 100.0;
 #[cfg(not(feature = "js"))]
 const REWARD_EXIT_FOUND: f32 = 1000.0;
 
@@ -156,8 +156,6 @@ impl Env for Game {
             asset_ref: GameAssetRef::Level as _,
         }));
 
-        renderer.show_model(level_ref);
-        
         // entities
         self.entities = self.spawn_entities(renderer, rng);
         
@@ -238,11 +236,11 @@ impl Env for Game {
                         }
                     };
 
-                    self.move_player(i, &rot, delta_time, renderer);
+                    self.move_player(i, &rot, delta_time);
                 }
             }
 
-            self.update_world(delta_time, renderer);
+            self.update_world(delta_time);
             
             self.build_players_sensors(renderer);
         }
@@ -298,18 +296,59 @@ impl Env for Game {
         Ok(())
     }
 
-    fn clear_events(
-        &mut self
-    ) {
-        self.events = vec![];
-    }
-
-    #[cfg(not(feature = "js"))]
+    #[cfg(all(not(feature = "js"), not(target_arch = "wasm32")))]
     fn render(
         &mut self,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer,
+        events_only: bool
     ) {
-        renderer.render();
+        for event in &self.events {
+            match event {
+                GameEvent::ObjectCreated(_) => {
+                    // nothing to do, the object was created already
+                },
+                
+                GameEvent::ObjectSpawned(e) => {
+                    renderer.set_position(
+                        e.model_ref, &e.pos
+                    );
+                    renderer.set_rotation(
+                        e.model_ref, &e.rot
+                    );
+                },
+                
+                GameEvent::ObjectMoved(e) => {
+                    renderer.set_position(
+                        e.model_ref, &e.pos
+                    );
+                    renderer.set_rotation(
+                        e.model_ref, &e.rot
+                    );
+                },
+
+                GameEvent::ObjectStateChanged(e) => {
+                    renderer.change_state(e.model_ref, e.from, e.to);
+                },
+
+                GameEvent::ObjectDied(e) => {
+                    renderer.hide_model(e.model_ref);
+                },
+                
+                GameEvent::ObjectShown(e) => {
+                    renderer.show_model(e.model_ref);
+
+                },
+                GameEvent::ObjectHidden(e) => {
+                    renderer.hide_model(e.model_ref);
+                },
+            }
+        }
+
+        if !events_only {
+            renderer.render();
+        }
+
+        self.events = vec![];
     }
 
     #[cfg(feature = "js")]
@@ -360,6 +399,17 @@ impl Env for Game {
         }
 
         renderer.render();
+
+        self.events = vec![];
+    }
+
+    #[cfg(all(not(feature = "js"), target_arch = "wasm32"))]
+    fn render(
+        &mut self,
+        _renderer: &mut dyn Renderer,
+        _events_only: bool
+    ) {
+        self.events = vec![];
     }
 }
 
@@ -378,7 +428,7 @@ impl Game {
                 winner: None, 
                 step: 0,
             },
-            options
+            options,
         }
     }
 
@@ -393,8 +443,8 @@ impl Game {
 
         // keys
         let mut objects = self.spawn_objects(
-            ObjectType::KEY,
-            KEY_SPAWN_LOCATION_NAME, 
+            ObjectType::BRAIN,
+            BRAIN_SPAWN_LOCATION_NAME, 
             &|i| i == 0, 
             renderer,
             rng
@@ -484,7 +534,6 @@ impl Game {
                 }
             }));
 
-            renderer.show_model(model_ref);
             self.events.push(GameEvent::ObjectShown(ObjectShownEvent {
                 model_ref
             }));
@@ -523,18 +572,26 @@ impl Game {
 
         let mut objects = vec![];
 
-        let num_objs = if typ == ObjectType::KEY {
+        let num_objs = if typ == ObjectType::BRAIN {
             self.options.num_players * self.options.min_keys
         } 
         else {
             1
         };
 
-        let rad = if typ == ObjectType::KEY {1.0} else {2.0};
+        let rad = if typ == ObjectType::BRAIN {1.0} else {2.0};
 
         for i in 0..num_objs {
-            let asset_ref = if typ == ObjectType::KEY {GameAssetRef::Key as usize} else {GameAssetRef::Exit as usize};
-            let model_ref = renderer.add_model(asset_ref).unwrap();
+            let asset_ref = if typ == ObjectType::BRAIN {
+                GameAssetRef::Brain as usize
+            } 
+            else {
+                GameAssetRef::Exit as usize
+            };
+            
+            let model_ref = renderer.add_model(asset_ref)
+                .expect("Invalid asset");
+
             self.events.push(GameEvent::ObjectCreated(ObjectCreatedEvent {
                 model_ref,
                 typ: typ.clone(),
@@ -554,8 +611,6 @@ impl Game {
                 rng
             );
 
-            renderer.set_position(model_ref, &obj.pos);
-            renderer.set_rotation(model_ref, &obj.rot);
             self.events.push(GameEvent::ObjectSpawned({
                 ObjectSpawnedEvent {
                     model_ref,
@@ -565,13 +620,11 @@ impl Game {
             }));
 
             if is_active {
-                renderer.show_model(model_ref);
                 self.events.push(GameEvent::ObjectShown(ObjectShownEvent {
                     model_ref
                 }));
             }
             else {
-                renderer.hide_model(model_ref);
                 self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent {
                     model_ref
                 }));
@@ -585,8 +638,7 @@ impl Game {
 
     #[cfg(not(feature = "js"))]
     fn spawn_exit(
-        &mut self,
-        renderer: &mut dyn Renderer
+        &mut self
     ) {
         let exit = self.entities.objects.iter_mut().find(
             |o| o.typ == ObjectType::EXIT && 
@@ -596,14 +648,12 @@ impl Game {
         if let Some(obj) = exit {
             obj.vis = ObjectVisibility::VISIBLE;
             
-            renderer.set_position(obj.model_ref, &obj.pos);
             self.events.push(GameEvent::ObjectMoved(ObjectMovedEvent{
                 model_ref: obj.model_ref,
                 pos: obj.pos,
                 rot: obj.rot,
             }));
             
-            renderer.show_model(obj.model_ref);
             self.events.push(GameEvent::ObjectShown(ObjectShownEvent {
                 model_ref: obj.model_ref
             }));
@@ -611,19 +661,17 @@ impl Game {
     }
 
     #[cfg(not(feature = "js"))]
-    fn spawn_key(
-        &mut self,
-        renderer: &mut dyn Renderer
+    fn spawn_brain(
+        &mut self
     ) {
-        let key = self.entities.objects.iter_mut().find(
-            |o| o.typ == ObjectType::KEY && 
+        let brain = self.entities.objects.iter_mut().find(
+            |o| o.typ == ObjectType::BRAIN && 
             o.vis == ObjectVisibility::HIDDEN && 
             o.state != ObjectState::DEAD
         );
-        if let Some(obj) = key {
+        if let Some(obj) = brain {
             obj.vis = ObjectVisibility::VISIBLE;
             
-            renderer.set_position(obj.model_ref, &obj.pos);
             self.events.push(GameEvent::ObjectMoved(
                 ObjectMovedEvent {
                     model_ref: obj.model_ref,
@@ -632,7 +680,6 @@ impl Game {
                 }
             ));
             
-            renderer.show_model(obj.model_ref);
             self.events.push(GameEvent::ObjectShown(ObjectShownEvent {
                 model_ref: obj.model_ref
             }));
@@ -680,7 +727,7 @@ impl Game {
                     ObjectType::EXIT
                 }
                 else {
-                    ObjectType::KEY
+                    ObjectType::BRAIN
                 }
             );
 
@@ -742,8 +789,7 @@ impl Game {
         &mut self,
         num: usize,
         rot: &Quaternion,
-        delta_time: f32,
-        renderer: &mut dyn Renderer
+        delta_time: f32
     ) {
         let player = &mut self.entities.players[num];
         
@@ -769,15 +815,6 @@ impl Game {
 
             let mean_rot = player.mean_rot();
 
-            renderer.set_position(
-                player.base.model_ref, 
-                &player.base.pos
-            );
-            renderer.set_rotation(
-                player.base.model_ref, 
-                &mean_rot
-            );
-
             self.events.push(GameEvent::ObjectMoved(
                 ObjectMovedEvent {
                     model_ref: player.base.model_ref,
@@ -791,8 +828,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn check_brains(
         &mut self,
-        num: usize,
-        renderer: &mut dyn Renderer
+        num: usize
     ) -> bool {
         let player = &mut self.entities.players[num];
         if player.base.state == ObjectState::EATING {
@@ -803,14 +839,14 @@ impl Game {
         for obj in self.entities.objects.iter_mut().filter(|o| 
             o.vis == ObjectVisibility::VISIBLE && 
             o.state != ObjectState::DEAD &&
-            o.typ == ObjectType::KEY
+            o.typ == ObjectType::BRAIN
         ) {
             let player_bb = player.calc_bb();
             let item_bb = obj.calc_bb();
 
             if player_bb.intersects_with_box(&item_bb) {
                 player.num_brains += 1;
-                player.reward += REWARD_KEY_FOUND;
+                player.reward += REWARD_BRAIN_FOUND;
                 self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
                     model_ref: player.base.model_ref,
                     from: player.base.state,
@@ -825,7 +861,7 @@ impl Game {
                 }));
                 obj.set_state(ObjectState::DEAD, self.state.step);
                 obj.vis = ObjectVisibility::HIDDEN;
-                renderer.hide_model(obj.model_ref);
+
                 self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent {
                     model_ref: obj.model_ref
                 }));
@@ -835,7 +871,7 @@ impl Game {
         }
 
         if collected {
-            self.spawn_key(renderer);
+            self.spawn_brain();
         }
         
         collected
@@ -844,8 +880,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn check_traps(
         &mut self,
-        num: usize,
-        renderer: &mut dyn Renderer
+        num: usize
     ) -> bool {
         let mut triggered = false;
         let mut player = self.entities.players[num].clone();
@@ -874,7 +909,7 @@ impl Game {
                     to: ObjectState::DEAD
                 }));
                 obj.set_state(ObjectState::DEAD, self.state.step);
-                renderer.hide_model(obj.model_ref);
+                
                 self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent {
                     model_ref: obj.model_ref
                 }));
@@ -902,21 +937,20 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn update_world(
         &mut self,
-        _delta_time: f32,
-        renderer: &mut dyn Renderer
+        _delta_time: f32
     ) {
-        let mut all_keys_collected = false;
+        let mut all_brains_collected = false;
 
         for i in 0..self.entities.players.len() {
             //
-            if self.check_brains(i, renderer) {
+            if self.check_brains(i) {
                 let player = &mut self.entities.players[i];
                 if player.num_brains >= self.options.min_keys {
-                    all_keys_collected = true;
+                    all_brains_collected = true;
                 }
             }
 
-            if self.check_traps(i, renderer) {
+            if self.check_traps(i) {
                 let player = &self.entities.players[i];
                 if player.health <= 0.0 {
                     self.state.status = GameStatus::FINISHED;
@@ -957,8 +991,8 @@ impl Game {
             }
         }
 
-        if all_keys_collected {
-            self.spawn_exit(renderer);
+        if all_brains_collected {
+            self.spawn_exit();
         }
     }
 }
