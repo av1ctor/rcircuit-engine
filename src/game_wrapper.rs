@@ -104,10 +104,9 @@ impl GameWrapper {
         if events.len() > 0 {
             self.game.deserialize_events(&events)?;
         }
-        else {
-            self.game.clear_events();
-        }
+        
         self.game.render(renderer);
+        
         Ok(())
     }
 
