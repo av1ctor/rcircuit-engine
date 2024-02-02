@@ -57,8 +57,8 @@ pub const STATE_DURATIONS: &[usize] = &[
     usize::MAX, // CROUCHING
     usize::MAX, // SITTING
     usize::MAX, // SHOOTING
-    usize::MAX, // PUNCHING
-    usize::MAX, // KICKING
+    30,         // PUNCHING
+    30,         // KICKING
     usize::MAX, // CLIMBING
     60 * 3,     // HURTING
     60 * 5,     // EXPLODING
@@ -148,7 +148,7 @@ impl Object {
         let duration = STATE_DURATIONS[self.state as usize];
         if duration != usize::MAX && step - self.state_changed_at  >= duration {
             let old_state = self.state;
-            self.state = ObjectState::MOVING;
+            self.state = if self.typ == ObjectType::PLAYER {ObjectState::MOVING} else {ObjectState::IDLE};
             self.state_changed_at = step;
             Some((old_state, self.state))
         }
