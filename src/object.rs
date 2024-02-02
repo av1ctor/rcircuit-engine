@@ -48,19 +48,19 @@ pub const STATE_DURATIONS: &[usize] = &[
     60 * 3,     // IDLE
     usize::MAX, // MOVING
     usize::MAX, // RUNNING
-    30,         // JUMPING
-    60 * 5,     // EATING
+    15,         // JUMPING
+    60 * 1,     // EATING
     60 * 3,     // CELEBRATING
     60 * 5,     // DANCING
     usize::MAX, // CROUCHING
     usize::MAX, // SITTING
     usize::MAX, // SHOOTING
-    30,         // PUNCHING
-    30,         // KICKING
+    20,         // PUNCHING
+    20,         // KICKING
     usize::MAX, // CLIMBING
-    60 * 3,     // HURTING
-    60 * 5,     // EXPLODING
-    60 * 5,     // AGONIZING
+    40,         // HURTING
+    60 * 3,     // EXPLODING
+    60 * 3,     // AGONIZING
     usize::MAX, // DEAD
 ];
 

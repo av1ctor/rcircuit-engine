@@ -42,6 +42,8 @@ const EXIT_SPAWN_LOCATION_NAME: &str = "xsl.";
 #[cfg(not(feature = "js"))]
 const PENALTY_WALL: f32 = -10.0;
 #[cfg(not(feature = "js"))]
+const PENALTY_HIT: f32 = -20.0;
+#[cfg(not(feature = "js"))]
 const REWARD_BRAIN_EATEN: f32 = 100.0;
 #[cfg(not(feature = "js"))]
 const REWARD_EXIT_REACHED: f32 = 1000.0;
@@ -207,38 +209,11 @@ impl Env for Game {
         if self.options.max_steps == 0 ||
             self.state.step < self.options.max_steps {
         
-            for i in 0..actions.len() {
-                let player = &mut self.entities.players[i];
-                player.reward = 0.0;
+            self.update_players(actions, delta_time);
+            
+            self.update_npcs(delta_time);
 
-                if player.is_moving() {
-                    let rot = match actions[i] {
-                        None => {
-                            player.base.rot.clone()
-                        },
-                        Some(action) => {
-                            match PlayerAction::try_from(action.clone()).unwrap() {
-                                PlayerAction::MoveForward =>
-                                    player.base.rot.clone(),
-                                PlayerAction::TurnRight => {
-                                    player.base.rot.mul(
-                                        &Quaternion::from_axis_and_angle(&UP, player.turn_angle)
-                                    )
-                                },
-                                PlayerAction::TurnLeft => {
-                                    player.base.rot.mul(
-                                        &Quaternion::from_axis_and_angle(&UP, -player.turn_angle)
-                                    )
-                                }
-                            }
-                        }
-                    };
-
-                    self.move_player(i, &rot, delta_time);
-                }
-            }
-
-            self.update_world(delta_time);
+            self.update_objects(delta_time);
             
             self.build_players_sensors(renderer);
         }
@@ -737,6 +712,30 @@ impl Game {
     }
 
     #[cfg(not(feature = "js"))]
+    fn find_closest_player(
+        &self,
+        pos: &Vector3,
+        radius: f32
+    ) -> Option<(usize, Player)> {
+
+        let mut min_distance_sq = radius * 2.0;
+        let mut res = None;
+
+        for (num, player) in self.entities.players.iter().enumerate().filter(|(_, p)| 
+            p.base.vis == ObjectVisibility::VISIBLE && 
+            p.base.state != ObjectState::DEAD
+        ) {
+            let distance_sq = pos.sub(&player.base.pos).length_sq();
+            if distance_sq < min_distance_sq {
+                min_distance_sq = distance_sq;
+                res = Some((num, player.clone()));
+            }
+        }
+
+        res
+    }
+
+    #[cfg(not(feature = "js"))]
     fn find_closest_npc(
         &self,
         pos: &Vector3
@@ -859,6 +858,7 @@ impl Game {
         &mut self,
         num: usize,
         rot: &Quaternion,
+        vel: &Vector3,
         delta_time: f32
     ) {
         let player = &mut self.entities.players[num];
@@ -866,7 +866,7 @@ impl Game {
         let dir = FORWARD.apply_quaternion(&rot);
         
         let new_pos = player.base.pos.add(&dir
-            .mul(&player.vel)
+            .mul(vel)
             .mul_scalar(delta_time)
         );
         
@@ -896,57 +896,6 @@ impl Game {
     }
 
     #[cfg(not(feature = "js"))]
-    fn check_npcs(
-        &mut self,
-        num: usize
-    ) -> bool {
-        let player = &mut self.entities.players[num];
-        if player.base.state == ObjectState::EATING {
-            return false;
-        }
-        
-        let mut collected = false;
-        for npc in self.entities.npcs.iter_mut().filter(|n| 
-            n.base.vis == ObjectVisibility::VISIBLE && 
-            n.base.state != ObjectState::DEAD
-        ) {
-            let player_bb = player.calc_bb();
-            let item_bb = npc.calc_bb();
-
-            if player_bb.intersects_with_box(&item_bb) {
-                player.num_brains += 1;
-                player.reward += REWARD_BRAIN_EATEN;
-                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                    model_ref: player.base.model_ref,
-                    from: player.base.state,
-                    to: ObjectState::EATING
-                }));
-                player.set_state(ObjectState::EATING, self.state.step);
-                
-                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                    model_ref: npc.base.model_ref,
-                    from: npc.base.state,
-                    to: ObjectState::DEAD
-                }));
-                npc.set_state(ObjectState::DEAD, self.state.step);
-                npc.base.vis = ObjectVisibility::HIDDEN;
-
-                self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent {
-                    model_ref: npc.base.model_ref
-                }));
-
-                collected = true;
-            }
-        }
-
-        if collected {
-            self.show_next_npc();
-        }
-        
-        collected
-    }
-
-    #[cfg(not(feature = "js"))]
     fn check_exit(
         player: &Object,
         obj: &Object,
@@ -958,51 +907,229 @@ impl Game {
     }
 
     #[cfg(not(feature = "js"))]
-    fn update_world(
+    fn update_players(
+        &mut self, 
+        actions: &Vec<Option<usize>>, 
+        delta_time: f32
+    ) {
+        for player in &mut self.entities.players {
+            if let Some((from, to)) = player.update_state(self.state.step) {
+                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                    model_ref: player.base.model_ref,
+                    from,
+                    to
+                }));
+            }
+        }
+
+        for i in 0..actions.len() {
+            let player = &mut self.entities.players[i];
+            player.reward = 0.0;
+
+            if player.is_moving() {
+                let rot = match actions[i] {
+                    None => {
+                        player.base.rot.clone()
+                    },
+                    Some(action) => {
+                        match PlayerAction::try_from(action.clone()).unwrap() {
+                            PlayerAction::MoveForward =>
+                                player.base.rot.clone(),
+                            PlayerAction::TurnRight => {
+                                player.base.rot.mul(
+                                    &Quaternion::from_axis_and_angle(&UP, player.turn_angle)
+                                )
+                            },
+                            PlayerAction::TurnLeft => {
+                                player.base.rot.mul(
+                                    &Quaternion::from_axis_and_angle(&UP, -player.turn_angle)
+                                )
+                            }
+                        }
+                    }
+                };
+
+                let vel = player.vel.clone();
+                self.move_player(i, &rot, &vel, delta_time);
+            }
+        }
+
+        for i in 0..self.entities.players.len() {
+            let player = &self.entities.players[i];
+            if player.num_brains >= self.options.min_keys {
+                let door = self.entities.objects.iter().find(|o| o.typ == ObjectType::EXIT);
+                if let Some(door) = door {
+                    if Self::check_exit(&player.base, door) {
+                        self.state.status = GameStatus::FINISHED;
+                        self.state.winner = Some(i);
+                        
+                        let player = &mut self.entities.players[i];
+                        player.reward += REWARD_EXIT_REACHED;
+                        
+                        player.set_state(ObjectState::CELEBRATING, self.state.step);
+                        self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                            model_ref: player.base.model_ref,
+                            from: player.base.state,
+                            to: ObjectState::CELEBRATING
+                        }));
+                    }
+                }
+            }
+            else {
+                if self.state.status == GameStatus::FINISHED {
+                    let player = &mut self.entities.players[i];
+                    player.set_state(ObjectState::IDLE, self.state.step);
+                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                        model_ref: player.base.model_ref,
+                        from: player.base.state,
+                        to: ObjectState::IDLE
+                    }));
+                }
+            }
+        }
+    }
+
+    #[cfg(not(feature = "js"))]
+    fn update_npcs(
+        &mut self, 
+        delta_time: f32
+    ) {
+        for npc in &mut self.entities.npcs {
+            if let Some((from, to)) = npc.update_state(self.state.step) {
+                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                    model_ref: npc.base.model_ref,
+                    from,
+                    to
+                }));
+            }
+        }
+        
+        for i in 0..self.entities.npcs.len() {
+            let npc = &self.entities.npcs[i];
+            if npc.base.state != ObjectState::DEAD &&
+                npc.base.vis == ObjectVisibility::VISIBLE {
+                // any player around?
+                if let Some((player_num, player)) = self.find_closest_player(&npc.base.pos, 5.0) {
+                    let player_bb = player.calc_bb();
+                    let npc_bb = npc.calc_bb();
+                    if player_bb.intersects_with_box(&npc_bb) {
+                        let player = &mut self.entities.players[player_num];
+                        if npc.base.state == ObjectState::PUNCHING {
+                            let npc = &mut self.entities.npcs[i];
+                            npc.set_state(ObjectState::IDLE, self.state.step);
+                            self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                model_ref: npc.base.model_ref,
+                                from: npc.base.state,
+                                to: ObjectState::IDLE
+                            }));
+
+                            player.health += PENALTY_HIT;
+                            if player.health <= 0.0 {
+                                player.set_state(ObjectState::DEAD, self.state.step);
+                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                    model_ref: player.base.model_ref,
+                                    from: player.base.state,
+                                    to: ObjectState::DEAD
+                                }));
+                                
+                                player.base.vis = ObjectVisibility::HIDDEN;
+                                self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent { 
+                                    model_ref: player.base.model_ref 
+                                }));
+                            }
+                            else {
+                                player.set_state(ObjectState::HURTING, self.state.step);
+                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                    model_ref: player.base.model_ref,
+                                    from: player.base.state,
+                                    to: ObjectState::HURTING
+                                }));
+
+                                let rot = player.base.rot.inverse();
+                                let vel = player.vel.mul_scalar(10.0);
+                                self.move_player(player_num, &rot, &vel, delta_time);
+                            }
+                        }
+                        else {
+                            player.reward += REWARD_BRAIN_EATEN;
+                            
+                            if player.base.state != ObjectState::EATING {
+                                player.set_state(ObjectState::EATING, self.state.step);
+                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                    model_ref: player.base.model_ref,
+                                    from: player.base.state,
+                                    to: ObjectState::EATING
+                                }));
+                            }
+                        
+                            let npc = &mut self.entities.npcs[i];
+                            
+                            npc.health += PENALTY_HIT;
+                            if npc.health <= 0.0 {
+                                npc.set_state(ObjectState::DEAD, self.state.step);
+                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                    model_ref: npc.base.model_ref,
+                                    from: npc.base.state,
+                                    to: ObjectState::DEAD
+                                }));
+
+                                npc.base.vis = ObjectVisibility::HIDDEN;
+                                self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent { 
+                                    model_ref: npc.base.model_ref 
+                                }));
+
+                                player.num_brains += 1;
+                                if player.num_brains == self.options.min_keys {
+                                    self.show_exit();
+                                } 
+                                
+                                self.show_next_npc();
+                            }
+                            else {
+                                if npc.base.state != ObjectState::HURTING {
+                                    npc.set_state(ObjectState::HURTING, self.state.step);
+                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                        model_ref: npc.base.model_ref,
+                                        from: npc.base.state,
+                                        to: ObjectState::HURTING
+                                    }));
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        let distance_sq = npc.base.pos.sub(&player.base.pos).length_sq();
+                        if distance_sq < 1.0 * 2.0 {
+                            if npc.base.state != ObjectState::PUNCHING && 
+                                !(npc.base.state == ObjectState::IDLE && self.state.step - npc.base.state_changed_at < 30) {
+                                let npc = &mut self.entities.npcs[i];
+                                npc.set_state(ObjectState::PUNCHING, self.state.step);
+                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                    model_ref: player.base.model_ref,
+                                    from: player.base.state,
+                                    to: ObjectState::PUNCHING
+                                }));
+                            }
+                        }
+                        else {
+
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(feature = "js"))]
+    fn update_objects(
         &mut self,
         _delta_time: f32
     ) {
         let mut all_brains_collected = false;
 
-        for i in 0..self.entities.players.len() {
-            //
-            if self.check_npcs(i) {
-                let player = &mut self.entities.players[i];
-                if player.num_brains >= self.options.min_keys {
-                    all_brains_collected = true;
-                }
-            }
-
-            {
-                let player = &self.entities.players[i];
-                if player.num_brains >= self.options.min_keys {
-                    let door = self.entities.objects.iter().find(|o| o.typ == ObjectType::EXIT);
-                    if let Some(door) = door {
-                        if Self::check_exit(&player.base, door) {
-                            self.state.status = GameStatus::FINISHED;
-                            self.state.winner = Some(i);
-                            let player = &mut self.entities.players[i];
-                            player.reward += REWARD_EXIT_REACHED;
-                            self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                model_ref: player.base.model_ref,
-                                from: player.base.state,
-                                to: ObjectState::CELEBRATING
-                            }));
-                            player.set_state(ObjectState::CELEBRATING, self.state.step);
-                        }
-                    }
-                }
-            }
-
-            {
-                let player = &mut self.entities.players[i];
-                if let Some((from, to)) = player.update_state(self.state.step) {
-                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                        model_ref: player.base.model_ref,
-                        from,
-                        to
-                    }));
-                };
+        for player in &self.entities.players {
+            if player.num_brains >= self.options.min_keys {
+                all_brains_collected = true;
             }
         }
 
