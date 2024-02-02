@@ -73,7 +73,7 @@ pub trait Env {
     #[cfg(not(feature = "js"))]
     fn get_assets(
         &self
-    ) -> Vec<Asset>;
+    ) -> HashMap::<AssetRef, Asset>;
     
     fn get_num_actions(
         &self

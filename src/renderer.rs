@@ -18,6 +18,7 @@ pub trait Renderer {
 
     fn load_asset(
         &mut self,
+        asset_ref: AssetRef,
         asset: &Asset
     ) -> Result<(), String>;
     

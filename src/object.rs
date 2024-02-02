@@ -16,10 +16,8 @@ pub enum ObjectType {
     #[default]
     UNKNOWN = 0,
     PLAYER  = 1,
-    ENEMY   = 2,
-    BRAIN     = 3,
-    TRAP    = 4,
-    EXIT    = 5,
+    NPC     = 2,
+    EXIT    = 3,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Default)]
@@ -146,7 +144,7 @@ impl Object {
         step: usize
     ) -> Option<(ObjectState, ObjectState)> {
         let duration = STATE_DURATIONS[self.state as usize];
-        if duration != usize::MAX && step - self.state_changed_at  >= duration {
+        if duration != usize::MAX && step - self.state_changed_at >= duration {
             let old_state = self.state;
             self.state = if self.typ == ObjectType::PLAYER {ObjectState::MOVING} else {ObjectState::IDLE};
             self.state_changed_at = step;

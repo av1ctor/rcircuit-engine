@@ -2,7 +2,7 @@ pub mod env;
 pub mod renderer;
 pub mod object;
 pub mod player;
-pub mod enemy;
+pub mod npc;
 pub mod spawn_locs;
 pub mod map;
 pub mod game;

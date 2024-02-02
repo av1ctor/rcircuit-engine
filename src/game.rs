@@ -1,5 +1,7 @@
 #[cfg(not(feature = "js"))]
 use rand::{rngs::StdRng, Rng};
+#[cfg(not(feature = "js"))]
+use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
 #[cfg(not(feature = "js"))]
@@ -14,7 +16,7 @@ use crate::js_renderer::JsRenderer;
 #[cfg(not(feature = "js"))]
 use crate::renderer::Renderer;
 use crate::{
-    enemy::Enemy, 
+    npc::Npc, 
     env::{Env, EnvObs}, 
     event::*, 
     map::Map, 
@@ -24,7 +26,7 @@ use crate::{
 #[cfg(not(feature = "js"))]
 use crate::{
     asset::{GameAssetRef, get_game_assets}, 
-    env::{Asset, EnvAction, EnvStep, EnvPlayer},
+    env::{Asset, AssetRef, EnvAction, EnvStep, EnvPlayer},
     object::{ObjectState, ObjectVisibility, ObjectType}, 
     spawn_locs::SpawnLocations, 
     sensor::Sensor
@@ -33,20 +35,16 @@ use crate::{
 #[cfg(not(feature = "js"))]
 const PLAYER_SPAWN_LOCATION_NAME: &str = "psl.";
 #[cfg(not(feature = "js"))]
-const _ENEMY_SPAWN_LOCATION_NAME: &str = "esl.";
-#[cfg(not(feature = "js"))]
-const BRAIN_SPAWN_LOCATION_NAME: &str = "ksl.";
+const NPC_SPAWN_LOCATION_NAME: &str = "ksl.";
 #[cfg(not(feature = "js"))]
 const EXIT_SPAWN_LOCATION_NAME: &str = "xsl.";
 
 #[cfg(not(feature = "js"))]
 const PENALTY_WALL: f32 = -10.0;
 #[cfg(not(feature = "js"))]
-const PENALTY_TRAP: f32 = -50.0;
+const REWARD_BRAIN_EATEN: f32 = 100.0;
 #[cfg(not(feature = "js"))]
-const REWARD_BRAIN_FOUND: f32 = 100.0;
-#[cfg(not(feature = "js"))]
-const REWARD_EXIT_FOUND: f32 = 1000.0;
+const REWARD_EXIT_REACHED: f32 = 1000.0;
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum GameStatus {
@@ -94,9 +92,9 @@ pub struct GameOptions {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct GameEntities {
-    pub objects: Vec<Object>,
     pub players: Vec<Player>,
-    pub enemies: Vec<Enemy>,
+    pub npcs: Vec<Npc>,
+    pub objects: Vec<Object>,
 }
 
 #[cfg_attr(not(feature = "js"), derive(Clone, Debug, Serialize, Deserialize))]
@@ -113,7 +111,7 @@ impl Env for Game {
     #[cfg(not(feature = "js"))]
     fn get_assets(
         &self
-    ) -> Vec<Asset> {
+    ) -> HashMap::<AssetRef, Asset> {
         get_game_assets()
     }
     
@@ -441,28 +439,22 @@ impl Game {
         // players
         let players = self.spawn_players(renderer, rng);
 
-        // keys
-        let mut objects = self.spawn_objects(
-            ObjectType::BRAIN,
-            BRAIN_SPAWN_LOCATION_NAME, 
-            &|i| i == 0, 
-            renderer,
-            rng
-        );
+        // npcs
+        let npcs = self.spawn_npcs(renderer, rng);
         
-        // door
-        objects.append(&mut self.spawn_objects(
+        // exit
+        let objects = self.spawn_objects(
             ObjectType::EXIT,
             EXIT_SPAWN_LOCATION_NAME,
             &|_| false, 
             renderer,
             rng
-        ));
+        );
 
         GameEntities {
-            objects,
             players,
-            enemies: vec![],
+            npcs,
+            objects,
         }
     }
 
@@ -552,6 +544,77 @@ impl Game {
     }
 
     #[cfg(not(feature = "js"))]
+    fn spawn_npcs(
+        &mut self,
+        renderer: &mut dyn Renderer,
+        rng: &mut StdRng
+    ) -> Vec<Npc> {
+        let mut spawn_locs = SpawnLocations::new(
+            Map::get_nodes_transform(
+                self.map.find_nodes_by_partial_name(NPC_SPAWN_LOCATION_NAME)
+            )
+        );
+
+        if spawn_locs.locs.len() == 0 {
+            panic!("No spawn locations '{}' for npcs found", NPC_SPAWN_LOCATION_NAME);
+        }
+
+        let mut npcs = vec![];
+        let num_npcs = self.options.num_players * self.options.min_keys;
+
+        for i in 0..num_npcs {
+            let model_ref = renderer.add_model(
+                GameAssetRef::Npc1 as usize // + i
+            ).unwrap();
+            
+            self.events.push(GameEvent::ObjectCreated(ObjectCreatedEvent {
+                model_ref,
+                typ: ObjectType::PLAYER,
+                asset_ref: GameAssetRef::Npc1 as usize //+ i,
+            }));
+
+            let loc = &spawn_locs.next(i, rng);
+            let vis = if i == 0 {ObjectVisibility::VISIBLE} else {ObjectVisibility::HIDDEN};
+            let npc = Npc::new(
+                loc.0, 
+                loc.1, 
+                Vector3::new(0.75, 1.8, 0.5), //FIXME!!!
+                ObjectState::IDLE,
+                vis,
+                model_ref,
+                rng
+            );
+
+            self.events.push(GameEvent::ObjectSpawned(
+                ObjectSpawnedEvent {
+                    model_ref,
+                    pos: loc.0,
+                    rot: loc.1,
+                }
+            ));
+
+            if vis == ObjectVisibility::VISIBLE {
+                self.events.push(GameEvent::ObjectShown(
+                    ObjectShownEvent {
+                        model_ref,
+                    }
+                ));
+            }
+            else {
+                self.events.push(GameEvent::ObjectHidden(
+                    ObjectHiddenEvent {
+                        model_ref,
+                    }
+                ));
+            }
+
+            npcs.push(npc);
+        }
+
+        npcs
+    }
+
+    #[cfg(not(feature = "js"))]
     fn spawn_objects(
         &mut self,
         typ: ObjectType,
@@ -571,23 +634,12 @@ impl Game {
         }
 
         let mut objects = vec![];
+        let num_objs = 1;
 
-        let num_objs = if typ == ObjectType::BRAIN {
-            self.options.num_players * self.options.min_keys
-        } 
-        else {
-            1
-        };
-
-        let rad = if typ == ObjectType::BRAIN {1.0} else {2.0};
+        let rad = 1.0;
 
         for i in 0..num_objs {
-            let asset_ref = if typ == ObjectType::BRAIN {
-                GameAssetRef::Brain as usize
-            } 
-            else {
-                GameAssetRef::Exit as usize
-            };
+            let asset_ref = GameAssetRef::Exit as usize;
             
             let model_ref = renderer.add_model(asset_ref)
                 .expect("Invalid asset");
@@ -604,7 +656,7 @@ impl Game {
                 typ.clone(),
                 loc.0, 
                 loc.1, 
-                Vector3::new(rad * 2.0, rad * 2.0, rad * 2.0),
+                Vector3::new(rad, rad, rad),
                 ObjectState::IDLE,
                 if is_active {ObjectVisibility::VISIBLE} else {ObjectVisibility::HIDDEN},
                 model_ref,
@@ -637,11 +689,11 @@ impl Game {
     }
 
     #[cfg(not(feature = "js"))]
-    fn spawn_exit(
+    fn show_exit(
         &mut self
     ) {
-        let exit = self.entities.objects.iter_mut().find(
-            |o| o.typ == ObjectType::EXIT && 
+        let exit = self.entities.objects.iter_mut().find(|o|
+            o.typ == ObjectType::EXIT && 
             o.vis == ObjectVisibility::HIDDEN && 
             o.state != ObjectState::DEAD
         );
@@ -661,29 +713,50 @@ impl Game {
     }
 
     #[cfg(not(feature = "js"))]
-    fn spawn_brain(
+    fn show_next_npc(
         &mut self
     ) {
-        let brain = self.entities.objects.iter_mut().find(
-            |o| o.typ == ObjectType::BRAIN && 
-            o.vis == ObjectVisibility::HIDDEN && 
-            o.state != ObjectState::DEAD
-        );
-        if let Some(obj) = brain {
-            obj.vis = ObjectVisibility::VISIBLE;
+        if let Some(npc) = self.entities.npcs.iter_mut().find(|n|
+            n.base.vis == ObjectVisibility::HIDDEN && 
+            n.base.state != ObjectState::DEAD
+        ) {
+            npc.base.vis = ObjectVisibility::VISIBLE;
             
             self.events.push(GameEvent::ObjectMoved(
                 ObjectMovedEvent {
-                    model_ref: obj.model_ref,
-                    pos: obj.pos,
-                    rot: obj.rot,
+                    model_ref: npc.base.model_ref,
+                    pos: npc.base.pos,
+                    rot: npc.base.rot,
                 }
             ));
             
             self.events.push(GameEvent::ObjectShown(ObjectShownEvent {
-                model_ref: obj.model_ref
+                model_ref: npc.base.model_ref
             }));
         }
+    }
+
+    #[cfg(not(feature = "js"))]
+    fn find_closest_npc(
+        &self,
+        pos: &Vector3
+    ) -> Object {
+
+        let mut min_distance = f32::MAX;
+        let mut res = Object::default();
+
+        for npc in self.entities.npcs.iter().filter(|n| 
+            n.base.vis == ObjectVisibility::VISIBLE && 
+            n.base.state != ObjectState::DEAD
+        ) {
+            let distance = pos.sub(&npc.base.pos).length();
+            if distance < min_distance {
+                min_distance = distance;
+                res = npc.base.clone();
+            }
+        }
+
+        res
     }
 
     #[cfg(not(feature = "js"))]
@@ -721,15 +794,12 @@ impl Game {
         let mut paths = vec![];
 
         for (i, player) in self.entities.players.iter().enumerate() {
-            let target_obj = self.find_closest_object(
-                &player.base.pos, 
-                if player.num_brains == self.options.min_keys {
-                    ObjectType::EXIT
-                }
-                else {
-                    ObjectType::BRAIN
-                }
-            );
+            let target_obj = if player.num_brains == self.options.min_keys { 
+                self.find_closest_object(&player.base.pos, ObjectType::EXIT)
+            }
+            else {
+                self.find_closest_npc(&player.base.pos)
+            };
 
             // when training, it's better to just use target's position
             let path = if self.options.training {
@@ -826,7 +896,7 @@ impl Game {
     }
 
     #[cfg(not(feature = "js"))]
-    fn check_brains(
+    fn check_npcs(
         &mut self,
         num: usize
     ) -> bool {
@@ -836,17 +906,16 @@ impl Game {
         }
         
         let mut collected = false;
-        for obj in self.entities.objects.iter_mut().filter(|o| 
-            o.vis == ObjectVisibility::VISIBLE && 
-            o.state != ObjectState::DEAD &&
-            o.typ == ObjectType::BRAIN
+        for npc in self.entities.npcs.iter_mut().filter(|n| 
+            n.base.vis == ObjectVisibility::VISIBLE && 
+            n.base.state != ObjectState::DEAD
         ) {
             let player_bb = player.calc_bb();
-            let item_bb = obj.calc_bb();
+            let item_bb = npc.calc_bb();
 
             if player_bb.intersects_with_box(&item_bb) {
                 player.num_brains += 1;
-                player.reward += REWARD_BRAIN_FOUND;
+                player.reward += REWARD_BRAIN_EATEN;
                 self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
                     model_ref: player.base.model_ref,
                     from: player.base.state,
@@ -855,15 +924,15 @@ impl Game {
                 player.set_state(ObjectState::EATING, self.state.step);
                 
                 self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                    model_ref: obj.model_ref,
-                    from: obj.state,
+                    model_ref: npc.base.model_ref,
+                    from: npc.base.state,
                     to: ObjectState::DEAD
                 }));
-                obj.set_state(ObjectState::DEAD, self.state.step);
-                obj.vis = ObjectVisibility::HIDDEN;
+                npc.set_state(ObjectState::DEAD, self.state.step);
+                npc.base.vis = ObjectVisibility::HIDDEN;
 
                 self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent {
-                    model_ref: obj.model_ref
+                    model_ref: npc.base.model_ref
                 }));
 
                 collected = true;
@@ -871,56 +940,10 @@ impl Game {
         }
 
         if collected {
-            self.spawn_brain();
+            self.show_next_npc();
         }
         
         collected
-    }
-
-    #[cfg(not(feature = "js"))]
-    fn check_traps(
-        &mut self,
-        num: usize
-    ) -> bool {
-        let mut triggered = false;
-        let mut player = self.entities.players[num].clone();
-        
-        for obj in self.entities.objects.iter_mut().filter(|o| 
-            o.vis == ObjectVisibility::VISIBLE && 
-            o.state != ObjectState::DEAD && 
-            o.typ == ObjectType::TRAP
-        ) {
-            let player_bb = player.calc_bb();
-            let item_bb = obj.calc_bb();
-
-            if player_bb.intersects_with_box(&item_bb) {
-                player.reward += PENALTY_TRAP;
-                
-                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                    model_ref: player.base.model_ref,
-                    from: player.base.state,
-                    to: ObjectState::HURTING
-                }));
-                player.set_state(ObjectState::HURTING, self.state.step);
-                
-                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                    model_ref: obj.model_ref,
-                    from: obj.state,
-                    to: ObjectState::DEAD
-                }));
-                obj.set_state(ObjectState::DEAD, self.state.step);
-                
-                self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent {
-                    model_ref: obj.model_ref
-                }));
-                
-                triggered = true;
-            }
-        }
-
-        self.entities.players[num] = player;
-        
-        triggered
     }
 
     #[cfg(not(feature = "js"))]
@@ -943,18 +966,10 @@ impl Game {
 
         for i in 0..self.entities.players.len() {
             //
-            if self.check_brains(i) {
+            if self.check_npcs(i) {
                 let player = &mut self.entities.players[i];
                 if player.num_brains >= self.options.min_keys {
                     all_brains_collected = true;
-                }
-            }
-
-            if self.check_traps(i) {
-                let player = &self.entities.players[i];
-                if player.health <= 0.0 {
-                    self.state.status = GameStatus::FINISHED;
-                    self.state.winner = None;
                 }
             }
 
@@ -967,7 +982,7 @@ impl Game {
                             self.state.status = GameStatus::FINISHED;
                             self.state.winner = Some(i);
                             let player = &mut self.entities.players[i];
-                            player.reward += REWARD_EXIT_FOUND;
+                            player.reward += REWARD_EXIT_REACHED;
                             self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
                                 model_ref: player.base.model_ref,
                                 from: player.base.state,
@@ -992,7 +1007,7 @@ impl Game {
         }
 
         if all_brains_collected {
-            self.spawn_exit();
+            self.show_exit();
         }
     }
 }

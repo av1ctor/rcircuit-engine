@@ -2,14 +2,16 @@
 use wasm_bindgen::prelude::*;
 use crate::env::AssetType;
 #[cfg(not(feature = "js"))]
-use crate::env::{Asset, AssetData, AssetValue};
+use crate::env::{Asset, AssetRef, AssetData, AssetValue};
+#[cfg(not(feature = "js"))]
+use std::collections::HashMap;
 
 #[repr(usize)]
 #[cfg_attr(feature = "js", wasm_bindgen)]
 pub enum GameAssetType {
     Level   = 0,
     Player  = 1,
-    Brain   = 2,
+    Npc     = 2,
     Exit    = 3,
 }
 
@@ -33,26 +35,65 @@ impl From<GameAssetType> for AssetType {
 #[repr(C)]
 #[allow(dead_code)]
 pub(crate) enum GameAssetRef {
-    Level = 0,
+    Level   = 0,
     Player1 = 1,
     Player2 = 2,
     Player3 = 3,
     Player4 = 4,
-    Brain = 5,
-    Exit = 6,
+    Npc1    = 50,
+    Npc2    = 51,
+    Npc3    = 52,
+    Exit    = 99,
 }
 
 #[cfg(not(feature = "js"))]
 pub fn get_game_assets(
-) -> Vec<Asset> {
-    vec![
-        Asset::new(GameAssetType::Level as _, AssetData::new(&[("path", &AssetValue::None)])),
-        Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(0))])),
-        Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(1))])),
-        Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(2))])),
-        Asset::new(GameAssetType::Player as _, AssetData::new(&[("num", &AssetValue::U32(3))])),
-        Asset::new(GameAssetType::Brain as _, AssetData::new(&[])),
-        Asset::new(GameAssetType::Exit as _, AssetData::new(&[])),
-    ]
+) -> HashMap<AssetRef, Asset> {
+    let mut assets = HashMap::new();
+    
+    assets.insert(
+        GameAssetRef::Level as _, 
+        Asset::new(
+            GameAssetType::Level as _, 
+            AssetData::new(&[
+                ("path", &AssetValue::None)
+            ])
+        )
+    );
+    
+    for i in 0..4 {
+        assets.insert(
+            (GameAssetRef::Player1 as usize) + i,
+            Asset::new(
+                GameAssetType::Player as _, 
+                AssetData::new(&[
+                    ("num", &AssetValue::U32(i as _))
+                ])
+            )
+        );
+    }
+
+    for i in 0..3 {
+        assets.insert(
+            (GameAssetRef::Npc1 as usize) + i,
+            Asset::new(
+                GameAssetType::Npc as _, 
+                AssetData::new(&[
+                    ("num", &AssetValue::U32(i as _))
+                ])
+            )
+        );
+    }
+    
+    assets.insert(
+        GameAssetRef::Exit as _, 
+        Asset::new(
+            GameAssetType::Exit as _, 
+            AssetData::new(&[
+            ])
+        )
+    );
+    
+    assets
 }
 
