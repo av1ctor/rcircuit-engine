@@ -142,8 +142,8 @@ impl Player {
         &mut self,
         to: ObjectState,
         step: usize
-    ) {
-        self.base.set_state(to, step);
+    ) -> Option<ObjectState> {
+        self.base.set_state(to, step)
     }
 
     pub fn update_state(
@@ -153,10 +153,29 @@ impl Player {
         self.base.update_state(step)
     }
 
+    pub fn state_elapsed(
+        &self,
+        step: usize
+    ) -> f32 {
+        self.base.state_elapsed(step)
+    }
+
+    pub fn is_dead(
+        &self 
+    ) -> bool {
+        self.base.is_dead()
+    }
+
     pub fn is_moving(
         &self 
     ) -> bool {
         self.base.is_moving()
+    }
+    
+    pub fn is_visible(
+        &self 
+    ) -> bool {
+        self.base.is_visible()
     }
     
     pub fn calc_bb(
@@ -301,7 +320,6 @@ impl Player {
         let mut readings_vtx = vec![];
 
         for r in readings {
-
             match r {
                 SensorReading::Hit(_) => {
                 }

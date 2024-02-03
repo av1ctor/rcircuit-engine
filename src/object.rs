@@ -25,42 +25,46 @@ pub enum ObjectType {
 #[repr(C)]
 pub enum ObjectState {
     #[default]
-    IDLE        = 0,
-    MOVING      = 1,
-    RUNNING     = 2,
-    JUMPING     = 3,
-    EATING      = 4,
-    CELEBRATING = 5,
-    DANCING     = 6,
-    CROUCHING   = 7,
-    SITTING     = 8,
-    SHOOTING    = 9,
-    PUNCHING    = 10,
-    KICKING     = 11,
-    CLIMBING    = 12,
-    HURTING     = 13,
-    EXPLODING   = 14,
-    AGONIZING   = 15,
-    DEAD        = 16,
+    WAITING     = 0,
+    IDLE        = 1,
+    WALKING     = 2,
+    RUNNING     = 3,
+    JUMPING     = 4,
+    BITING      = 5,
+    CELEBRATING = 6,
+    DANCING     = 7,
+    CROUCHING   = 8,
+    SITTING     = 9,
+    SHOOTING    = 10,
+    PUNCHING    = 11,
+    KICKING     = 12,
+    CLIMBING    = 13,
+    HIT         = 14,
+    EXPLODING   = 15,
+    AGONIZING   = 16,
+    DYING       = 17,
+    DEAD        = 18,
 }
 
 pub const STATE_DURATIONS: &[usize] = &[
-    60 * 3,     // IDLE
-    usize::MAX, // MOVING
+    60 * 3,     // WAITING
+    60,         // IDLE
+    usize::MAX, // WALKING
     usize::MAX, // RUNNING
     15,         // JUMPING
-    60 * 1,     // EATING
+    45,         // BITING
     60 * 3,     // CELEBRATING
     60 * 5,     // DANCING
     usize::MAX, // CROUCHING
     usize::MAX, // SITTING
-    usize::MAX, // SHOOTING
-    20,         // PUNCHING
-    20,         // KICKING
+    15,         // SHOOTING
+    45,         // PUNCHING
+    45,         // KICKING
     usize::MAX, // CLIMBING
-    40,         // HURTING
+    30,         // HIT
     60 * 3,     // EXPLODING
     60 * 3,     // AGONIZING
+    60 * 3,     // DYING
     usize::MAX, // DEAD
 ];
 
@@ -134,32 +138,83 @@ impl Object {
         &mut self,
         to: ObjectState,
         step: usize
-    ) {
-        self.state = to;
-        self.state_changed_at = step;
-    }
-
-    pub fn update_state(
-        &mut self,
-        step: usize
-    ) -> Option<(ObjectState, ObjectState)> {
-        let duration = STATE_DURATIONS[self.state as usize];
-        if duration != usize::MAX && step - self.state_changed_at >= duration {
-            let old_state = self.state;
-            self.state = if self.typ == ObjectType::PLAYER {ObjectState::MOVING} else {ObjectState::IDLE};
+    ) -> Option<ObjectState> {
+        let from = self.state;
+        if from != to {
+            self.state = to;
             self.state_changed_at = step;
-            Some((old_state, self.state))
+            Some(from)
         }
         else {
             None
         }
     }
 
+    pub fn update_state(
+        &mut self,
+        step: usize
+    ) -> Option<(ObjectState, ObjectState)> {
+        let elapsed = step - self.state_changed_at;
+        let duration = STATE_DURATIONS[self.state as usize];
+        if duration != usize::MAX && elapsed >= duration {
+            let to = match self.state {
+                ObjectState::DYING => {
+                    ObjectState::DEAD
+                },
+                _ => {
+                    if self.typ == ObjectType::PLAYER {
+                        ObjectState::WALKING
+                    } 
+                    else {
+                        ObjectState::IDLE
+                    }
+                }
+            };
+
+            if let Some(from) = self.set_state(to, step) {
+                Some((from, to))
+            }
+            else {
+                None
+            }
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn state_elapsed(
+        &self,
+        step: usize
+    ) -> f32 {
+        let elapsed = step - self.state_changed_at;
+        let duration = STATE_DURATIONS[self.state as usize];
+        if elapsed >= duration || duration == 0 {
+            1.0
+        }
+        else {
+            elapsed as f32 / duration as f32
+        }
+    }
+
+    pub fn is_dead(
+        &self 
+    ) -> bool {
+        self.state == ObjectState::DYING || 
+        self.state == ObjectState::DEAD
+    }
+
     pub fn is_moving(
         &self 
     ) -> bool {
-        self.state == ObjectState::MOVING || 
+        self.state == ObjectState::WALKING || 
         self.state == ObjectState::RUNNING
+    }
+
+    pub fn is_visible(
+        &self 
+    ) -> bool {
+        self.vis == ObjectVisibility::VISIBLE
     }
 
     pub fn calc_bb(

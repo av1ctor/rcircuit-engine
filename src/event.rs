@@ -28,17 +28,13 @@ pub struct ObjectMovedEvent {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectDiedEvent {
+pub struct ObjectRemovedEvent {
     pub model_ref: ModelRef,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectShownEvent {
-    pub model_ref: ModelRef,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectHiddenEvent {
+pub struct ObjectVisChangedEvent {
+    pub visible: bool,
     pub model_ref: ModelRef,
 }
 
@@ -53,9 +49,8 @@ pub struct ObjectStateChangedEvent {
 pub enum GameEvent {
     ObjectCreated(ObjectCreatedEvent),
     ObjectSpawned(ObjectSpawnedEvent),
-    ObjectShown(ObjectShownEvent),
-    ObjectHidden(ObjectHiddenEvent),
+    ObjectVisChanged(ObjectVisChangedEvent),
     ObjectMoved(ObjectMovedEvent),
     ObjectStateChanged(ObjectStateChangedEvent),
-    ObjectDied(ObjectDiedEvent),
+    ObjectRemoved(ObjectRemovedEvent),
 }

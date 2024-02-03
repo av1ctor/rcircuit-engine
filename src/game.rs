@@ -303,17 +303,18 @@ impl Env for Game {
                     renderer.change_state(e.model_ref, e.from, e.to);
                 },
 
-                GameEvent::ObjectDied(e) => {
+                GameEvent::ObjectRemoved(e) => {
                     renderer.hide_model(e.model_ref);
                 },
                 
-                GameEvent::ObjectShown(e) => {
-                    renderer.show_model(e.model_ref);
-
-                },
-                GameEvent::ObjectHidden(e) => {
-                    renderer.hide_model(e.model_ref);
-                },
+                GameEvent::ObjectVisChanged(e) => {
+                    if e.visible {
+                        renderer.show_model(e.model_ref);
+                    }
+                    else {
+                        renderer.hide_model(e.model_ref);
+                    }
+                }
             }
         }
 
@@ -357,17 +358,18 @@ impl Env for Game {
                     renderer.change_state(e.model_ref, e.from as u32, e.to as u32);
                 },
 
-                GameEvent::ObjectDied(e) => {
+                GameEvent::ObjectRemoved(e) => {
                     renderer.hide_model(e.model_ref);
                 },
                 
-                GameEvent::ObjectShown(e) => {
-                    renderer.show_model(e.model_ref);
-
-                },
-                GameEvent::ObjectHidden(e) => {
-                    renderer.hide_model(e.model_ref);
-                },
+                GameEvent::ObjectVisChanged(e) => {
+                    if e.visible {
+                        renderer.show_model(e.model_ref);
+                    }
+                    else {
+                        renderer.hide_model(e.model_ref);
+                    }
+                }
             }
         }
 
@@ -483,8 +485,8 @@ impl Game {
             let player = Player::new(
                 loc.0, 
                 loc.1, 
-                Vector3::new(0.75, 1.8, 0.5), //FIXME!!!
-                ObjectState::IDLE,
+                Vector3::new(0.25, 1.8, 0.15),
+                ObjectState::WAITING,
                 ObjectVisibility::VISIBLE,
                 model_ref,
                 path_ref,
@@ -501,7 +503,8 @@ impl Game {
                 }
             }));
 
-            self.events.push(GameEvent::ObjectShown(ObjectShownEvent {
+            self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                visible: true,
                 model_ref
             }));
 
@@ -553,8 +556,8 @@ impl Game {
             let npc = Npc::new(
                 loc.0, 
                 loc.1, 
-                Vector3::new(0.75, 1.8, 0.5), //FIXME!!!
-                ObjectState::IDLE,
+                Vector3::new(0.25, 1.8, 0.15),
+                ObjectState::WAITING,
                 vis,
                 model_ref,
                 rng
@@ -569,18 +572,16 @@ impl Game {
             ));
 
             if vis == ObjectVisibility::VISIBLE {
-                self.events.push(GameEvent::ObjectShown(
-                    ObjectShownEvent {
-                        model_ref,
-                    }
-                ));
+                self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                    visible: true,
+                    model_ref,
+                }));
             }
             else {
-                self.events.push(GameEvent::ObjectHidden(
-                    ObjectHiddenEvent {
-                        model_ref,
-                    }
-                ));
+                self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                    visible: false,
+                    model_ref,
+                }));
             }
 
             npcs.push(npc);
@@ -632,7 +633,7 @@ impl Game {
                 loc.0, 
                 loc.1, 
                 Vector3::new(rad, rad, rad),
-                ObjectState::IDLE,
+                ObjectState::WAITING,
                 if is_active {ObjectVisibility::VISIBLE} else {ObjectVisibility::HIDDEN},
                 model_ref,
                 rng
@@ -647,12 +648,14 @@ impl Game {
             }));
 
             if is_active {
-                self.events.push(GameEvent::ObjectShown(ObjectShownEvent {
+                self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                    visible: true,
                     model_ref
                 }));
             }
             else {
-                self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent {
+                self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                    visible: false,
                     model_ref
                 }));
             }
@@ -669,8 +672,7 @@ impl Game {
     ) {
         let exit = self.entities.objects.iter_mut().find(|o|
             o.typ == ObjectType::EXIT && 
-            o.vis == ObjectVisibility::HIDDEN && 
-            o.state != ObjectState::DEAD
+            !o.is_visible() && !o.is_dead()
         );
         if let Some(obj) = exit {
             obj.vis = ObjectVisibility::VISIBLE;
@@ -681,7 +683,8 @@ impl Game {
                 rot: obj.rot,
             }));
             
-            self.events.push(GameEvent::ObjectShown(ObjectShownEvent {
+            self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                visible: true,
                 model_ref: obj.model_ref
             }));
         }
@@ -692,8 +695,7 @@ impl Game {
         &mut self
     ) {
         if let Some(npc) = self.entities.npcs.iter_mut().find(|n|
-            n.base.vis == ObjectVisibility::HIDDEN && 
-            n.base.state != ObjectState::DEAD
+            !n.is_visible() && !n.is_dead()
         ) {
             npc.base.vis = ObjectVisibility::VISIBLE;
             
@@ -704,8 +706,9 @@ impl Game {
                     rot: npc.base.rot,
                 }
             ));
-            
-            self.events.push(GameEvent::ObjectShown(ObjectShownEvent {
+
+            self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                visible: true,
                 model_ref: npc.base.model_ref
             }));
         }
@@ -722,8 +725,7 @@ impl Game {
         let mut res = None;
 
         for (num, player) in self.entities.players.iter().enumerate().filter(|(_, p)| 
-            p.base.vis == ObjectVisibility::VISIBLE && 
-            p.base.state != ObjectState::DEAD
+            p.is_visible() && !p.is_dead()
         ) {
             let distance_sq = pos.sub(&player.base.pos).length_sq();
             if distance_sq < min_distance_sq {
@@ -745,8 +747,7 @@ impl Game {
         let mut res = Object::default();
 
         for npc in self.entities.npcs.iter().filter(|n| 
-            n.base.vis == ObjectVisibility::VISIBLE && 
-            n.base.state != ObjectState::DEAD
+            n.is_visible() && !n.is_dead()
         ) {
             let distance = pos.sub(&npc.base.pos).length();
             if distance < min_distance {
@@ -769,9 +770,8 @@ impl Game {
         let mut res = Object::default();
 
         for obj in self.entities.objects.iter().filter(|o| 
-            o.vis == ObjectVisibility::VISIBLE && 
-            o.state != ObjectState::DEAD && 
-            o.typ == typ
+            o.typ == typ &&
+            o.is_visible() && !o.is_dead()
         ) {
             let distance = pos.sub(&obj.pos).length();
             if distance < min_distance {
@@ -919,6 +919,14 @@ impl Game {
                     from,
                     to
                 }));
+
+                if to == ObjectState::DEAD {
+                    player.base.vis = ObjectVisibility::HIDDEN;
+                    self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                        visible: false,
+                        model_ref: player.base.model_ref 
+                    }));
+                }
             }
         }
 
@@ -966,24 +974,26 @@ impl Game {
                         let player = &mut self.entities.players[i];
                         player.reward += REWARD_EXIT_REACHED;
                         
-                        player.set_state(ObjectState::CELEBRATING, self.state.step);
-                        self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                            model_ref: player.base.model_ref,
-                            from: player.base.state,
-                            to: ObjectState::CELEBRATING
-                        }));
+                        if let Some(from) = player.set_state(ObjectState::CELEBRATING, self.state.step) {
+                            self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                model_ref: player.base.model_ref,
+                                from,
+                                to: player.base.state
+                            }));
+                        }
                     }
                 }
             }
             else {
                 if self.state.status == GameStatus::FINISHED {
                     let player = &mut self.entities.players[i];
-                    player.set_state(ObjectState::IDLE, self.state.step);
-                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                        model_ref: player.base.model_ref,
-                        from: player.base.state,
-                        to: ObjectState::IDLE
-                    }));
+                    if let Some(from) = player.set_state(ObjectState::IDLE, self.state.step) {
+                        self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                            model_ref: player.base.model_ref,
+                            from,
+                            to: player.base.state
+                        }));
+                    }
                 }
             }
         }
@@ -1001,49 +1011,56 @@ impl Game {
                     from,
                     to
                 }));
+
+                if to == ObjectState::DEAD {
+                    npc.base.vis = ObjectVisibility::HIDDEN;
+                    self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                        visible: false,
+                        model_ref: npc.base.model_ref 
+                    }));
+                }
             }
         }
         
         for i in 0..self.entities.npcs.len() {
             let npc = &self.entities.npcs[i];
-            if npc.base.state != ObjectState::DEAD &&
-                npc.base.vis == ObjectVisibility::VISIBLE {
+            if !npc.is_dead() && npc.is_visible() {
                 // any player around?
                 if let Some((player_num, player)) = self.find_closest_player(&npc.base.pos, 5.0) {
                     let player_bb = player.calc_bb();
                     let npc_bb = npc.calc_bb();
-                    if player_bb.intersects_with_box(&npc_bb) {
+                    if player.is_moving() && player_bb.intersects_with_box(&npc_bb) {
                         let player = &mut self.entities.players[player_num];
-                        if npc.base.state == ObjectState::PUNCHING {
+                        if npc.base.state == ObjectState::PUNCHING && 
+                            npc.state_elapsed(self.state.step) >= 0.5 {
+                            
                             let npc = &mut self.entities.npcs[i];
-                            npc.set_state(ObjectState::IDLE, self.state.step);
-                            self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                model_ref: npc.base.model_ref,
-                                from: npc.base.state,
-                                to: ObjectState::IDLE
-                            }));
+                            if let Some(from) = npc.set_state(ObjectState::IDLE, self.state.step) {
+                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                    model_ref: npc.base.model_ref,
+                                    from,
+                                    to: npc.base.state
+                                }));
+                            }
 
                             player.health += PENALTY_HIT;
                             if player.health <= 0.0 {
-                                player.set_state(ObjectState::DEAD, self.state.step);
-                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                    model_ref: player.base.model_ref,
-                                    from: player.base.state,
-                                    to: ObjectState::DEAD
-                                }));
-                                
-                                player.base.vis = ObjectVisibility::HIDDEN;
-                                self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent { 
-                                    model_ref: player.base.model_ref 
-                                }));
+                                if let Some(from) = player.set_state(ObjectState::DYING, self.state.step) {
+                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                        model_ref: player.base.model_ref,
+                                        from,
+                                        to: player.base.state
+                                    }));
+                                }
                             }
                             else {
-                                player.set_state(ObjectState::HURTING, self.state.step);
-                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                    model_ref: player.base.model_ref,
-                                    from: player.base.state,
-                                    to: ObjectState::HURTING
-                                }));
+                                if let Some(from) = player.set_state(ObjectState::HIT, self.state.step) {
+                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                        model_ref: player.base.model_ref,
+                                        from,
+                                        to: player.base.state
+                                    }));
+                                }
 
                                 let rot = player.base.rot.inverse();
                                 let vel = player.vel.mul_scalar(10.0);
@@ -1053,30 +1070,27 @@ impl Game {
                         else {
                             player.reward += REWARD_BRAIN_EATEN;
                             
-                            if player.base.state != ObjectState::EATING {
-                                player.set_state(ObjectState::EATING, self.state.step);
-                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                    model_ref: player.base.model_ref,
-                                    from: player.base.state,
-                                    to: ObjectState::EATING
-                                }));
+                            if player.base.state != ObjectState::BITING {
+                                if let Some(from) = player.set_state(ObjectState::BITING, self.state.step) {
+                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                        model_ref: player.base.model_ref,
+                                        from,
+                                        to: player.base.state
+                                    }));
+                                }
                             }
                         
                             let npc = &mut self.entities.npcs[i];
                             
                             npc.health += PENALTY_HIT;
                             if npc.health <= 0.0 {
-                                npc.set_state(ObjectState::DEAD, self.state.step);
-                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                    model_ref: npc.base.model_ref,
-                                    from: npc.base.state,
-                                    to: ObjectState::DEAD
-                                }));
-
-                                npc.base.vis = ObjectVisibility::HIDDEN;
-                                self.events.push(GameEvent::ObjectHidden(ObjectHiddenEvent { 
-                                    model_ref: npc.base.model_ref 
-                                }));
+                                if let Some(from) = npc.set_state(ObjectState::DYING, self.state.step) {
+                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                        model_ref: npc.base.model_ref,
+                                        from,
+                                        to: npc.base.state
+                                    }));
+                                }
 
                                 player.num_brains += 1;
                                 if player.num_brains == self.options.min_keys {
@@ -1086,13 +1100,14 @@ impl Game {
                                 self.show_next_npc();
                             }
                             else {
-                                if npc.base.state != ObjectState::HURTING {
-                                    npc.set_state(ObjectState::HURTING, self.state.step);
-                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                        model_ref: npc.base.model_ref,
-                                        from: npc.base.state,
-                                        to: ObjectState::HURTING
-                                    }));
+                                if npc.base.state != ObjectState::HIT {
+                                    if let Some(from) = npc.set_state(ObjectState::HIT, self.state.step) {
+                                        self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                            model_ref: npc.base.model_ref,
+                                            from,
+                                            to: npc.base.state
+                                        }));
+                                    }
                                 }
                             }
                         }
@@ -1101,14 +1116,15 @@ impl Game {
                         let distance_sq = npc.base.pos.sub(&player.base.pos).length_sq();
                         if distance_sq < 1.0 * 2.0 {
                             if npc.base.state != ObjectState::PUNCHING && 
-                                !(npc.base.state == ObjectState::IDLE && self.state.step - npc.base.state_changed_at < 30) {
+                                npc.state_elapsed(self.state.step) >= 0.5 {
                                 let npc = &mut self.entities.npcs[i];
-                                npc.set_state(ObjectState::PUNCHING, self.state.step);
-                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                    model_ref: player.base.model_ref,
-                                    from: player.base.state,
-                                    to: ObjectState::PUNCHING
-                                }));
+                                if let Some(from) = npc.set_state(ObjectState::PUNCHING, self.state.step) {
+                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                        model_ref: player.base.model_ref,
+                                        from,
+                                        to: player.base.state
+                                    }));
+                                }
                             }
                         }
                         else {
