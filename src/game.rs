@@ -913,19 +913,21 @@ impl Game {
         delta_time: f32
     ) {
         for player in &mut self.entities.players {
-            if let Some((from, to)) = player.update_state(self.state.step) {
-                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                    model_ref: player.base.model_ref,
-                    from,
-                    to
-                }));
-
-                if to == ObjectState::DEAD {
-                    player.base.vis = ObjectVisibility::HIDDEN;
-                    self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
-                        visible: false,
-                        model_ref: player.base.model_ref 
+            if player.is_visible() {
+                if let Some((from, to)) = player.update_state(self.state.step) {
+                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                        model_ref: player.base.model_ref,
+                        from,
+                        to
                     }));
+
+                    if to == ObjectState::DEAD {
+                        player.base.vis = ObjectVisibility::HIDDEN;
+                        self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                            visible: false,
+                            model_ref: player.base.model_ref 
+                        }));
+                    }
                 }
             }
         }
@@ -1005,19 +1007,21 @@ impl Game {
         delta_time: f32
     ) {
         for npc in &mut self.entities.npcs {
-            if let Some((from, to)) = npc.update_state(self.state.step) {
-                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                    model_ref: npc.base.model_ref,
-                    from,
-                    to
-                }));
-
-                if to == ObjectState::DEAD {
-                    npc.base.vis = ObjectVisibility::HIDDEN;
-                    self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
-                        visible: false,
-                        model_ref: npc.base.model_ref 
+            if npc.is_visible() {
+                if let Some((from, to)) = npc.update_state(self.state.step) {
+                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                        model_ref: npc.base.model_ref,
+                        from,
+                        to
                     }));
+
+                    if to == ObjectState::DEAD {
+                        npc.base.vis = ObjectVisibility::HIDDEN;
+                        self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                            visible: false,
+                            model_ref: npc.base.model_ref 
+                        }));
+                    }
                 }
             }
         }

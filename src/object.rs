@@ -2,7 +2,7 @@
 use wasm_bindgen::prelude::*;
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
-use strum_macros::EnumCount;
+use strum_macros::{Display, EnumCount};
 use three_rs::math::{
     box3::Box3, vector3::Vector3, Quaternion
 };
@@ -20,7 +20,7 @@ pub enum ObjectType {
     EXIT    = 3,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, Display, PartialEq, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "js", wasm_bindgen)]
 #[repr(C)]
 pub enum ObjectState {
