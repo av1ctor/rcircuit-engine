@@ -47,25 +47,69 @@ pub enum ObjectState {
 }
 
 pub const STATE_DURATIONS: &[usize] = &[
-    60 * 3,     // WAITING
-    60,         // IDLE
-    usize::MAX, // WALKING
-    usize::MAX, // RUNNING
-    15,         // JUMPING
-    45,         // BITING
-    60 * 3,     // CELEBRATING
-    60 * 5,     // DANCING
-    usize::MAX, // CROUCHING
-    usize::MAX, // SITTING
-    15,         // SHOOTING
-    45,         // PUNCHING
-    45,         // KICKING
-    usize::MAX, // CLIMBING
-    30,         // HIT
-    60 * 3,     // EXPLODING
-    60 * 3,     // AGONIZING
-    60 * 3,     // DYING
-    usize::MAX, // DEAD
+    /* WAITING: */      60 * 3,     
+    /* IDLE: */         60,         
+    /* WALKING: */      usize::MAX,
+    /* RUNNING: */      usize::MAX,
+    /* JUMPING: */      15,         
+    /* BITING: */       60,         
+    /* CELEBRATING: */  60 * 3,     
+    /* DANCING: */      60 * 5,     
+    /* CROUCHING: */    usize::MAX, 
+    /* SITTING: */      usize::MAX, 
+    /* SHOOTING: */     15,         
+    /* PUNCHING: */     60,         
+    /* KICKING: */      60,         
+    /* CLIMBING: */     usize::MAX, 
+    /* HIT: */          30,         
+    /* EXPLODING: */    60 * 3,     
+    /* AGONIZING: */    60 * 3,     
+    /* DYING: */        60 * 5,     
+    /* DEAD: */         usize::MAX, 
+];
+
+pub const PLAYER_STATE_TRANSITIONS: &[Option<ObjectState>] = &[
+    /* WAITING:*/       Some(ObjectState::WALKING),
+    /* IDLE: */         Some(ObjectState::WALKING),
+    /* WALKING: */      None,
+    /* RUNNING: */      None,
+    /* JUMPING: */      None,
+    /* BITING: */       Some(ObjectState::IDLE),
+    /* CELEBRATING: */  None,
+    /* DANCING: */      None,
+    /* CROUCHING: */    None,
+    /* SITTING: */      None,
+    /* SHOOTING: */     None,
+    /* PUNCHING: */     None,
+    /* KICKING: */      None,
+    /* CLIMBING: */     None,
+    /* HIT: */          Some(ObjectState::IDLE),        
+    /* EXPLODING: */    None,
+    /* AGONIZING: */    None,
+    /* DYING: */        Some(ObjectState::DEAD),        
+    /* DEAD: */         None,                           
+];
+
+pub const NPC_STATE_TRANSITIONS: &[Option<ObjectState>] = &[
+    /* WAITING:*/       Some(ObjectState::IDLE),
+    /* IDLE: */         None,
+    /* WALKING: */      None,
+    /* RUNNING: */      None,
+    /* JUMPING: */      None,
+    /* BITING: */       None,
+    /* CELEBRATING: */  None,
+    /* DANCING: */      None,
+    /* CROUCHING: */    None,
+    /* SITTING: */      None,
+    /* SHOOTING: */     None,
+    /* PUNCHING: */     Some(ObjectState::IDLE),
+    /* KICKING: */      None,
+    /* CLIMBING: */     None,
+    /* HIT: */          Some(ObjectState::IDLE),
+    /* EXPLODING: */    None,
+    /* AGONIZING: */    None,
+    /* DYING: */        Some(ObjectState::DEAD),
+    /* DEAD: */         None,                           
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Default)]
@@ -157,30 +201,21 @@ impl Object {
         let elapsed = step - self.state_changed_at;
         let duration = STATE_DURATIONS[self.state as usize];
         if duration != usize::MAX && elapsed >= duration {
-            let to = match self.state {
-                ObjectState::DYING => {
-                    ObjectState::DEAD
-                },
-                _ => {
-                    if self.typ == ObjectType::PLAYER {
-                        ObjectState::WALKING
-                    } 
-                    else {
-                        ObjectState::IDLE
-                    }
-                }
+            let to = if self.typ == ObjectType::PLAYER {
+                PLAYER_STATE_TRANSITIONS[self.state as usize]
+            } 
+            else {
+                NPC_STATE_TRANSITIONS[self.state as usize]
             };
 
-            if let Some(from) = self.set_state(to, step) {
-                Some((from, to))
-            }
-            else {
-                None
+            if let Some(to) = to {
+                if let Some(from) = self.set_state(to, step) {
+                    return Some((from, to));
+                }
             }
         }
-        else {
-            None
-        }
+        
+        None
     }
 
     pub fn state_elapsed(
@@ -197,6 +232,12 @@ impl Object {
         }
     }
 
+    pub fn is_idle(
+        &self 
+    ) -> bool {
+        self.state == ObjectState::IDLE
+    }
+    
     pub fn is_dead(
         &self 
     ) -> bool {

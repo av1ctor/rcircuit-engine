@@ -160,6 +160,12 @@ impl Player {
         self.base.state_elapsed(step)
     }
 
+    pub fn is_idle(
+        &self 
+    ) -> bool {
+        self.base.is_idle()
+    }
+    
     pub fn is_dead(
         &self 
     ) -> bool {
@@ -170,6 +176,12 @@ impl Player {
         &self 
     ) -> bool {
         self.base.is_moving()
+    }
+
+    pub fn is_biting(
+        &self 
+    ) -> bool {
+        self.base.state == ObjectState::BITING
     }
     
     pub fn is_visible(

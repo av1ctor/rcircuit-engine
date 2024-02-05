@@ -67,6 +67,12 @@ impl Npc {
         self.base.state_elapsed(step)
     }
 
+    pub fn is_idle(
+        &self 
+    ) -> bool {
+        self.base.is_idle()
+    }
+    
     pub fn is_dead(
         &self 
     ) -> bool {

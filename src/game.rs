@@ -1,7 +1,7 @@
 #[cfg(not(feature = "js"))]
 use rand::{rngs::StdRng, Rng};
 #[cfg(not(feature = "js"))]
-use std::collections::HashMap;
+use std::{collections::HashMap, f32::consts::PI};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
 #[cfg(not(feature = "js"))]
@@ -42,7 +42,9 @@ const EXIT_SPAWN_LOCATION_NAME: &str = "xsl.";
 #[cfg(not(feature = "js"))]
 const PENALTY_WALL: f32 = -10.0;
 #[cfg(not(feature = "js"))]
-const PENALTY_HIT: f32 = -20.0;
+const PENALTY_BITTEN: f32 = -20.0;
+#[cfg(not(feature = "js"))]
+const PENALTY_PUNCHED: f32 = PENALTY_BITTEN / 2.0;
 #[cfg(not(feature = "js"))]
 const REWARD_BRAIN_EATEN: f32 = 100.0;
 #[cfg(not(feature = "js"))]
@@ -859,7 +861,8 @@ impl Game {
         num: usize,
         rot: &Quaternion,
         vel: &Vector3,
-        delta_time: f32
+        delta_time: f32,
+        keep_rotation: bool
     ) {
         let player = &mut self.entities.players[num];
         
@@ -875,12 +878,16 @@ impl Game {
             player.preserve();
             if confined_pos.x != new_pos.x || confined_pos.z != new_pos.z {
                 player.base.pos = confined_pos.mul(&Vector3::new(1.0, 0.0, 1.0));
-                player.base.rot = player.calc_rot_away_from_hit();
+                if !keep_rotation {
+                    player.base.rot = player.calc_rot_away_from_hit();
+                }
                 player.reward += PENALTY_WALL;
             }
             else {
                 player.base.pos = new_pos;
-                player.base.rot = rot.clone();
+                if !keep_rotation {
+                    player.base.rot = rot.clone();
+                }
             }
 
             let mean_rot = player.mean_rot();
@@ -960,7 +967,7 @@ impl Game {
                 };
 
                 let vel = player.vel.clone();
-                self.move_player(i, &rot, &vel, delta_time);
+                self.move_player(i, &rot, &vel, delta_time, false);
             }
         }
 
@@ -1030,14 +1037,17 @@ impl Game {
             let npc = &self.entities.npcs[i];
             if !npc.is_dead() && npc.is_visible() {
                 // any player around?
-                if let Some((player_num, player)) = self.find_closest_player(&npc.base.pos, 5.0) {
-                    let player_bb = player.calc_bb();
-                    let npc_bb = npc.calc_bb();
-                    if player.is_moving() && player_bb.intersects_with_box(&npc_bb) {
+                if let Some((player_num, player)) = self.find_closest_player(&npc.base.pos, 3.0) {
+                    if player.calc_bb().intersects_with_box(&npc.calc_bb()) {
+                        let player_inverse_rot = player.base.rot.mul(
+                            &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
+                        );
+                        let player_vel = player.vel.clone();
+                        let mut player_moved = false;
+                        
                         let player = &mut self.entities.players[player_num];
-                        if npc.base.state == ObjectState::PUNCHING && 
-                            npc.state_elapsed(self.state.step) >= 0.5 {
-                            
+                        if npc.base.state == ObjectState::PUNCHING &&
+                            npc.state_elapsed(self.state.step) >= 0.75 {
                             let npc = &mut self.entities.npcs[i];
                             if let Some(from) = npc.set_state(ObjectState::IDLE, self.state.step) {
                                 self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
@@ -1047,7 +1057,7 @@ impl Game {
                                 }));
                             }
 
-                            player.health += PENALTY_HIT;
+                            player.health += PENALTY_PUNCHED;
                             if player.health <= 0.0 {
                                 if let Some(from) = player.set_state(ObjectState::DYING, self.state.step) {
                                     self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
@@ -1066,15 +1076,16 @@ impl Game {
                                     }));
                                 }
 
-                                let rot = player.base.rot.inverse();
-                                let vel = player.vel.mul_scalar(10.0);
-                                self.move_player(player_num, &rot, &vel, delta_time);
+                                self.move_player(
+                                    player_num, &player_inverse_rot, &player_vel.mul_scalar(50.0), delta_time, true);
+                                player_moved = true;
                             }
                         }
                         else {
-                            player.reward += REWARD_BRAIN_EATEN;
+                            if player.base.state != ObjectState::BITING && 
+                                player.state_elapsed(self.state.step) >= 0.5  {
+                                player.reward += REWARD_BRAIN_EATEN;
                             
-                            if player.base.state != ObjectState::BITING {
                                 if let Some(from) = player.set_state(ObjectState::BITING, self.state.step) {
                                     self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
                                         model_ref: player.base.model_ref,
@@ -1082,57 +1093,71 @@ impl Game {
                                         to: player.base.state
                                     }));
                                 }
-                            }
-                        
-                            let npc = &mut self.entities.npcs[i];
                             
-                            npc.health += PENALTY_HIT;
-                            if npc.health <= 0.0 {
-                                if let Some(from) = npc.set_state(ObjectState::DYING, self.state.step) {
-                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                        model_ref: npc.base.model_ref,
-                                        from,
-                                        to: npc.base.state
-                                    }));
-                                }
-
-                                player.num_brains += 1;
-                                if player.num_brains == self.options.min_keys {
-                                    self.show_exit();
-                                } 
-                                
-                                self.show_next_npc();
-                            }
-                            else {
-                                if npc.base.state != ObjectState::HIT {
-                                    if let Some(from) = npc.set_state(ObjectState::HIT, self.state.step) {
+                                let npc = &mut self.entities.npcs[i];
+                            
+                                npc.health += PENALTY_BITTEN;
+                                if npc.health <= 0.0 {
+                                    if let Some(from) = npc.set_state(ObjectState::DYING, self.state.step) {
                                         self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
                                             model_ref: npc.base.model_ref,
                                             from,
                                             to: npc.base.state
                                         }));
                                     }
+    
+                                    player.num_brains += 1;
+                                    if player.num_brains == self.options.min_keys {
+                                        self.show_exit();
+                                    } 
+                                    
+                                    self.show_next_npc();
                                 }
+                                else {
+                                    if npc.base.state != ObjectState::HIT {
+                                        if let Some(from) = npc.set_state(ObjectState::HIT, self.state.step) {
+                                            self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                                model_ref: npc.base.model_ref,
+                                                from,
+                                                to: npc.base.state
+                                            }));
+                                        }
+                                    }
+                                }                            
                             }
+                        }
+
+                        if !player_moved {
+                            self.move_player(
+                                player_num, &player_inverse_rot, &player_vel.mul_scalar(25.0), delta_time, true);
                         }
                     }
-                    else {
-                        let distance_sq = npc.base.pos.sub(&player.base.pos).length_sq();
-                        if distance_sq < 1.0 * 2.0 {
-                            if npc.base.state != ObjectState::PUNCHING && 
-                                npc.state_elapsed(self.state.step) >= 0.5 {
-                                let npc = &mut self.entities.npcs[i];
-                                if let Some(from) = npc.set_state(ObjectState::PUNCHING, self.state.step) {
-                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                        model_ref: player.base.model_ref,
-                                        from,
-                                        to: player.base.state
-                                    }));
-                                }
-                            }
-                        }
-                        else {
+                    
+                    let npc = &self.entities.npcs[i];
+                    let distance_sq = npc.base.pos.sub(&player.base.pos).length_sq();
+                    if npc.is_idle() {
+                        let rot = Quaternion::from_axis_and_angle(
+                            &UP,
+                            player.base.pos.sub(&npc.base.pos).angle_xz()
+                        );
+                        self.events.push(GameEvent::ObjectMoved(ObjectMovedEvent{
+                            model_ref: npc.base.model_ref,
+                            pos: npc.base.pos,
+                            rot,
+                        }))
+                    }
 
+                    if distance_sq < 1.0 * 2.0 {
+                        if npc.base.state != ObjectState::PUNCHING && 
+                            npc.state_elapsed(self.state.step) >= 0.5 {
+                            let npc = &mut self.entities.npcs[i];
+                            if let Some(from) = npc.set_state(ObjectState::PUNCHING, self.state.step) {
+                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                    model_ref: npc.base.model_ref,
+                                    from,
+                                    to: npc.base.state
+                                }));
+                            }
                         }
                     }
                 }
