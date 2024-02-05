@@ -1,7 +1,7 @@
 #[cfg(not(feature = "js"))]
 use rand::{rngs::StdRng, Rng};
 #[cfg(not(feature = "js"))]
-use std::{collections::HashMap, f32::consts::PI};
+use std::{collections::{HashMap, HashSet}, f32::consts::PI};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
 #[cfg(not(feature = "js"))]
@@ -44,7 +44,7 @@ const PENALTY_WALL: f32 = -10.0;
 #[cfg(not(feature = "js"))]
 const PENALTY_BITTEN: f32 = -20.0;
 #[cfg(not(feature = "js"))]
-const PENALTY_PUNCHED: f32 = PENALTY_BITTEN / 2.0;
+const PENALTY_PUNCHED: f32 = PENALTY_BITTEN / 5.0;
 #[cfg(not(feature = "js"))]
 const REWARD_BRAIN_EATEN: f32 = 100.0;
 #[cfg(not(feature = "js"))]
@@ -195,7 +195,8 @@ impl Env for Game {
         &mut self, 
         actions: &Vec<Option<crate::env::EnvAction>>, 
         delta_time: f32,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer,
+        rng: &mut StdRng,
     ) -> EnvStep {
         if self.state.status != GameStatus::RUNNING {
             return EnvStep {
@@ -211,11 +212,11 @@ impl Env for Game {
         if self.options.max_steps == 0 ||
             self.state.step < self.options.max_steps {
         
-            self.update_players(actions, delta_time);
+            self.update_players(actions, delta_time, rng);
             
-            self.update_npcs(delta_time);
+            self.update_npcs(delta_time, rng);
 
-            self.update_objects(delta_time);
+            self.update_objects(delta_time, rng);
             
             self.build_players_sensors(renderer);
         }
@@ -231,6 +232,7 @@ impl Env for Game {
                 .iter()
                 .map(|p| {
                     EnvPlayer {
+                        active: p.is_moving(),
                         reward: p.reward,
                         obs: p.to_obs(),
                     }
@@ -720,19 +722,23 @@ impl Game {
     fn find_closest_player(
         &self,
         pos: &Vector3,
-        radius: f32
-    ) -> Option<(usize, Player)> {
+        radius: Option<f32>,
+        rng: &mut StdRng,
+    ) -> Option<(usize, Player, f32)> {
 
-        let mut min_distance_sq = radius * 2.0;
+        let mut min_distance_sq = if let Some(radius) = radius {radius * 2.0} else {f32::MAX};
         let mut res = None;
 
-        for (num, player) in self.entities.players.iter().enumerate().filter(|(_, p)| 
-            p.is_visible() && !p.is_dead()
-        ) {
-            let distance_sq = pos.sub(&player.base.pos).length_sq();
-            if distance_sq < min_distance_sq {
-                min_distance_sq = distance_sq;
-                res = Some((num, player.clone()));
+        let player_indexes = self.shuffle_players_idx(rng);
+
+        for i in player_indexes {
+            let player = &self.entities.players[i];
+            if player.is_visible() && !player.is_dead() {
+                let distance_sq = pos.sub(&player.base.pos).length_sq();
+                if distance_sq < min_distance_sq {
+                    min_distance_sq = distance_sq;
+                    res = Some((i, player.clone(), distance_sq));
+                }
             }
         }
 
@@ -740,21 +746,36 @@ impl Game {
     }
 
     #[cfg(not(feature = "js"))]
+    fn shuffle_players_idx(
+        &self,
+        rng: &mut StdRng
+    ) -> Vec<usize> {
+        let mut indexes = HashSet::new();
+    
+        while indexes.len() < self.options.num_players {
+            indexes.insert(rng.gen_range(0..self.options.num_players));
+        }
+    
+        indexes.into_iter().collect()
+    }
+
+    #[cfg(not(feature = "js"))]
     fn find_closest_npc(
         &self,
-        pos: &Vector3
-    ) -> Object {
+        pos: &Vector3,
+        radius: Option<f32>
+    ) -> Option<(usize, Object, f32)> {
 
-        let mut min_distance = f32::MAX;
-        let mut res = Object::default();
+        let mut min_distance_sq = if let Some(radius) = radius {radius * 2.0} else {f32::MAX};
+        let mut res = None;
 
-        for npc in self.entities.npcs.iter().filter(|n| 
+        for (i, npc) in self.entities.npcs.iter().enumerate().filter(|(_, n)| 
             n.is_visible() && !n.is_dead()
         ) {
-            let distance = pos.sub(&npc.base.pos).length();
-            if distance < min_distance {
-                min_distance = distance;
-                res = npc.base.clone();
+            let distance_sq = pos.sub(&npc.base.pos).length_sq();
+            if distance_sq < min_distance_sq {
+                min_distance_sq = distance_sq;
+                res = Some((i, npc.base.clone(), distance_sq));
             }
         }
 
@@ -795,24 +816,29 @@ impl Game {
         let mut paths = vec![];
 
         for (i, player) in self.entities.players.iter().enumerate() {
-            let target_obj = if player.num_brains == self.options.min_keys { 
-                self.find_closest_object(&player.base.pos, ObjectType::EXIT)
+            let target_pos = if player.num_brains == self.options.min_keys { 
+                self.find_closest_object(&player.base.pos, ObjectType::EXIT).pos
             }
             else {
-                self.find_closest_npc(&player.base.pos)
+                if let Some((_, npc, _)) = self.find_closest_npc(&player.base.pos, None) {
+                    npc.pos
+                }
+                else {
+                    Vector3::zero()
+                }
             };
 
             // when training, it's better to just use target's position
             let path = if self.options.training {
                 Path3::new(vec![
                     player.base.pos.clone(),
-                    target_obj.pos.clone()
+                    target_pos.clone()
                 ])
             }
             // when playing, move around obstacles
             else {
                 self.map.find_path_to_target(
-                    &player.base.pos, &target_obj.pos)
+                    &player.base.pos, &target_pos)
             };
 
             let target_pos = path.nodes[1].clone();
@@ -917,84 +943,86 @@ impl Game {
     fn update_players(
         &mut self, 
         actions: &Vec<Option<usize>>, 
-        delta_time: f32
+        delta_time: f32,
+        _rng: &mut StdRng,
     ) {
-        for player in &mut self.entities.players {
-            if player.is_visible() {
-                if let Some((from, to)) = player.update_state(self.state.step) {
-                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                        model_ref: player.base.model_ref,
-                        from,
-                        to
-                    }));
+        for player in self.entities.players.iter_mut()
+            .filter(|p| p.is_visible()) {
+            if let Some((from, to)) = player.update_state(self.state.step) {
+                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                    model_ref: player.base.model_ref,
+                    from,
+                    to
+                }));
 
-                    if to == ObjectState::DEAD {
-                        player.base.vis = ObjectVisibility::HIDDEN;
-                        self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
-                            visible: false,
-                            model_ref: player.base.model_ref 
-                        }));
-                    }
+                if to == ObjectState::DEAD {
+                    player.base.vis = ObjectVisibility::HIDDEN;
+                    self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                        visible: false,
+                        model_ref: player.base.model_ref 
+                    }));
                 }
             }
         }
 
-        for i in 0..actions.len() {
+        for (i, action) in actions.iter().enumerate() {
             let player = &mut self.entities.players[i];
-            player.reward = 0.0;
+            if player.is_visible() && !player.is_dead() {
+                player.reward = 0.0;
 
-            if player.is_moving() {
-                let rot = match actions[i] {
-                    None => {
-                        player.base.rot.clone()
-                    },
-                    Some(action) => {
-                        match PlayerAction::try_from(action.clone()).unwrap() {
-                            PlayerAction::MoveForward =>
-                                player.base.rot.clone(),
-                            PlayerAction::TurnRight => {
-                                player.base.rot.mul(
-                                    &Quaternion::from_axis_and_angle(&UP, player.turn_angle)
-                                )
-                            },
-                            PlayerAction::TurnLeft => {
-                                player.base.rot.mul(
-                                    &Quaternion::from_axis_and_angle(&UP, -player.turn_angle)
-                                )
+                if player.is_moving() {
+                    let rot = match action {
+                        None => {
+                            player.base.rot.clone()
+                        },
+                        Some(action) => {
+                            match PlayerAction::try_from(action.clone()).unwrap() {
+                                PlayerAction::MoveForward =>
+                                    player.base.rot.clone(),
+                                PlayerAction::TurnRight => {
+                                    player.base.rot.mul(
+                                        &Quaternion::from_axis_and_angle(&UP, player.turn_angle)
+                                    )
+                                },
+                                PlayerAction::TurnLeft => {
+                                    player.base.rot.mul(
+                                        &Quaternion::from_axis_and_angle(&UP, -player.turn_angle)
+                                    )
+                                }
                             }
                         }
-                    }
-                };
+                    };
 
-                let vel = player.vel.clone();
-                self.move_player(i, &rot, &vel, delta_time, false);
+                    let vel = player.vel.clone();
+                    self.move_player(i, &rot, &vel, delta_time, false);
+                }
             }
         }
 
         for i in 0..self.entities.players.len() {
             let player = &self.entities.players[i];
-            if player.num_brains >= self.options.min_keys {
-                let door = self.entities.objects.iter().find(|o| o.typ == ObjectType::EXIT);
-                if let Some(door) = door {
-                    if Self::check_exit(&player.base, door) {
-                        self.state.status = GameStatus::FINISHED;
-                        self.state.winner = Some(i);
-                        
-                        let player = &mut self.entities.players[i];
-                        player.reward += REWARD_EXIT_REACHED;
-                        
-                        if let Some(from) = player.set_state(ObjectState::CELEBRATING, self.state.step) {
-                            self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                model_ref: player.base.model_ref,
-                                from,
-                                to: player.base.state
-                            }));
+            if player.is_visible() && !player.is_dead() {
+                if player.num_brains >= self.options.min_keys {
+                    let door = self.entities.objects.iter().find(|o| o.typ == ObjectType::EXIT);
+                    if let Some(door) = door {
+                        if Self::check_exit(&player.base, door) {
+                            self.state.status = GameStatus::FINISHED;
+                            self.state.winner = Some(i);
+                            
+                            let player = &mut self.entities.players[i];
+                            player.reward += REWARD_EXIT_REACHED;
+                            
+                            if let Some(from) = player.set_state(ObjectState::CELEBRATING, self.state.step) {
+                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                    model_ref: player.base.model_ref,
+                                    from,
+                                    to: player.base.state
+                                }));
+                            }
                         }
                     }
                 }
-            }
-            else {
-                if self.state.status == GameStatus::FINISHED {
+                else if self.state.status == GameStatus::FINISHED {
                     let player = &mut self.entities.players[i];
                     if let Some(from) = player.set_state(ObjectState::IDLE, self.state.step) {
                         self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
@@ -1004,6 +1032,65 @@ impl Game {
                         }));
                     }
                 }
+                else {
+                    // any npc around?
+                    if let Some((npc_num, _, _)) = 
+                        self.find_closest_npc(&player.base.pos, Some(1.0)) {
+                        let player = &mut self.entities.players[i];
+                        if player.is_biting() &&
+                            player.state_elapsed(self.state.step) >= 0.75 {
+                            player.reward += REWARD_BRAIN_EATEN;
+
+                            if let Some(from) = player.set_state(ObjectState::IDLE, self.state.step) {
+                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                    model_ref: player.base.model_ref,
+                                    from,
+                                    to: player.base.state
+                                }));
+                            }
+                        
+                            let npc = &mut self.entities.npcs[npc_num];
+                            npc.health += PENALTY_BITTEN;
+                            if npc.health <= 0.0 {
+                                if let Some(from) = npc.set_state(ObjectState::DYING, self.state.step) {
+                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                        model_ref: npc.base.model_ref,
+                                        from,
+                                        to: npc.base.state
+                                    }));
+                                }
+
+                                player.num_brains += 1;
+                                if player.num_brains == self.options.min_keys {
+                                    self.show_exit();
+                                } 
+                                
+                                self.show_next_npc();
+                            }
+                            else {
+                                if npc.base.state != ObjectState::HIT && 
+                                    npc.state_elapsed(self.state.step) >= 0.5 {
+                                    if let Some(from) = npc.set_state(ObjectState::HIT, self.state.step) {
+                                        self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                            model_ref: npc.base.model_ref,
+                                            from,
+                                            to: npc.base.state
+                                        }));
+                                    }
+                                }
+                            }
+                        }
+                        else if player.is_moving() {
+                            if let Some(from) = player.set_state(ObjectState::BITING, self.state.step) {
+                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                                    model_ref: player.base.model_ref,
+                                    from,
+                                    to: player.base.state
+                                }));
+                            }
+                        }                                
+                    }
+                }
             }
         }
     }
@@ -1011,39 +1098,39 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn update_npcs(
         &mut self, 
-        delta_time: f32
+        delta_time: f32,
+        rng: &mut StdRng,
     ) {
-        for npc in &mut self.entities.npcs {
-            if npc.is_visible() {
-                if let Some((from, to)) = npc.update_state(self.state.step) {
-                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                        model_ref: npc.base.model_ref,
-                        from,
-                        to
-                    }));
+        for npc in self.entities.npcs.iter_mut()
+            .filter(|n| n.is_visible()) {
+            if let Some((from, to)) = npc.update_state(self.state.step) {
+                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
+                    model_ref: npc.base.model_ref,
+                    from,
+                    to
+                }));
 
-                    if to == ObjectState::DEAD {
-                        npc.base.vis = ObjectVisibility::HIDDEN;
-                        self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
-                            visible: false,
-                            model_ref: npc.base.model_ref 
-                        }));
-                    }
+                if to == ObjectState::DEAD {
+                    npc.base.vis = ObjectVisibility::HIDDEN;
+                    self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                        visible: false,
+                        model_ref: npc.base.model_ref 
+                    }));
                 }
             }
         }
         
         for i in 0..self.entities.npcs.len() {
             let npc = &self.entities.npcs[i];
-            if !npc.is_dead() && npc.is_visible() {
+            if npc.is_visible() && !npc.is_dead() {
                 // any player around?
-                if let Some((player_num, player)) = self.find_closest_player(&npc.base.pos, 3.0) {
-                    if player.calc_bb().intersects_with_box(&npc.calc_bb()) {
+                if let Some((player_num, player, distance_sq)) = 
+                    self.find_closest_player(&npc.base.pos, Some(3.0), rng) {
+                    if distance_sq <= 1.0 * 2.0 {
                         let player_inverse_rot = player.base.rot.mul(
                             &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
                         );
                         let player_vel = player.vel.clone();
-                        let mut player_moved = false;
                         
                         let player = &mut self.entities.players[player_num];
                         if npc.base.state == ObjectState::PUNCHING &&
@@ -1077,78 +1164,10 @@ impl Game {
                                 }
 
                                 self.move_player(
-                                    player_num, &player_inverse_rot, &player_vel.mul_scalar(50.0), delta_time, true);
-                                player_moved = true;
+                                    player_num, &player_inverse_rot, &player_vel.mul_scalar(15.0), delta_time, true);
                             }
                         }
-                        else {
-                            if player.base.state != ObjectState::BITING && 
-                                player.state_elapsed(self.state.step) >= 0.5  {
-                                player.reward += REWARD_BRAIN_EATEN;
-                            
-                                if let Some(from) = player.set_state(ObjectState::BITING, self.state.step) {
-                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                        model_ref: player.base.model_ref,
-                                        from,
-                                        to: player.base.state
-                                    }));
-                                }
-                            
-                                let npc = &mut self.entities.npcs[i];
-                            
-                                npc.health += PENALTY_BITTEN;
-                                if npc.health <= 0.0 {
-                                    if let Some(from) = npc.set_state(ObjectState::DYING, self.state.step) {
-                                        self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                            model_ref: npc.base.model_ref,
-                                            from,
-                                            to: npc.base.state
-                                        }));
-                                    }
-    
-                                    player.num_brains += 1;
-                                    if player.num_brains == self.options.min_keys {
-                                        self.show_exit();
-                                    } 
-                                    
-                                    self.show_next_npc();
-                                }
-                                else {
-                                    if npc.base.state != ObjectState::HIT {
-                                        if let Some(from) = npc.set_state(ObjectState::HIT, self.state.step) {
-                                            self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                                model_ref: npc.base.model_ref,
-                                                from,
-                                                to: npc.base.state
-                                            }));
-                                        }
-                                    }
-                                }                            
-                            }
-                        }
-
-                        if !player_moved {
-                            self.move_player(
-                                player_num, &player_inverse_rot, &player_vel.mul_scalar(25.0), delta_time, true);
-                        }
-                    }
-                    
-                    let npc = &self.entities.npcs[i];
-                    let distance_sq = npc.base.pos.sub(&player.base.pos).length_sq();
-                    if npc.is_idle() {
-                        let rot = Quaternion::from_axis_and_angle(
-                            &UP,
-                            player.base.pos.sub(&npc.base.pos).angle_xz()
-                        );
-                        self.events.push(GameEvent::ObjectMoved(ObjectMovedEvent{
-                            model_ref: npc.base.model_ref,
-                            pos: npc.base.pos,
-                            rot,
-                        }))
-                    }
-
-                    if distance_sq < 1.0 * 2.0 {
-                        if npc.base.state != ObjectState::PUNCHING && 
+                        else if npc.base.state != ObjectState::PUNCHING && 
                             npc.state_elapsed(self.state.step) >= 0.5 {
                             let npc = &mut self.entities.npcs[i];
                             if let Some(from) = npc.set_state(ObjectState::PUNCHING, self.state.step) {
@@ -1160,6 +1179,19 @@ impl Game {
                             }
                         }
                     }
+                    
+                    let npc = &self.entities.npcs[i];
+                    if npc.is_idle() {
+                        let rot = Quaternion::from_axis_and_angle(
+                            &UP,
+                            player.base.pos.sub(&npc.base.pos).angle_xz()
+                        );
+                        self.events.push(GameEvent::ObjectMoved(ObjectMovedEvent{
+                            model_ref: npc.base.model_ref,
+                            pos: npc.base.pos,
+                            rot,
+                        }))
+                    }
                 }
             }
         }
@@ -1168,7 +1200,8 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn update_objects(
         &mut self,
-        _delta_time: f32
+        _delta_time: f32,
+        _rng: &mut StdRng,
     ) {
         let mut all_brains_collected = false;
 

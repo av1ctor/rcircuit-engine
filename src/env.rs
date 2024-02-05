@@ -58,6 +58,7 @@ impl Asset {
 }
 
 pub struct EnvPlayer {
+    pub active: bool,
     pub reward: f32,
     pub obs: EnvObs,
 }
@@ -101,7 +102,8 @@ pub trait Env {
         &mut self, 
         actions: &Vec<Option<EnvAction>>, 
         delta_time: f32,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer,
+        rng: &mut StdRng,
     ) -> EnvStep;
     
     #[cfg(not(feature = "js"))]
