@@ -10,6 +10,30 @@ use crate::{
     renderer::ModelRef
 };
 
+const STATE_TRANSITIONS: &[Option<ObjectState>] = &[
+    /* WAITING: */      Some(ObjectState::IDLE),
+    /* IDLE: */         None,
+    /* WALKING: */      None,
+    /* RUNNING: */      None,
+    /* JUMPING: */      None,
+    /* BITING: */       None,
+    /* CELEBRATING: */  None,
+    /* DANCING: */      None,
+    /* CROUCHING: */    None,
+    /* SITTING: */      None,
+    /* SHOOTING: */     None,
+    /* PUNCHING: */     Some(ObjectState::IDLE),
+    /* KICKING: */      None,
+    /* CLIMBING: */     None,
+    /* HIT: */          Some(ObjectState::IDLE),
+    /* EXPLODING: */    None,
+    /* AGONIZING: */    None,
+    /* DYING: */        Some(ObjectState::DEAD),
+    /* DEAD: */         None,                           
+];
+
+
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Npc {
     pub base: Object,
@@ -57,7 +81,7 @@ impl Npc {
         &mut self,
         step: usize
     ) -> Option<(ObjectState, ObjectState)> {
-        self.base.update_state(step)
+        self.base.update_state(STATE_TRANSITIONS, step)
     }
 
     pub fn state_elapsed(

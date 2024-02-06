@@ -46,7 +46,7 @@ pub enum ObjectState {
     DEAD        = 18,
 }
 
-pub const STATE_DURATIONS: &[usize] = &[
+const STATE_DURATIONS: &[usize] = &[
     /* WAITING: */      60 * 3,
     /* IDLE: */         60,
     /* WALKING: */      usize::MAX,
@@ -68,50 +68,6 @@ pub const STATE_DURATIONS: &[usize] = &[
     /* DEAD: */         usize::MAX,
 ];
 
-pub const PLAYER_STATE_TRANSITIONS: &[Option<ObjectState>] = &[
-    /* WAITING:*/       Some(ObjectState::WALKING),
-    /* IDLE: */         Some(ObjectState::WALKING),
-    /* WALKING: */      None,
-    /* RUNNING: */      None,
-    /* JUMPING: */      None,
-    /* BITING: */       Some(ObjectState::IDLE),
-    /* CELEBRATING: */  None,
-    /* DANCING: */      None,
-    /* CROUCHING: */    None,
-    /* SITTING: */      None,
-    /* SHOOTING: */     None,
-    /* PUNCHING: */     None,
-    /* KICKING: */      None,
-    /* CLIMBING: */     None,
-    /* HIT: */          Some(ObjectState::IDLE),        
-    /* EXPLODING: */    None,
-    /* AGONIZING: */    None,
-    /* DYING: */        Some(ObjectState::DEAD),        
-    /* DEAD: */         None,                           
-];
-
-pub const NPC_STATE_TRANSITIONS: &[Option<ObjectState>] = &[
-    /* WAITING:*/       Some(ObjectState::IDLE),
-    /* IDLE: */         None,
-    /* WALKING: */      None,
-    /* RUNNING: */      None,
-    /* JUMPING: */      None,
-    /* BITING: */       None,
-    /* CELEBRATING: */  None,
-    /* DANCING: */      None,
-    /* CROUCHING: */    None,
-    /* SITTING: */      None,
-    /* SHOOTING: */     None,
-    /* PUNCHING: */     Some(ObjectState::IDLE),
-    /* KICKING: */      None,
-    /* CLIMBING: */     None,
-    /* HIT: */          Some(ObjectState::IDLE),
-    /* EXPLODING: */    None,
-    /* AGONIZING: */    None,
-    /* DYING: */        Some(ObjectState::DEAD),
-    /* DEAD: */         None,                           
-];
-
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "js", wasm_bindgen)]
 #[repr(C)]
@@ -121,7 +77,7 @@ pub enum ObjectVisibility {
     VISIBLE = 1,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Object {
     pub id: usize,
     pub typ: ObjectType,
@@ -134,23 +90,6 @@ pub struct Object {
     pub radius: f32,
     #[serde(skip)]
     pub model_ref: ModelRef,
-}
-
-impl Default for Object {
-    fn default() -> Self {
-        Self { 
-            id: Default::default(), 
-            typ: Default::default(), 
-            pos: Default::default(), 
-            rot: Default::default(),
-            dim: Default::default(), 
-            radius: Default::default(), 
-            state: Default::default(), 
-            state_changed_at: 0,
-            vis: Default::default(),
-            model_ref: 0,
-        }
-    }
 }
 
 impl Object {
@@ -196,17 +135,13 @@ impl Object {
 
     pub fn update_state(
         &mut self,
+        transitions: &[Option<ObjectState>],
         step: usize
     ) -> Option<(ObjectState, ObjectState)> {
         let elapsed = step - self.state_changed_at;
         let duration = STATE_DURATIONS[self.state as usize];
         if duration != usize::MAX && elapsed >= duration {
-            let to = if self.typ == ObjectType::PLAYER {
-                PLAYER_STATE_TRANSITIONS[self.state as usize]
-            } 
-            else {
-                NPC_STATE_TRANSITIONS[self.state as usize]
-            };
+            let to = transitions[self.state as usize];
 
             if let Some(to) = to {
                 if let Some(from) = self.set_state(to, step) {
