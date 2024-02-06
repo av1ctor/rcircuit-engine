@@ -1107,18 +1107,22 @@ impl Game {
                         }
 
                         // make the player face the NPC
-                        let player = &self.entities.players[i];
-                        let npc = &self.entities.npcs[npc_num];
-                        let rot = Quaternion::from_axis_and_angle(
-                            &UP,
-                            npc.data.pos.sub(&player.data.pos).angle_xz()
-                        );
-                        if rot != player.data.rot {
-                            self.events.push(GameEvent::EntityMoved(EntityMovedEvent{
-                                model_ref: player.data.model_ref,
-                                pos: player.data.pos,
-                                rot,
-                            }));
+                        let player = &mut self.entities.players[i];
+                        if !player.is_idle() {
+                            let npc = &self.entities.npcs[npc_num];
+                            let target_rot = Quaternion::from_axis_and_angle(
+                                &UP,
+                                npc.data.pos.sub(&player.data.pos).angle_xz()
+                            );
+                            let rot = player.data.rot.slerp(&target_rot, 0.1);
+                            if rot != player.data.rot {
+                                player.data.rot = rot;
+                                self.events.push(GameEvent::EntityMoved(EntityMovedEvent{
+                                    model_ref: player.data.model_ref,
+                                    pos: player.data.pos,
+                                    rot: player.data.rot,
+                                }));
+                            }
                         }
                     }
                 }
@@ -1140,7 +1144,7 @@ impl Game {
                                     &Quaternion::from_axis_and_angle(&UP, 270.0 * PI / 180.0)
                                 );
                                 self.move_player(
-                                    i, &rot, &Vector3::new(0.5, 0.5, 0.5), delta_time, true);
+                                    i, &rot, &Vector3::new(1.0, 1.0, 1.0), delta_time, true);
                                 player = &self.entities.players[i];
                             }
                         }
@@ -1247,17 +1251,17 @@ impl Game {
                     }
                     
                     // make the NPC face the closest player
-                    let npc = &self.entities.npcs[i];
-                    if npc.is_idle() {
-                        let rot = Quaternion::from_axis_and_angle(
-                            &UP,
-                            player.data.pos.sub(&npc.data.pos).angle_xz()
-                        );
+                    let npc = &mut self.entities.npcs[i];
+                    if !npc.is_idle() {
+                        let target_rot = Quaternion::from_axis_and_angle(
+                            &UP, player.data.pos.sub(&npc.data.pos).angle_xz());
+                        let rot = npc.data.rot.slerp(&target_rot, 0.1);
                         if rot != npc.data.rot {
+                            npc.data.rot = rot;
                             self.events.push(GameEvent::EntityMoved(EntityMovedEvent{
                                 model_ref: npc.data.model_ref,
                                 pos: npc.data.pos,
-                                rot,
+                                rot: npc.data.rot,
                             }));
                         }
                     }
