@@ -1127,27 +1127,24 @@ impl Game {
 
         // 4th: don't let them overlap
         for i in 0..self.entities.players.len() {
-            let player = &self.entities.players[i];
-            if player.is_visible() && !player.is_dead() && !player.is_moving() {
-                let mut rot = player.data.rot.clone();
-                let mut colliding = false;
-                
+            let mut player = &self.entities.players[i];
+            if player.is_visible() && !player.is_dead() {
                 let player_bb = player.calc_bb();
                 for j in 0..self.entities.players.len() {
                     if i != j {
                         let other = &self.entities.players[j];
-                        if other.is_visible() && !other.is_dead() && !other.is_moving() {
+                        if other.is_visible() && !other.is_dead() {
                             let other_bb = other.calc_bb();
                             if player_bb.intersects_with_box(&other_bb) {
-                                colliding = true;
-                                rot = rot.mul(&Quaternion::from_axis_and_angle(&UP, 90.0 * PI / 180.0));
+                                let rot = player.data.rot.mul(
+                                    &Quaternion::from_axis_and_angle(&UP, 270.0 * PI / 180.0)
+                                );
+                                self.move_player(
+                                    i, &rot, &Vector3::new(0.1, 0.1, 0.1), delta_time, false);
+                                player = &self.entities.players[i];
                             }
                         }
                     }
-                }
-
-                if colliding {
-                    self.move_player(i, &rot, &Vector3::new(1.0, 1.0, 1.0), delta_time, true);
                 }
             }
         }
