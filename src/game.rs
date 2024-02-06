@@ -946,6 +946,7 @@ impl Game {
         delta_time: f32,
         _rng: &mut StdRng,
     ) {
+        // 1st: update state
         for player in self.entities.players.iter_mut()
             .filter(|p| p.is_visible()) {
             if let Some((from, to)) = player.update_state(self.state.step) {
@@ -965,6 +966,7 @@ impl Game {
             }
         }
 
+        // 2nd: move player
         for (i, action) in actions.iter().enumerate() {
             let player = &mut self.entities.players[i];
             if player.is_visible() && !player.is_dead() {
@@ -999,9 +1001,11 @@ impl Game {
             }
         }
 
+        // 3rd: check environment
         for i in 0..self.entities.players.len() {
             let player = &self.entities.players[i];
             if player.is_visible() && !player.is_dead() {
+                // all brains eaten? check if exit reached
                 if player.num_brains >= self.options.min_keys {
                     let door = self.entities.objects.iter().find(|o| o.typ == ObjectType::EXIT);
                     if let Some(door) = door {
@@ -1022,6 +1026,7 @@ impl Game {
                         }
                     }
                 }
+                // finished and not the winner? turn off animations
                 else if self.state.status == GameStatus::FINISHED {
                     let player = &mut self.entities.players[i];
                     if let Some(from) = player.set_state(ObjectState::IDLE, self.state.step) {
@@ -1032,15 +1037,18 @@ impl Game {
                         }));
                     }
                 }
+                // check the map..
                 else {
-                    // any npc around?
+                    // any npc close?
                     if let Some((npc_num, _, _)) = 
                         self.find_closest_npc(&player.base.pos, Some(1.0)) {
                         let player = &mut self.entities.players[i];
+                        // biting and enough time elapsed?
                         if player.is_biting() &&
                             player.state_elapsed(self.state.step) >= 0.75 {
                             player.reward += REWARD_BRAIN_EATEN;
 
+                            // stop biting
                             if let Some(from) = player.set_state(ObjectState::IDLE, self.state.step) {
                                 self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
                                     model_ref: player.base.model_ref,
@@ -1051,6 +1059,7 @@ impl Game {
                         
                             let npc = &mut self.entities.npcs[npc_num];
                             npc.health += PENALTY_BITTEN;
+                            // NPC has no health left? kill it and show another one
                             if npc.health <= 0.0 {
                                 if let Some(from) = npc.set_state(ObjectState::DYING, self.state.step) {
                                     self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
@@ -1067,6 +1076,7 @@ impl Game {
                                 
                                 self.show_next_npc();
                             }
+                            // otherwise, just change its state to hurting
                             else {
                                 if npc.base.state != ObjectState::HIT && 
                                     npc.state_elapsed(self.state.step) >= 0.5 {
@@ -1080,6 +1090,7 @@ impl Game {
                                 }
                             }
                         }
+                        // otherwise, if moving, start biting (and don't let the player get too close to the this NPC)
                         else if player.is_moving() {
                             if let Some(from) = player.set_state(ObjectState::BITING, self.state.step) {
                                 self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
@@ -1101,6 +1112,7 @@ impl Game {
         delta_time: f32,
         rng: &mut StdRng,
     ) {
+        // 1st: update the state
         for npc in self.entities.npcs.iter_mut()
             .filter(|n| n.is_visible()) {
             if let Some((from, to)) = npc.update_state(self.state.step) {
@@ -1120,21 +1132,20 @@ impl Game {
             }
         }
         
+        // 2nd: check environment
         for i in 0..self.entities.npcs.len() {
             let npc = &self.entities.npcs[i];
             if npc.is_visible() && !npc.is_dead() {
-                // any player around?
+                // any player close?
                 if let Some((player_num, player, distance_sq)) = 
                     self.find_closest_player(&npc.base.pos, Some(3.0), rng) {
+                    // close enough to be punched?
                     if distance_sq <= 1.0 * 2.0 {
-                        let player_inverse_rot = player.base.rot.mul(
-                            &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
-                        );
-                        let player_vel = player.vel.clone();
-                        
-                        let player = &mut self.entities.players[player_num];
+                        // is the NPC already punching and enough time elapsed?
                         if npc.base.state == ObjectState::PUNCHING &&
                             npc.state_elapsed(self.state.step) >= 0.75 {
+                            
+                            // stop punching
                             let npc = &mut self.entities.npcs[i];
                             if let Some(from) = npc.set_state(ObjectState::IDLE, self.state.step) {
                                 self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
@@ -1144,7 +1155,9 @@ impl Game {
                                 }));
                             }
 
+                            let player = &mut self.entities.players[player_num];
                             player.health += PENALTY_PUNCHED;
+                            // player has no health left? kill it
                             if player.health <= 0.0 {
                                 if let Some(from) = player.set_state(ObjectState::DYING, self.state.step) {
                                     self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
@@ -1154,6 +1167,7 @@ impl Game {
                                     }));
                                 }
                             }
+                            // otherwise, just change its state to hurting
                             else {
                                 if let Some(from) = player.set_state(ObjectState::HIT, self.state.step) {
                                     self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
@@ -1163,10 +1177,16 @@ impl Game {
                                     }));
                                 }
 
+                                // and move player away from NPC
+                                let inverse_rot = player.base.rot.mul(
+                                    &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
+                                );
+                                let vel = player.vel.mul_scalar(15.0);
                                 self.move_player(
-                                    player_num, &player_inverse_rot, &player_vel.mul_scalar(15.0), delta_time, true);
+                                    player_num, &inverse_rot, &vel, delta_time, true);
                             }
                         }
+                        // otherwise, start punching if enough time elapsed
                         else if npc.base.state != ObjectState::PUNCHING && 
                             npc.state_elapsed(self.state.step) >= 0.5 {
                             let npc = &mut self.entities.npcs[i];
@@ -1180,6 +1200,7 @@ impl Game {
                         }
                     }
                     
+                    // turn the NPC into the closest player's direction
                     let npc = &self.entities.npcs[i];
                     if npc.is_idle() {
                         let rot = Quaternion::from_axis_and_angle(
