@@ -180,12 +180,14 @@ pub trait Entity {
         }
     }
     
+    #[inline(always)]
     fn is_idle(
         &self 
     ) -> bool {
         self.get_data().state == EntityState::IDLE
     }
     
+    #[inline(always)]
     fn is_dead(
         &self 
     ) -> bool {
@@ -193,6 +195,7 @@ pub trait Entity {
         self.get_data().state == EntityState::DEAD
     }
 
+    #[inline(always)]
     fn is_moving(
         &self 
     ) -> bool {
@@ -200,6 +203,7 @@ pub trait Entity {
         self.get_data().state == EntityState::RUNNING
     }
 
+    #[inline(always)]
     fn is_visible(
         &self 
     ) -> bool {
