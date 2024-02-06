@@ -1126,7 +1126,7 @@ impl Game {
         }
 
         // 4th: don't let them overlap
-        /*for i in 0..self.entities.players.len() {
+        for i in 0..self.entities.players.len() {
             let player = &self.entities.players[i];
             if player.is_visible() && !player.is_dead() && !player.is_moving() {
                 let mut rot = player.data.rot.clone();
@@ -1150,7 +1150,7 @@ impl Game {
                     self.move_player(i, &rot, &Vector3::new(1.0, 1.0, 1.0), delta_time, true);
                 }
             }
-        }*/
+        }
     }
 
     #[cfg(not(feature = "js"))]
