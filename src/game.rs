@@ -1140,7 +1140,7 @@ impl Game {
                                     &Quaternion::from_axis_and_angle(&UP, 270.0 * PI / 180.0)
                                 );
                                 self.move_player(
-                                    i, &rot, &Vector3::new(0.1, 0.1, 0.1), delta_time, false);
+                                    i, &rot, &Vector3::new(0.5, 0.5, 0.5), delta_time, true);
                                 player = &self.entities.players[i];
                             }
                         }
