@@ -64,6 +64,7 @@ pub struct GameState {
     pub status: GameStatus,
     pub winner: Option<usize>,
     pub step: usize,
+    pub active_players: usize,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -162,7 +163,8 @@ impl Env for Game {
         self.state = GameState {
             status: GameStatus::RUNNING,
             winner: None,
-            step: 0
+            step: 0,
+            active_players: self.options.num_players,
         };
 
         self.build_players_sensors(renderer);
@@ -401,6 +403,7 @@ impl Game {
                 status: GameStatus::IDLE, 
                 winner: None, 
                 step: 0,
+                active_players: 0,
             },
             options,
         }
@@ -883,7 +886,7 @@ impl Game {
         rot: &Quaternion,
         vel: &Vector3,
         delta_time: f32,
-        keep_rotation: bool
+        forced: bool
     ) {
         let player = &mut self.entities.players[num];
         
@@ -899,14 +902,14 @@ impl Game {
             player.preserve();
             if confined_pos.x != new_pos.x || confined_pos.z != new_pos.z {
                 player.data.pos = confined_pos.mul(&Vector3::new(1.0, 0.0, 1.0));
-                if !keep_rotation {
+                if !forced {
                     player.data.rot = player.calc_rot_away_from_hit();
+                    player.reward += PENALTY_WALL;
                 }
-                player.reward += PENALTY_WALL;
             }
             else {
                 player.data.pos = new_pos;
-                if !keep_rotation {
+                if !forced {
                     player.data.rot = rot.clone();
                 }
             }
@@ -952,6 +955,12 @@ impl Game {
                 }));
 
                 if to == EntityState::DEAD {
+                    self.state.active_players -= 1;
+                    if self.state.active_players == 0 {
+                        self.state.status = GameStatus::FINISHED;
+                        self.state.winner = None;
+                    }
+                    
                     player.data.vis = EntityVisibility::HIDDEN;
                     self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
                         visible: false,
@@ -1037,6 +1046,7 @@ impl Game {
                     // any npc close?
                     if let Some((npc_num, _, _)) = 
                         self.find_closest_npc(&player.data.pos, Some(1.0)) {
+
                         let player = &mut self.entities.players[i];
                         // biting and enough time elapsed?
                         if player.is_biting() &&
@@ -1094,8 +1104,50 @@ impl Game {
                                     to: player.data.state
                                 }));
                             }
-                        }                                
+                        }
+
+                        // make the player face the NPC
+                        let player = &self.entities.players[i];
+                        let npc = &self.entities.npcs[npc_num];
+                        let rot = Quaternion::from_axis_and_angle(
+                            &UP,
+                            npc.data.pos.sub(&player.data.pos).angle_xz()
+                        );
+                        if rot != player.data.rot {
+                            self.events.push(GameEvent::EntityMoved(EntityMovedEvent{
+                                model_ref: player.data.model_ref,
+                                pos: player.data.pos,
+                                rot,
+                            }));
+                        }
                     }
+                }
+            }
+        }
+
+        // 4th: don't let them overlap
+        for i in 0..self.entities.players.len() {
+            let player = &self.entities.players[i];
+            if player.is_visible() && !player.is_dead() {
+                let mut rot = player.data.rot.clone();
+                let mut colliding = false;
+                
+                let player_bb = player.calc_bb();
+                for j in 0..self.entities.players.len() {
+                    if i != j {
+                        let other = &self.entities.players[j];
+                        if other.is_visible() && !other.is_dead() {
+                            let other_bb = other.calc_bb();
+                            if player_bb.intersects_with_box(&other_bb) {
+                                colliding = true;
+                                rot = rot.mul(&Quaternion::from_axis_and_angle(&UP, 90.0 * PI / 180.0));
+                            }
+                        }
+                    }
+                }
+
+                if colliding {
+                    self.move_player(i, &rot, &Vector3::new(1.0, 1.0, 1.0), delta_time, true);
                 }
             }
         }
@@ -1150,35 +1202,37 @@ impl Game {
                                 }));
                             }
 
-                            let player = &mut self.entities.players[player_num];
-                            player.health += PENALTY_PUNCHED;
-                            // player has no health left? kill it
-                            if player.health <= 0.0 {
-                                if let Some(from) = player.set_state(EntityState::DYING, self.state.step) {
-                                    self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
-                                        model_ref: player.data.model_ref,
-                                        from,
-                                        to: player.data.state
-                                    }));
+                            // don't hurt or move away the player if in training mode or the ANN will get confused
+                            if !self.options.training {
+                                let player = &mut self.entities.players[player_num];
+                                player.health += PENALTY_PUNCHED;
+                                // player has no health left? kill it
+                                if player.health <= 0.0 {
+                                    if let Some(from) = player.set_state(EntityState::DYING, self.state.step) {
+                                        self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                            model_ref: player.data.model_ref,
+                                            from,
+                                            to: player.data.state
+                                        }));
+                                    }
                                 }
-                            }
-                            // otherwise, just change its state to hurting
-                            else {
-                                if let Some(from) = player.set_state(EntityState::HIT, self.state.step) {
-                                    self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
-                                        model_ref: player.data.model_ref,
-                                        from,
-                                        to: player.data.state
-                                    }));
-                                }
+                                // otherwise, just change its state to hurting
+                                else {
+                                    if let Some(from) = player.set_state(EntityState::HIT, self.state.step) {
+                                        self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                            model_ref: player.data.model_ref,
+                                            from,
+                                            to: player.data.state
+                                        }));
+                                    }
 
-                                // and move player away from NPC
-                                let inverse_rot = player.data.rot.mul(
-                                    &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
-                                );
-                                let vel = player.vel.mul_scalar(15.0);
-                                self.move_player(
-                                    player_num, &inverse_rot, &vel, delta_time, true);
+                                    // and move player away from NPC
+                                    let inverse_rot = player.data.rot.mul(
+                                        &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
+                                    );
+                                    self.move_player(
+                                        player_num, &inverse_rot, &Vector3::new(1.5, 1.5, 1.5), delta_time, true);
+                                }
                             }
                         }
                         // otherwise, start punching if enough time elapsed
@@ -1195,18 +1249,20 @@ impl Game {
                         }
                     }
                     
-                    // turn the NPC into the closest player's direction
+                    // make the NPC face the closest player
                     let npc = &self.entities.npcs[i];
                     if npc.is_idle() {
                         let rot = Quaternion::from_axis_and_angle(
                             &UP,
                             player.data.pos.sub(&npc.data.pos).angle_xz()
                         );
-                        self.events.push(GameEvent::EntityMoved(EntityMovedEvent{
-                            model_ref: npc.data.model_ref,
-                            pos: npc.data.pos,
-                            rot,
-                        }))
+                        if rot != npc.data.rot {
+                            self.events.push(GameEvent::EntityMoved(EntityMovedEvent{
+                                model_ref: npc.data.model_ref,
+                                pos: npc.data.pos,
+                                rot,
+                            }));
+                        }
                     }
                 }
             }
