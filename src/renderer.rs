@@ -6,7 +6,7 @@ use three_rs::math::{
 use three_rs::core::RGB;
 use crate::{
     env::{Asset, AssetRef}, 
-    object::ObjectState
+    entity::EntityState
 };
 
 pub type ModelRef = usize;
@@ -79,8 +79,8 @@ pub trait Renderer {
     fn change_state(
         &mut self,
         model_ref: ModelRef,
-        from: ObjectState,
-        to: ObjectState
+        from: EntityState,
+        to: EntityState
     );
 
     fn render(

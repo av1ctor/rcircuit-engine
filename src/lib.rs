@@ -1,8 +1,9 @@
 pub mod env;
 pub mod renderer;
-pub mod object;
+pub mod entity;
 pub mod player;
 pub mod npc;
+pub mod object;
 pub mod spawn_locs;
 pub mod map;
 pub mod game;

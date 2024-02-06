@@ -2,55 +2,55 @@ use serde::{Serialize, Deserialize};
 use three_rs::math::{Quaternion, Vector3};
 use crate::{
     env::AssetRef, 
-    object::{ObjectType, ObjectState}, 
+    entity::{EntityType, EntityState}, 
     renderer::ModelRef
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectCreatedEvent {
+pub struct EntityCreatedEvent {
     pub model_ref: ModelRef,
-    pub typ: ObjectType,
+    pub typ: EntityType,
     pub asset_ref: AssetRef,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectSpawnedEvent {
+pub struct EntitySpawnedEvent {
     pub model_ref: ModelRef,
     pub pos: Vector3,
     pub rot: Quaternion,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectMovedEvent {
+pub struct EntityMovedEvent {
     pub model_ref: ModelRef,
     pub pos: Vector3,
     pub rot: Quaternion,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectRemovedEvent {
+pub struct EntityRemovedEvent {
     pub model_ref: ModelRef,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectVisChangedEvent {
+pub struct EntityVisChangedEvent {
     pub visible: bool,
     pub model_ref: ModelRef,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectStateChangedEvent {
+pub struct EntityStateChangedEvent {
     pub model_ref: ModelRef,
-    pub from: ObjectState,
-    pub to: ObjectState
+    pub from: EntityState,
+    pub to: EntityState
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum GameEvent {
-    ObjectCreated(ObjectCreatedEvent),
-    ObjectSpawned(ObjectSpawnedEvent),
-    ObjectVisChanged(ObjectVisChangedEvent),
-    ObjectMoved(ObjectMovedEvent),
-    ObjectStateChanged(ObjectStateChangedEvent),
-    ObjectRemoved(ObjectRemovedEvent),
+    EntityCreated(EntityCreatedEvent),
+    EntitySpawned(EntitySpawnedEvent),
+    EntityVisChanged(EntityVisChangedEvent),
+    EntityMoved(EntityMovedEvent),
+    EntityStateChanged(EntityStateChangedEvent),
+    EntityRemoved(EntityRemovedEvent),
 }

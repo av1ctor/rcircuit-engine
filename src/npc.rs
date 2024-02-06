@@ -2,16 +2,15 @@ use rand::rngs::StdRng;
 use serde::{Serialize, Deserialize};
 use three_rs::math::{
     vector3::Vector3, 
-    Box3, 
     Quaternion
 };
 use crate::{
-    object::{Object, ObjectState, ObjectType, ObjectVisibility}, 
+    entity::{Entity, EntityData, EntityState, EntityType, EntityVisibility}, 
     renderer::ModelRef
 };
 
-const STATE_TRANSITIONS: &[Option<ObjectState>] = &[
-    /* WAITING: */      Some(ObjectState::IDLE),
+const STATE_TRANSITIONS: &[Option<EntityState>] = &[
+    /* WAITING: */      Some(EntityState::IDLE),
     /* IDLE: */         None,
     /* WALKING: */      None,
     /* RUNNING: */      None,
@@ -22,13 +21,13 @@ const STATE_TRANSITIONS: &[Option<ObjectState>] = &[
     /* CROUCHING: */    None,
     /* SITTING: */      None,
     /* SHOOTING: */     None,
-    /* PUNCHING: */     Some(ObjectState::IDLE),
+    /* PUNCHING: */     Some(EntityState::IDLE),
     /* KICKING: */      None,
     /* CLIMBING: */     None,
-    /* HIT: */          Some(ObjectState::IDLE),
+    /* HIT: */          Some(EntityState::IDLE),
     /* EXPLODING: */    None,
     /* AGONIZING: */    None,
-    /* DYING: */        Some(ObjectState::DEAD),
+    /* DYING: */        Some(EntityState::DEAD),
     /* DEAD: */         None,                           
 ];
 
@@ -36,7 +35,7 @@ const STATE_TRANSITIONS: &[Option<ObjectState>] = &[
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Npc {
-    pub base: Object,
+    pub data: EntityData,
     pub vel: Vector3,
     pub health: f32,
 }
@@ -46,13 +45,13 @@ impl Npc {
         pos: Vector3,
         rot: Quaternion,
         dim: Vector3,
-        state: ObjectState,
-        vis: ObjectVisibility,
+        state: EntityState,
+        vis: EntityVisibility,
         model_ref: ModelRef,
         rng: &mut StdRng
     ) -> Self {
-        let base = Object::new(
-            ObjectType::NPC,
+        let data = EntityData::new(
+            EntityType::NPC,
             pos,
             rot,
             dim,
@@ -63,62 +62,30 @@ impl Npc {
         );
 
         Self { 
-            base,
+            data,
             vel: Vector3::new(0.1, 0.1, 0.1),
             health: 100.0, 
         }
     }
 
-    pub fn set_state(
-        &mut self,
-        to: ObjectState,
-        step: usize
-    ) -> Option<ObjectState> {
-        self.base.set_state(to, step)
-    }
-
     pub fn update_state(
         &mut self,
         step: usize
-    ) -> Option<(ObjectState, ObjectState)> {
-        self.base.update_state(STATE_TRANSITIONS, step)
+    ) -> Option<(EntityState, EntityState)> {
+        self.update_state_ex(STATE_TRANSITIONS, step)
+    }
+}
+
+impl Entity for Npc {
+    fn get_data(
+        &self
+    ) -> &EntityData {
+        &self.data
     }
 
-    pub fn state_elapsed(
-        &self,
-        step: usize
-    ) -> f32 {
-        self.base.state_elapsed(step)
+    fn get_data_mut(
+        &mut self
+    ) -> &mut EntityData {
+        &mut self.data
     }
-
-    pub fn is_idle(
-        &self 
-    ) -> bool {
-        self.base.is_idle()
-    }
-    
-    pub fn is_dead(
-        &self 
-    ) -> bool {
-        self.base.is_dead()
-    }
-    
-    pub fn is_moving(
-        &self 
-    ) -> bool {
-        self.base.is_moving()
-    }
-
-    pub fn is_visible(
-        &self 
-    ) -> bool {
-        self.base.is_visible()
-    }
-    
-    pub fn calc_bb(
-        &self 
-    ) -> Box3 {
-        self.base.calc_bb()
-    }
-
 }

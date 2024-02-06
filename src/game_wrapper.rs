@@ -1,7 +1,8 @@
 use wasm_bindgen::prelude::*;
 use crate::game::{
-    Game, GameOptions, LevelOptions, ObjectFOV
+    Game, GameOptions, LevelOptions
 };
+use crate::player::PlayerFOV;
 use crate::env::Env;
 use crate::js_renderer::JsRenderer;
 use crate::map::Map;
@@ -13,13 +14,13 @@ extern "C" {
 }
 
 #[wasm_bindgen]
-pub struct ObjectFOVWrapper {
+pub struct PlayerFOVWrapper {
     #[wasm_bindgen(skip)]
-    pub wrapped: ObjectFOV,
+    pub wrapped: PlayerFOV,
 }
 
 #[wasm_bindgen]
-impl ObjectFOVWrapper {
+impl PlayerFOVWrapper {
     #[wasm_bindgen(constructor)]
     pub fn new(
         rays: usize,
@@ -27,7 +28,7 @@ impl ObjectFOVWrapper {
         max_dist: f32
     ) -> Self {
         Self {
-            wrapped: ObjectFOV {
+            wrapped: PlayerFOV {
                 rays,
                 angle,
                 max_dist,
@@ -46,7 +47,7 @@ pub struct GameOptionsWrapper {
 impl GameOptionsWrapper {
     #[wasm_bindgen(constructor)]
     pub fn new(
-        fov: ObjectFOVWrapper,
+        fov: PlayerFOVWrapper,
         num_players: usize,
         min_keys: usize,
         player_radius: f32,

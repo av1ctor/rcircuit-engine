@@ -4,20 +4,16 @@ use rand::rngs::StdRng;
 use serde::{Serialize, Deserialize};
 use strum_macros::EnumCount;
 use three_rs::math::{
-    Box3, Vector3, Quaternion
+    Vector3, Quaternion
 };
 #[cfg(not(feature = "js"))]
 use three_rs::math::vector3::{FORWARD, UP};
 use crate::{
-    env::EnvObs, 
-    object::{Object, ObjectVisibility, ObjectState, ObjectType}, 
-    sensor::{Sensor, SensorReading}, 
-    renderer::ModelRef, 
+    entity::{Entity, EntityData, EntityState, EntityType, EntityVisibility}, env::EnvObs, renderer::ModelRef, sensor::{Sensor, SensorReading} 
 };
 #[cfg(not(feature = "js"))]
 use crate::{
     sensor::{SensorReadingHit, SensorReadingTarget}, 
-    game::ObjectFOV, 
     map::Map
 };
 
@@ -47,13 +43,13 @@ impl TryFrom<usize> for PlayerAction {
     type Error = String;
 }
 
-const STATE_TRANSITIONS: &[Option<ObjectState>] = &[
-    /* WAITING: */      Some(ObjectState::WALKING),
-    /* IDLE: */         Some(ObjectState::WALKING),
+const STATE_TRANSITIONS: &[Option<EntityState>] = &[
+    /* WAITING: */      Some(EntityState::WALKING),
+    /* IDLE: */         Some(EntityState::WALKING),
     /* WALKING: */      None,
     /* RUNNING: */      None,
     /* JUMPING: */      None,
-    /* BITING: */       Some(ObjectState::IDLE),
+    /* BITING: */       Some(EntityState::IDLE),
     /* CELEBRATING: */  None,
     /* DANCING: */      None,
     /* CROUCHING: */    None,
@@ -62,12 +58,19 @@ const STATE_TRANSITIONS: &[Option<ObjectState>] = &[
     /* PUNCHING: */     None,
     /* KICKING: */      None,
     /* CLIMBING: */     None,
-    /* HIT: */          Some(ObjectState::IDLE),        
+    /* HIT: */          Some(EntityState::IDLE),        
     /* EXPLODING: */    None,
     /* AGONIZING: */    None,
-    /* DYING: */        Some(ObjectState::DEAD),        
+    /* DYING: */        Some(EntityState::DEAD),        
     /* DEAD: */         None,                           
 ];
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct PlayerFOV {
+    pub rays: usize,
+    pub angle: f32,
+    pub max_dist: f32,
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct PlayerSensorTarget {
@@ -79,7 +82,6 @@ pub struct PlayerSensorTarget {
 pub struct PlayerSensorHit {
     pub inter: Vector3,
 }
-
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum PlayerSensor {
@@ -103,7 +105,7 @@ pub struct PlayerHistory {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Player {
-    pub base: Object,
+    pub data: EntityData,
     pub turn_angle: f32,
     pub vel: Vector3,
     pub num_brains: usize,
@@ -126,16 +128,16 @@ impl Player {
         pos: Vector3,
         rot: Quaternion,
         dim: Vector3,
-        state: ObjectState,
-        vis: ObjectVisibility,
+        state: EntityState,
+        vis: EntityVisibility,
         model_ref: ModelRef,
         path_ref: ModelRef,
         sensor_ref: ModelRef,
         readings_ref: ModelRef,
         rng: &mut StdRng
     ) -> Player {
-        let base = Object::new(
-            ObjectType::PLAYER,
+        let data = EntityData::new(
+            EntityType::PLAYER,
             pos,
             rot,
             dim,
@@ -146,7 +148,7 @@ impl Player {
         );
 
         Self { 
-            base,
+            data,
             turn_angle: 45.0 * (PI / 180.0),
             vel: Vector3::new(0.1, 0.1, 0.1),
             num_brains: 0, 
@@ -160,64 +162,19 @@ impl Player {
         }
     }
 
-    pub fn set_state(
-        &mut self,
-        to: ObjectState,
-        step: usize
-    ) -> Option<ObjectState> {
-        self.base.set_state(to, step)
-    }
-
     pub fn update_state(
         &mut self,
         step: usize
-    ) -> Option<(ObjectState, ObjectState)> {
-        self.base.update_state(STATE_TRANSITIONS, step)
-    }
-
-    pub fn state_elapsed(
-        &self,
-        step: usize
-    ) -> f32 {
-        self.base.state_elapsed(step)
-    }
-
-    pub fn is_idle(
-        &self 
-    ) -> bool {
-        self.base.is_idle()
-    }
-    
-    pub fn is_dead(
-        &self 
-    ) -> bool {
-        self.base.is_dead()
-    }
-
-    pub fn is_moving(
-        &self 
-    ) -> bool {
-        self.base.is_moving()
+    ) -> Option<(EntityState, EntityState)> {
+        self.update_state_ex(STATE_TRANSITIONS, step)
     }
 
     pub fn is_biting(
         &self 
     ) -> bool {
-        self.base.state == ObjectState::BITING
+        self.data.state == EntityState::BITING
     }
     
-    pub fn is_visible(
-        &self 
-    ) -> bool {
-        self.base.is_visible()
-    }
-    
-    pub fn calc_bb(
-        &self 
-    ) -> Box3 {
-        self.base.calc_bb()
-    }
-
     #[cfg(not(feature = "js"))]
     pub fn mean_rot(
         &self
@@ -259,7 +216,7 @@ impl Player {
             Quaternion::average_weighted(&rots_weights)
         }
         else {
-            self.base.rot.mul(
+            self.data.rot.mul(
                 &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
             )
         }
@@ -288,7 +245,7 @@ impl Player {
         &mut self
     ) {
         self.history.push_back(PlayerHistory { 
-            rot: self.base.rot.clone()
+            rot: self.data.rot.clone()
         });
     }
 
@@ -296,17 +253,17 @@ impl Player {
     pub fn get_sensor_readings(
         &self,
         target_pos: &Vector3,
-        fov: &ObjectFOV,
+        fov: &PlayerFOV,
         map: &mut Map
     ) -> (bool, Vec<SensorReading>) {
         let target_dir = FORWARD.apply_quaternion(
             &Quaternion::from_axis_and_angle(
                 &UP,
-                target_pos.sub(&self.base.pos).angle_xz()
+                target_pos.sub(&self.data.pos).angle_xz()
             )
         );
 
-        let mut rot = self.base.rot.mul(
+        let mut rot = self.data.rot.mul(
             &Quaternion::from_axis_and_angle(&UP, (fov.angle / 2.0) % (PI * 2.0))
         );
         let step = Quaternion::from_axis_and_angle(&UP, -fov.angle / ((fov.rays - 1) as f32));
@@ -316,11 +273,11 @@ impl Player {
 
         for _ in 0..fov.rays {
             let dir = FORWARD.apply_quaternion(&rot);
-            let sensor_pos = self.base.pos.add(&dir.mul_scalar(fov.max_dist));
+            let sensor_pos = self.data.pos.add(&dir.mul_scalar(fov.max_dist));
             
             readings.push(
                 if let Some(t) = map.calc_distance_to_closest_wall(
-                    &self.base.pos, &sensor_pos) {
+                    &self.data.pos, &sensor_pos) {
                     has_hits = true;
                     SensorReading::Hit(SensorReadingHit{
                         t,
@@ -368,5 +325,19 @@ impl Player {
         }
 
         (sensor_vtx, readings_vtx)
+    }
+}
+
+impl Entity for Player {
+    fn get_data(
+        &self
+    ) -> &EntityData {
+        &self.data
+    }
+
+    fn get_data_mut(
+        &mut self
+    ) -> &mut EntityData {
+        &mut self.data
     }
 }

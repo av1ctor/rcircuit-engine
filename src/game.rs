@@ -16,20 +16,21 @@ use crate::js_renderer::JsRenderer;
 #[cfg(not(feature = "js"))]
 use crate::renderer::Renderer;
 use crate::{
-    npc::Npc, 
     env::{Env, EnvObs}, 
     event::*, 
     map::Map, 
+    npc::Npc, 
     object::Object, 
-    player::{Player, PlayerAction, NUM_SENSOR_FEATURES}
+    player::{PlayerFOV, Player, PlayerAction, NUM_SENSOR_FEATURES}
 };
 #[cfg(not(feature = "js"))]
 use crate::{
     asset::{GameAssetRef, get_game_assets}, 
     env::{Asset, AssetRef, EnvAction, EnvStep, EnvPlayer},
-    object::{ObjectState, ObjectVisibility, ObjectType}, 
+    entity::{Entity, EntityData, EntityState, EntityVisibility, EntityType}, 
     spawn_locs::SpawnLocations, 
-    sensor::Sensor
+    sensor::Sensor,
+    object::ObjectType
 };
 
 #[cfg(not(feature = "js"))]
@@ -58,13 +59,6 @@ pub enum GameStatus {
     FINISHED,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-pub struct ObjectFOV {
-    pub rays: usize,
-    pub angle: f32,
-    pub max_dist: f32,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GameState {
     pub status: GameStatus,
@@ -85,7 +79,7 @@ pub struct LevelOptions {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GameOptions {
     pub level: LevelOptions,
-    pub fov: ObjectFOV,
+    pub fov: PlayerFOV,
     pub num_players: usize,
     pub min_keys: usize,
     pub player_radius: f32,
@@ -152,9 +146,9 @@ impl Env for Game {
         let level_ref = renderer.add_model(GameAssetRef::Level as usize)
             .expect("Could not load level-0");
         
-        self.events.push(GameEvent::ObjectCreated(ObjectCreatedEvent {
+        self.events.push(GameEvent::EntityCreated(EntityCreatedEvent {
             model_ref: level_ref,
-            typ: ObjectType::UNKNOWN,
+            typ: EntityType::UNKNOWN,
             asset_ref: GameAssetRef::Level as _,
         }));
 
@@ -198,6 +192,7 @@ impl Env for Game {
         renderer: &mut dyn Renderer,
         rng: &mut StdRng,
     ) -> EnvStep {
+
         if self.state.status != GameStatus::RUNNING {
             return EnvStep {
                 terminated: true,
@@ -281,11 +276,11 @@ impl Env for Game {
     ) {
         for event in &self.events {
             match event {
-                GameEvent::ObjectCreated(_) => {
+                GameEvent::EntityCreated(_) => {
                     // nothing to do, the object was created already
                 },
                 
-                GameEvent::ObjectSpawned(e) => {
+                GameEvent::EntitySpawned(e) => {
                     renderer.set_position(
                         e.model_ref, &e.pos
                     );
@@ -294,7 +289,7 @@ impl Env for Game {
                     );
                 },
                 
-                GameEvent::ObjectMoved(e) => {
+                GameEvent::EntityMoved(e) => {
                     renderer.set_position(
                         e.model_ref, &e.pos
                     );
@@ -303,15 +298,15 @@ impl Env for Game {
                     );
                 },
 
-                GameEvent::ObjectStateChanged(e) => {
+                GameEvent::EntityStateChanged(e) => {
                     renderer.change_state(e.model_ref, e.from, e.to);
                 },
 
-                GameEvent::ObjectRemoved(e) => {
+                GameEvent::EntityRemoved(e) => {
                     renderer.hide_model(e.model_ref);
                 },
                 
-                GameEvent::ObjectVisChanged(e) => {
+                GameEvent::EntityVisChanged(e) => {
                     if e.visible {
                         renderer.show_model(e.model_ref);
                     }
@@ -336,11 +331,11 @@ impl Env for Game {
     ) {
         for event in &self.events {
             match event {
-                GameEvent::ObjectCreated(e) => {
+                GameEvent::EntityCreated(e) => {
                     renderer.add_model(e.asset_ref, e.model_ref);
                 },
                 
-                GameEvent::ObjectSpawned(e) => {
+                GameEvent::EntitySpawned(e) => {
                     renderer.set_position(
                         e.model_ref, &e.pos.to_slice()
                     );
@@ -349,7 +344,7 @@ impl Env for Game {
                     );
                 },
                 
-                GameEvent::ObjectMoved(e) => {
+                GameEvent::EntityMoved(e) => {
                     renderer.set_position(
                         e.model_ref, &e.pos.to_slice()
                     );
@@ -358,15 +353,15 @@ impl Env for Game {
                     );
                 },
 
-                GameEvent::ObjectStateChanged(e) => {
+                GameEvent::EntityStateChanged(e) => {
                     renderer.change_state(e.model_ref, e.from as u32, e.to as u32);
                 },
 
-                GameEvent::ObjectRemoved(e) => {
+                GameEvent::EntityRemoved(e) => {
                     renderer.hide_model(e.model_ref);
                 },
                 
-                GameEvent::ObjectVisChanged(e) => {
+                GameEvent::EntityVisChanged(e) => {
                     if e.visible {
                         renderer.show_model(e.model_ref);
                     }
@@ -418,6 +413,7 @@ impl Game {
         rng: &mut StdRng
     ) -> GameEntities {
         // players
+
         let players = self.spawn_players(renderer, rng);
 
         // npcs
@@ -462,9 +458,9 @@ impl Game {
                 (GameAssetRef::Player1 as usize) + i
             ).unwrap();
             
-            self.events.push(GameEvent::ObjectCreated(ObjectCreatedEvent {
+            self.events.push(GameEvent::EntityCreated(EntityCreatedEvent {
                 model_ref,
-                typ: ObjectType::PLAYER,
+                typ: EntityType::PLAYER,
                 asset_ref: (GameAssetRef::Player1 as usize) + i,
             }));
 
@@ -490,8 +486,8 @@ impl Game {
                 loc.0, 
                 loc.1, 
                 Vector3::new(0.25, 1.8, 0.15),
-                ObjectState::WAITING,
-                ObjectVisibility::VISIBLE,
+                EntityState::WAITING,
+                EntityVisibility::VISIBLE,
                 model_ref,
                 path_ref,
                 sensor_ref,
@@ -499,15 +495,15 @@ impl Game {
                 rng
             );
 
-            self.events.push(GameEvent::ObjectSpawned({
-                ObjectSpawnedEvent {
+            self.events.push(GameEvent::EntitySpawned({
+                EntitySpawnedEvent {
                     model_ref,
                     pos: loc.0,
                     rot: loc.1,
                 }
             }));
 
-            self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+            self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
                 visible: true,
                 model_ref
             }));
@@ -549,40 +545,40 @@ impl Game {
                 GameAssetRef::Npc1 as usize // + i
             ).unwrap();
             
-            self.events.push(GameEvent::ObjectCreated(ObjectCreatedEvent {
+            self.events.push(GameEvent::EntityCreated(EntityCreatedEvent {
                 model_ref,
-                typ: ObjectType::PLAYER,
+                typ: EntityType::PLAYER,
                 asset_ref: GameAssetRef::Npc1 as usize //+ i,
             }));
 
             let loc = &spawn_locs.next(i, rng);
-            let vis = if i == 0 {ObjectVisibility::VISIBLE} else {ObjectVisibility::HIDDEN};
+            let vis = if i == 0 {EntityVisibility::VISIBLE} else {EntityVisibility::HIDDEN};
             let npc = Npc::new(
                 loc.0, 
                 loc.1, 
                 Vector3::new(0.25, 1.8, 0.15),
-                ObjectState::WAITING,
+                EntityState::WAITING,
                 vis,
                 model_ref,
                 rng
             );
 
-            self.events.push(GameEvent::ObjectSpawned(
-                ObjectSpawnedEvent {
+            self.events.push(GameEvent::EntitySpawned(
+                EntitySpawnedEvent {
                     model_ref,
                     pos: loc.0,
                     rot: loc.1,
                 }
             ));
 
-            if vis == ObjectVisibility::VISIBLE {
-                self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+            if vis == EntityVisibility::VISIBLE {
+                self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
                     visible: true,
                     model_ref,
                 }));
             }
             else {
-                self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
                     visible: false,
                     model_ref,
                 }));
@@ -624,9 +620,9 @@ impl Game {
             let model_ref = renderer.add_model(asset_ref)
                 .expect("Invalid asset");
 
-            self.events.push(GameEvent::ObjectCreated(ObjectCreatedEvent {
+            self.events.push(GameEvent::EntityCreated(EntityCreatedEvent {
                 model_ref,
-                typ: typ.clone(),
+                typ: EntityType::OBJECT,
                 asset_ref,
             }));
                 
@@ -637,14 +633,14 @@ impl Game {
                 loc.0, 
                 loc.1, 
                 Vector3::new(rad, rad, rad),
-                ObjectState::WAITING,
-                if is_active {ObjectVisibility::VISIBLE} else {ObjectVisibility::HIDDEN},
+                EntityState::WAITING,
+                if is_active {EntityVisibility::VISIBLE} else {EntityVisibility::HIDDEN},
                 model_ref,
                 rng
             );
 
-            self.events.push(GameEvent::ObjectSpawned({
-                ObjectSpawnedEvent {
+            self.events.push(GameEvent::EntitySpawned({
+                EntitySpawnedEvent {
                     model_ref,
                     pos: loc.0,
                     rot: loc.1,
@@ -652,13 +648,13 @@ impl Game {
             }));
 
             if is_active {
-                self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
                     visible: true,
                     model_ref
                 }));
             }
             else {
-                self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
                     visible: false,
                     model_ref
                 }));
@@ -679,17 +675,17 @@ impl Game {
             !o.is_visible() && !o.is_dead()
         );
         if let Some(obj) = exit {
-            obj.vis = ObjectVisibility::VISIBLE;
+            obj.data.vis = EntityVisibility::VISIBLE;
             
-            self.events.push(GameEvent::ObjectMoved(ObjectMovedEvent{
-                model_ref: obj.model_ref,
-                pos: obj.pos,
-                rot: obj.rot,
+            self.events.push(GameEvent::EntityMoved(EntityMovedEvent{
+                model_ref: obj.data.model_ref,
+                pos: obj.data.pos,
+                rot: obj.data.rot,
             }));
             
-            self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+            self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
                 visible: true,
-                model_ref: obj.model_ref
+                model_ref: obj.data.model_ref
             }));
         }
     }
@@ -701,19 +697,19 @@ impl Game {
         if let Some(npc) = self.entities.npcs.iter_mut().find(|n|
             !n.is_visible() && !n.is_dead()
         ) {
-            npc.base.vis = ObjectVisibility::VISIBLE;
+            npc.data.vis = EntityVisibility::VISIBLE;
             
-            self.events.push(GameEvent::ObjectMoved(
-                ObjectMovedEvent {
-                    model_ref: npc.base.model_ref,
-                    pos: npc.base.pos,
-                    rot: npc.base.rot,
+            self.events.push(GameEvent::EntityMoved(
+                EntityMovedEvent {
+                    model_ref: npc.data.model_ref,
+                    pos: npc.data.pos,
+                    rot: npc.data.rot,
                 }
             ));
 
-            self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+            self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
                 visible: true,
-                model_ref: npc.base.model_ref
+                model_ref: npc.data.model_ref
             }));
         }
     }
@@ -725,7 +721,6 @@ impl Game {
         radius: Option<f32>,
         rng: &mut StdRng,
     ) -> Option<(usize, Player, f32)> {
-
         let mut min_distance_sq = if let Some(radius) = radius {radius * 2.0} else {f32::MAX};
         let mut res = None;
 
@@ -734,7 +729,7 @@ impl Game {
         for i in player_indexes {
             let player = &self.entities.players[i];
             if player.is_visible() && !player.is_dead() {
-                let distance_sq = pos.sub(&player.base.pos).length_sq();
+                let distance_sq = pos.sub(&player.data.pos).length_sq();
                 if distance_sq < min_distance_sq {
                     min_distance_sq = distance_sq;
                     res = Some((i, player.clone(), distance_sq));
@@ -764,7 +759,7 @@ impl Game {
         &self,
         pos: &Vector3,
         radius: Option<f32>
-    ) -> Option<(usize, Object, f32)> {
+    ) -> Option<(usize, EntityData, f32)> {
 
         let mut min_distance_sq = if let Some(radius) = radius {radius * 2.0} else {f32::MAX};
         let mut res = None;
@@ -772,10 +767,10 @@ impl Game {
         for (i, npc) in self.entities.npcs.iter().enumerate().filter(|(_, n)| 
             n.is_visible() && !n.is_dead()
         ) {
-            let distance_sq = pos.sub(&npc.base.pos).length_sq();
+            let distance_sq = pos.sub(&npc.data.pos).length_sq();
             if distance_sq < min_distance_sq {
                 min_distance_sq = distance_sq;
-                res = Some((i, npc.base.clone(), distance_sq));
+                res = Some((i, npc.data.clone(), distance_sq));
             }
         }
 
@@ -787,19 +782,19 @@ impl Game {
         &self,
         pos: &Vector3,
         typ: ObjectType
-    ) -> Object {
+    ) -> EntityData {
 
         let mut min_distance = f32::MAX;
-        let mut res = Object::default();
+        let mut res = EntityData::default();
 
         for obj in self.entities.objects.iter().filter(|o| 
             o.typ == typ &&
             o.is_visible() && !o.is_dead()
         ) {
-            let distance = pos.sub(&obj.pos).length();
+            let distance = pos.sub(&obj.data.pos).length();
             if distance < min_distance {
                 min_distance = distance;
-                res = obj.clone();
+                res = obj.data.clone();
             }
         }
 
@@ -817,10 +812,10 @@ impl Game {
 
         for (i, player) in self.entities.players.iter().enumerate() {
             let target_pos = if player.num_brains == self.options.min_keys { 
-                self.find_closest_object(&player.base.pos, ObjectType::EXIT).pos
+                self.find_closest_object(&player.data.pos, ObjectType::EXIT).pos
             }
             else {
-                if let Some((_, npc, _)) = self.find_closest_npc(&player.base.pos, None) {
+                if let Some((_, npc, _)) = self.find_closest_npc(&player.data.pos, None) {
                     npc.pos
                 }
                 else {
@@ -831,14 +826,14 @@ impl Game {
             // when training, it's better to just use target's position
             let path = if self.options.training {
                 Path3::new(vec![
-                    player.base.pos.clone(),
+                    player.data.pos.clone(),
                     target_pos.clone()
                 ])
             }
             // when playing, move around obstacles
             else {
                 self.map.find_path_to_target(
-                    &player.base.pos, &target_pos)
+                    &player.data.pos, &target_pos)
             };
 
             let target_pos = path.nodes[1].clone();
@@ -864,7 +859,7 @@ impl Game {
                     paths[i].nodes.clone()
                 );
                 let (_sensor_vtx, readings_vtx) = Player::gen_vis_sensor_readings(
-                    &player.base.pos, 
+                    &player.data.pos, 
                     &readings[i].1,
                     self.options.fov.max_dist
                 );
@@ -894,34 +889,34 @@ impl Game {
         
         let dir = FORWARD.apply_quaternion(&rot);
         
-        let new_pos = player.base.pos.add(&dir
+        let new_pos = player.data.pos.add(&dir
             .mul(vel)
             .mul_scalar(delta_time)
         );
         
         if let Some(confined_pos) = 
-            self.map.move_along_surface(&player.base.pos, &new_pos) {
+            self.map.move_along_surface(&player.data.pos, &new_pos) {
             player.preserve();
             if confined_pos.x != new_pos.x || confined_pos.z != new_pos.z {
-                player.base.pos = confined_pos.mul(&Vector3::new(1.0, 0.0, 1.0));
+                player.data.pos = confined_pos.mul(&Vector3::new(1.0, 0.0, 1.0));
                 if !keep_rotation {
-                    player.base.rot = player.calc_rot_away_from_hit();
+                    player.data.rot = player.calc_rot_away_from_hit();
                 }
                 player.reward += PENALTY_WALL;
             }
             else {
-                player.base.pos = new_pos;
+                player.data.pos = new_pos;
                 if !keep_rotation {
-                    player.base.rot = rot.clone();
+                    player.data.rot = rot.clone();
                 }
             }
 
             let mean_rot = player.mean_rot();
 
-            self.events.push(GameEvent::ObjectMoved(
-                ObjectMovedEvent {
-                    model_ref: player.base.model_ref,
-                    pos: player.base.pos,
+            self.events.push(GameEvent::EntityMoved(
+                EntityMovedEvent {
+                    model_ref: player.data.model_ref,
+                    pos: player.data.pos,
                     rot: mean_rot,
                 }
             ));
@@ -930,7 +925,7 @@ impl Game {
 
     #[cfg(not(feature = "js"))]
     fn check_exit(
-        player: &Object,
+        player: &Player,
         obj: &Object,
     ) -> bool {
         let player_bb = player.calc_bb();
@@ -950,17 +945,17 @@ impl Game {
         for player in self.entities.players.iter_mut()
             .filter(|p| p.is_visible()) {
             if let Some((from, to)) = player.update_state(self.state.step) {
-                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                    model_ref: player.base.model_ref,
+                self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                    model_ref: player.data.model_ref,
                     from,
                     to
                 }));
 
-                if to == ObjectState::DEAD {
-                    player.base.vis = ObjectVisibility::HIDDEN;
-                    self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                if to == EntityState::DEAD {
+                    player.data.vis = EntityVisibility::HIDDEN;
+                    self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
                         visible: false,
-                        model_ref: player.base.model_ref 
+                        model_ref: player.data.model_ref 
                     }));
                 }
             }
@@ -975,19 +970,19 @@ impl Game {
                 if player.is_moving() {
                     let rot = match action {
                         None => {
-                            player.base.rot.clone()
+                            player.data.rot.clone()
                         },
                         Some(action) => {
                             match PlayerAction::try_from(action.clone()).unwrap() {
                                 PlayerAction::MoveForward =>
-                                    player.base.rot.clone(),
+                                    player.data.rot.clone(),
                                 PlayerAction::TurnRight => {
-                                    player.base.rot.mul(
+                                    player.data.rot.mul(
                                         &Quaternion::from_axis_and_angle(&UP, player.turn_angle)
                                     )
                                 },
                                 PlayerAction::TurnLeft => {
-                                    player.base.rot.mul(
+                                    player.data.rot.mul(
                                         &Quaternion::from_axis_and_angle(&UP, -player.turn_angle)
                                     )
                                 }
@@ -1009,18 +1004,18 @@ impl Game {
                 if player.num_brains >= self.options.min_keys {
                     let door = self.entities.objects.iter().find(|o| o.typ == ObjectType::EXIT);
                     if let Some(door) = door {
-                        if Self::check_exit(&player.base, door) {
+                        if Self::check_exit(player, door) {
                             self.state.status = GameStatus::FINISHED;
                             self.state.winner = Some(i);
                             
                             let player = &mut self.entities.players[i];
                             player.reward += REWARD_EXIT_REACHED;
                             
-                            if let Some(from) = player.set_state(ObjectState::CELEBRATING, self.state.step) {
-                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                    model_ref: player.base.model_ref,
+                            if let Some(from) = player.set_state(EntityState::CELEBRATING, self.state.step) {
+                                self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                    model_ref: player.data.model_ref,
                                     from,
-                                    to: player.base.state
+                                    to: player.data.state
                                 }));
                             }
                         }
@@ -1029,11 +1024,11 @@ impl Game {
                 // finished and not the winner? turn off animations
                 else if self.state.status == GameStatus::FINISHED {
                     let player = &mut self.entities.players[i];
-                    if let Some(from) = player.set_state(ObjectState::IDLE, self.state.step) {
-                        self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                            model_ref: player.base.model_ref,
+                    if let Some(from) = player.set_state(EntityState::IDLE, self.state.step) {
+                        self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                            model_ref: player.data.model_ref,
                             from,
-                            to: player.base.state
+                            to: player.data.state
                         }));
                     }
                 }
@@ -1041,7 +1036,7 @@ impl Game {
                 else {
                     // any npc close?
                     if let Some((npc_num, _, _)) = 
-                        self.find_closest_npc(&player.base.pos, Some(1.0)) {
+                        self.find_closest_npc(&player.data.pos, Some(1.0)) {
                         let player = &mut self.entities.players[i];
                         // biting and enough time elapsed?
                         if player.is_biting() &&
@@ -1049,11 +1044,11 @@ impl Game {
                             player.reward += REWARD_BRAIN_EATEN;
 
                             // stop biting
-                            if let Some(from) = player.set_state(ObjectState::IDLE, self.state.step) {
-                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                    model_ref: player.base.model_ref,
+                            if let Some(from) = player.set_state(EntityState::IDLE, self.state.step) {
+                                self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                    model_ref: player.data.model_ref,
                                     from,
-                                    to: player.base.state
+                                    to: player.data.state
                                 }));
                             }
                         
@@ -1061,11 +1056,11 @@ impl Game {
                             npc.health += PENALTY_BITTEN;
                             // NPC has no health left? kill it and show another one
                             if npc.health <= 0.0 {
-                                if let Some(from) = npc.set_state(ObjectState::DYING, self.state.step) {
-                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                        model_ref: npc.base.model_ref,
+                                if let Some(from) = npc.set_state(EntityState::DYING, self.state.step) {
+                                    self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                        model_ref: npc.data.model_ref,
                                         from,
-                                        to: npc.base.state
+                                        to: npc.data.state
                                     }));
                                 }
 
@@ -1078,13 +1073,13 @@ impl Game {
                             }
                             // otherwise, just change its state to hurting
                             else {
-                                if npc.base.state != ObjectState::HIT && 
+                                if npc.data.state != EntityState::HIT && 
                                     npc.state_elapsed(self.state.step) >= 0.5 {
-                                    if let Some(from) = npc.set_state(ObjectState::HIT, self.state.step) {
-                                        self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                            model_ref: npc.base.model_ref,
+                                    if let Some(from) = npc.set_state(EntityState::HIT, self.state.step) {
+                                        self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                            model_ref: npc.data.model_ref,
                                             from,
-                                            to: npc.base.state
+                                            to: npc.data.state
                                         }));
                                     }
                                 }
@@ -1092,11 +1087,11 @@ impl Game {
                         }
                         // otherwise, if moving, start biting (and don't let the player get too close to the this NPC)
                         else if player.is_moving() {
-                            if let Some(from) = player.set_state(ObjectState::BITING, self.state.step) {
-                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                    model_ref: player.base.model_ref,
+                            if let Some(from) = player.set_state(EntityState::BITING, self.state.step) {
+                                self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                    model_ref: player.data.model_ref,
                                     from,
-                                    to: player.base.state
+                                    to: player.data.state
                                 }));
                             }
                         }                                
@@ -1116,17 +1111,17 @@ impl Game {
         for npc in self.entities.npcs.iter_mut()
             .filter(|n| n.is_visible()) {
             if let Some((from, to)) = npc.update_state(self.state.step) {
-                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                    model_ref: npc.base.model_ref,
+                self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                    model_ref: npc.data.model_ref,
                     from,
                     to
                 }));
 
-                if to == ObjectState::DEAD {
-                    npc.base.vis = ObjectVisibility::HIDDEN;
-                    self.events.push(GameEvent::ObjectVisChanged(ObjectVisChangedEvent {
+                if to == EntityState::DEAD {
+                    npc.data.vis = EntityVisibility::HIDDEN;
+                    self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
                         visible: false,
-                        model_ref: npc.base.model_ref 
+                        model_ref: npc.data.model_ref 
                     }));
                 }
             }
@@ -1138,20 +1133,20 @@ impl Game {
             if npc.is_visible() && !npc.is_dead() {
                 // any player close?
                 if let Some((player_num, player, distance_sq)) = 
-                    self.find_closest_player(&npc.base.pos, Some(3.0), rng) {
+                    self.find_closest_player(&npc.data.pos, Some(3.0), rng) {
                     // close enough to be punched?
                     if distance_sq <= 1.0 * 2.0 {
                         // is the NPC already punching and enough time elapsed?
-                        if npc.base.state == ObjectState::PUNCHING &&
+                        if npc.data.state == EntityState::PUNCHING &&
                             npc.state_elapsed(self.state.step) >= 0.75 {
                             
                             // stop punching
                             let npc = &mut self.entities.npcs[i];
-                            if let Some(from) = npc.set_state(ObjectState::IDLE, self.state.step) {
-                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                    model_ref: npc.base.model_ref,
+                            if let Some(from) = npc.set_state(EntityState::IDLE, self.state.step) {
+                                self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                    model_ref: npc.data.model_ref,
                                     from,
-                                    to: npc.base.state
+                                    to: npc.data.state
                                 }));
                             }
 
@@ -1159,26 +1154,26 @@ impl Game {
                             player.health += PENALTY_PUNCHED;
                             // player has no health left? kill it
                             if player.health <= 0.0 {
-                                if let Some(from) = player.set_state(ObjectState::DYING, self.state.step) {
-                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                        model_ref: player.base.model_ref,
+                                if let Some(from) = player.set_state(EntityState::DYING, self.state.step) {
+                                    self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                        model_ref: player.data.model_ref,
                                         from,
-                                        to: player.base.state
+                                        to: player.data.state
                                     }));
                                 }
                             }
                             // otherwise, just change its state to hurting
                             else {
-                                if let Some(from) = player.set_state(ObjectState::HIT, self.state.step) {
-                                    self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                        model_ref: player.base.model_ref,
+                                if let Some(from) = player.set_state(EntityState::HIT, self.state.step) {
+                                    self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                        model_ref: player.data.model_ref,
                                         from,
-                                        to: player.base.state
+                                        to: player.data.state
                                     }));
                                 }
 
                                 // and move player away from NPC
-                                let inverse_rot = player.base.rot.mul(
+                                let inverse_rot = player.data.rot.mul(
                                     &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
                                 );
                                 let vel = player.vel.mul_scalar(15.0);
@@ -1187,14 +1182,14 @@ impl Game {
                             }
                         }
                         // otherwise, start punching if enough time elapsed
-                        else if npc.base.state != ObjectState::PUNCHING && 
+                        else if npc.data.state != EntityState::PUNCHING && 
                             npc.state_elapsed(self.state.step) >= 0.5 {
                             let npc = &mut self.entities.npcs[i];
-                            if let Some(from) = npc.set_state(ObjectState::PUNCHING, self.state.step) {
-                                self.events.push(GameEvent::ObjectStateChanged(ObjectStateChangedEvent {
-                                    model_ref: npc.base.model_ref,
+                            if let Some(from) = npc.set_state(EntityState::PUNCHING, self.state.step) {
+                                self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                    model_ref: npc.data.model_ref,
                                     from,
-                                    to: npc.base.state
+                                    to: npc.data.state
                                 }));
                             }
                         }
@@ -1205,11 +1200,11 @@ impl Game {
                     if npc.is_idle() {
                         let rot = Quaternion::from_axis_and_angle(
                             &UP,
-                            player.base.pos.sub(&npc.base.pos).angle_xz()
+                            player.data.pos.sub(&npc.data.pos).angle_xz()
                         );
-                        self.events.push(GameEvent::ObjectMoved(ObjectMovedEvent{
-                            model_ref: npc.base.model_ref,
-                            pos: npc.base.pos,
+                        self.events.push(GameEvent::EntityMoved(EntityMovedEvent{
+                            model_ref: npc.data.model_ref,
+                            pos: npc.data.pos,
                             rot,
                         }))
                     }
