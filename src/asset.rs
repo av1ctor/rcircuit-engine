@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 #[repr(usize)]
 #[cfg_attr(feature = "js", wasm_bindgen)]
+#[derive(PartialEq)]
 pub enum GameAssetType {
     Level   = 0,
     Player  = 1,

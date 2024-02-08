@@ -52,31 +52,31 @@ pub trait Renderer {
     );
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn set_vertices(
+    fn set_model_vertices(
         &mut self,
         model_ref: ModelRef,
         vertices: Vec<Vector3>
     );
     
-    fn set_position(
+    fn set_model_position(
         &mut self,
         model_ref: ModelRef,
         pos: &Vector3
     );
 
-    fn set_rotation(
+    fn set_model_rotation(
         &mut self,
         model_ref: ModelRef,
         q: &Quaternion
     );
 
-    fn set_scale(
+    fn set_model_scale(
         &mut self,
         model_ref: ModelRef,
         scale: &Vector3
     );
 
-    fn change_state(
+    fn change_model_state(
         &mut self,
         model_ref: ModelRef,
         from: EntityState,

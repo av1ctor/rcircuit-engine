@@ -26,28 +26,28 @@ extern "C" {
     );
 
     #[wasm_bindgen(method)]
-    pub fn set_position(
+    pub fn set_model_position(
         this: &JsRenderer,
         model_ref: ModelRef,
         pos: &[f32]
     );
 
     #[wasm_bindgen(method)]
-    pub fn set_rotation(
+    pub fn set_model_rotation(
         this: &JsRenderer,
         model_ref: ModelRef,
         q: &[f32]
     );
 
     #[wasm_bindgen(method)]
-    pub fn set_scale(
+    pub fn set_model_scale(
         this: &JsRenderer,
         model_ref: ModelRef,
         scale: &[f32]
     );
 
     #[wasm_bindgen(method)]
-    pub fn change_state(
+    pub fn change_model_state(
         this: &JsRenderer,
         model_ref: ModelRef,
         from: u32,

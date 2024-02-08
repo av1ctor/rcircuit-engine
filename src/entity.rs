@@ -49,7 +49,7 @@ pub enum EntityState {
 }
 
 const STATE_DURATIONS: &[usize] = &[
-    /* WAITING: */      60 * 3,
+    /* WAITING: */      0, //60 * 3,
     /* IDLE: */         60,
     /* WALKING: */      usize::MAX,
     /* RUNNING: */      usize::MAX,

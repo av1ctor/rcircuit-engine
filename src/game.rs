@@ -272,25 +272,25 @@ impl Env for Game {
                 },
                 
                 GameEvent::EntitySpawned(e) => {
-                    renderer.set_position(
+                    renderer.set_model_position(
                         e.model_ref, &e.pos
                     );
-                    renderer.set_rotation(
+                    renderer.set_model_rotation(
                         e.model_ref, &e.rot
                     );
                 },
                 
                 GameEvent::EntityMoved(e) => {
-                    renderer.set_position(
+                    renderer.set_model_position(
                         e.model_ref, &e.pos
                     );
-                    renderer.set_rotation(
+                    renderer.set_model_rotation(
                         e.model_ref, &e.rot
                     );
                 },
 
                 GameEvent::EntityStateChanged(e) => {
-                    renderer.change_state(e.model_ref, e.from, e.to);
+                    renderer.change_model_state(e.model_ref, e.from, e.to);
                 },
 
                 GameEvent::EntityRemoved(e) => {
@@ -327,25 +327,26 @@ impl Env for Game {
                 },
                 
                 GameEvent::EntitySpawned(e) => {
-                    renderer.set_position(
+                    renderer.set_model_position(
                         e.model_ref, &e.pos.to_slice()
                     );
-                    renderer.set_rotation(
+                    renderer.set_model_rotation(
                         e.model_ref, &e.rot.to_slice()
                     );
                 },
                 
                 GameEvent::EntityMoved(e) => {
-                    renderer.set_position(
+                    renderer.set_model_position(
                         e.model_ref, &e.pos.to_slice()
                     );
-                    renderer.set_rotation(
+                    renderer.set_model_rotation(
                         e.model_ref, &e.rot.to_slice()
                     );
                 },
 
                 GameEvent::EntityStateChanged(e) => {
-                    renderer.change_state(e.model_ref, e.from as u32, e.to as u32);
+                    renderer.change_model_state(
+                        e.model_ref, e.from as u32, e.to as u32);
                 },
 
                 GameEvent::EntityRemoved(e) => {
@@ -479,7 +480,8 @@ impl Game {
                 &loc.0, 
                 &loc.1, 
                 consts::PLAYER_HEIGHT, 
-                consts::PLAYER_WIDTH / 2.0, 
+                consts::PLAYER_WIDTH * 0.5, 
+                true,
                 Some(RigidBodyType::KinematicPositionBased)
             );
 
@@ -561,6 +563,7 @@ impl Game {
                 &loc.1, 
                 consts::NPC_HEIGHT, 
                 consts::NPC_WIDTH / 2.0, 
+                if i == 0 {true} else {false},
                 Some(RigidBodyType::Fixed)
             );
 
@@ -646,6 +649,7 @@ impl Game {
                 &loc.1, 
                 consts::EXIT_HEIGHT, 
                 consts::EXIT_WIDTH / 2.0, 
+                false,
                 Some(RigidBodyType::Fixed)
             );
 
@@ -698,6 +702,8 @@ impl Game {
         );
         if let Some(obj) = exit {
             obj.data.vis = EntityVisibility::VISIBLE;
+
+            self.physics.toggle_character(obj.data.char_ref, true);
             
             self.events.push(GameEvent::EntityMoved(EntityMovedEvent{
                 model_ref: obj.data.model_ref,
@@ -720,6 +726,8 @@ impl Game {
             !n.is_visible() && !n.is_dead()
         ) {
             npc.data.vis = EntityVisibility::VISIBLE;
+            
+            self.physics.toggle_character(npc.data.char_ref, true);
             
             self.events.push(GameEvent::EntityMoved(
                 EntityMovedEvent {
@@ -876,7 +884,7 @@ impl Game {
             
             #[cfg(not(target_arch = "wasm32"))]
             if self.options.debug {
-                renderer.set_vertices(
+                renderer.set_model_vertices(
                     player.path_ref, 
                     paths[i].nodes.clone()
                 );
@@ -890,7 +898,7 @@ impl Game {
                     player.sensor_ref, 
                     sensor_vtx  
                 );*/
-                renderer.set_vertices(
+                renderer.set_model_vertices(
                     player.readings_ref, 
                     readings_vtx
                 );
@@ -911,10 +919,10 @@ impl Game {
         
         let dir = FORWARD.apply_quaternion(&rot);
         
-        let new_pos = player.data.pos.add(&dir
-            .mul(vel)
-            .mul_scalar(delta_time)
-        );
+        let translation = dir.mul(vel)
+            .mul_scalar(delta_time);
+
+        let new_pos = player.data.pos.add(&translation);
         
         if let Some(confined_pos) = 
             self.map.move_along_surface(&player.data.pos, &new_pos) {
@@ -927,9 +935,16 @@ impl Game {
                 }
             }
             else {
-                player.data.pos = if let Some(new_pos) = 
-                    self.physics.move_character(player.data.char_ref, &new_pos) {
-                    new_pos
+                player.data.pos = if !self.options.training {
+                    if let Some(translation) = 
+                        self.physics.move_character(
+                            player.data.char_ref, &translation) {
+                        dbg!(translation);
+                        new_pos.add(&translation)
+                    }
+                    else {
+                        new_pos
+                    }
                 }
                 else {
                     new_pos
