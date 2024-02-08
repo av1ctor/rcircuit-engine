@@ -4,11 +4,11 @@ use rand::{rngs::StdRng, Rng};
 use std::{collections::{HashMap, HashSet}, f32::consts::PI};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
+use three_rs::math::Vector3;
 #[cfg(not(feature = "js"))]
 use three_rs::math::{
     path3::Path3,
     FORWARD, UP,
-    Vector3, 
     Quaternion
 };
 #[cfg(feature = "js")]
@@ -398,7 +398,7 @@ impl Game {
                 active_players: 0,
             },
             options,
-            physics: PhysicsManager::new(),
+            physics: PhysicsManager::new(Vector3::zero()),
         }
     }
 

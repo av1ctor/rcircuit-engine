@@ -53,6 +53,7 @@ impl Clone for PhysicsManager {
 
 impl PhysicsManager {
     pub fn new(
+        gravity: Vector3
     ) -> Self {
         Self {
             integration_parameters: IntegrationParameters::default(),
@@ -66,7 +67,7 @@ impl PhysicsManager {
             collider_set: ColliderSet::new(),
             impulse_joint_set: ImpulseJointSet::default(),
             multibody_joint_set: MultibodyJointSet::default(),
-            gravity: Vector3::zero(),
+            gravity,
             character_controller: KinematicCharacterController{
                 slide: false,
                 autostep: None,
