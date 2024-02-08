@@ -21,35 +21,23 @@ use crate::{
     map::Map, 
     npc::Npc, 
     object::Object, 
-    player::{PlayerFOV, Player, PlayerAction, NUM_SENSOR_FEATURES}
+    player::{Player, PlayerAction, PlayerFOV, NUM_SENSOR_FEATURES}
 };
 #[cfg(not(feature = "js"))]
 use crate::{
+    consts,
     asset::{GameAssetRef, get_game_assets}, 
     env::{Asset, AssetRef, EnvAction, EnvStep, EnvPlayer},
     entity::{Entity, EntityData, EntityState, EntityVisibility, EntityType}, 
-    spawn_locs::SpawnLocations, 
+    spawn_loc_mng::SpawnLocManager, 
     sensor::Sensor,
-    object::ObjectType
+    object::ObjectType,
+    physics::manager::PhysicsManager,
 };
-
+#[cfg(feature = "js")]
+use crate::physics::null_manager::PhysicsManager;
 #[cfg(not(feature = "js"))]
-const PLAYER_SPAWN_LOCATION_NAME: &str = "psl.";
-#[cfg(not(feature = "js"))]
-const NPC_SPAWN_LOCATION_NAME: &str = "ksl.";
-#[cfg(not(feature = "js"))]
-const EXIT_SPAWN_LOCATION_NAME: &str = "xsl.";
-
-#[cfg(not(feature = "js"))]
-const PENALTY_WALL: f32 = -10.0;
-#[cfg(not(feature = "js"))]
-const PENALTY_BITTEN: f32 = -20.0;
-#[cfg(not(feature = "js"))]
-const PENALTY_PUNCHED: f32 = PENALTY_BITTEN / 5.0;
-#[cfg(not(feature = "js"))]
-const REWARD_BRAIN_EATEN: f32 = 100.0;
-#[cfg(not(feature = "js"))]
-const REWARD_EXIT_REACHED: f32 = 1000.0;
+use rapier3d::dynamics::RigidBodyType;
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum GameStatus {
@@ -96,7 +84,7 @@ pub struct GameEntities {
     pub objects: Vec<Object>,
 }
 
-#[cfg_attr(not(feature = "js"), derive(Clone, Debug, Serialize, Deserialize))]
+#[cfg_attr(not(feature = "js"), derive(Clone, Serialize, Deserialize))]
 pub struct Game {
     pub map_info: MapInfo,
     pub events: Vec<GameEvent>,
@@ -104,6 +92,7 @@ pub struct Game {
     pub options: GameOptions,
     pub state: GameState,
     pub map: Map,
+    pub physics: PhysicsManager,
 }
 
 impl Env for Game {
@@ -406,6 +395,7 @@ impl Game {
                 active_players: 0,
             },
             options,
+            physics: PhysicsManager::new(),
         }
     }
 
@@ -416,7 +406,6 @@ impl Game {
         rng: &mut StdRng
     ) -> GameEntities {
         // players
-
         let players = self.spawn_players(renderer, rng);
 
         // npcs
@@ -425,7 +414,7 @@ impl Game {
         // exit
         let objects = self.spawn_objects(
             ObjectType::EXIT,
-            EXIT_SPAWN_LOCATION_NAME,
+            consts::EXIT_SPAWN_LOCATION_NAME,
             &|_| false, 
             renderer,
             rng
@@ -444,14 +433,14 @@ impl Game {
         renderer: &mut dyn Renderer,
         rng: &mut StdRng
     ) -> Vec<Player> {
-        let mut spawn_locs = SpawnLocations::new(
+        let mut spawn_mng = SpawnLocManager::new(
             Map::get_nodes_transform(
-                self.map.find_nodes_by_partial_name(PLAYER_SPAWN_LOCATION_NAME)
+                self.map.find_nodes_by_partial_name(consts::PLAYER_SPAWN_LOCATION_NAME)
             )
         );
 
-        if spawn_locs.locs.len() == 0 {
-            panic!("No spawn locations '{}' for players found", PLAYER_SPAWN_LOCATION_NAME);
+        if spawn_mng.locs.len() == 0 {
+            panic!("No spawn locations '{}' for players found", consts::PLAYER_SPAWN_LOCATION_NAME);
         }
 
         let mut players = vec![];
@@ -484,13 +473,23 @@ impl Game {
             #[cfg(target_arch = "wasm32")]
             let (path_ref, sensor_ref, readings_ref) = (0, 0, 0);
 
-            let loc = &spawn_locs.next(i, rng);
+            let loc = &spawn_mng.next(i, rng);
+
+            let char_ref = self.physics.add_character(
+                &loc.0, 
+                &loc.1, 
+                consts::PLAYER_HEIGHT, 
+                consts::PLAYER_WIDTH / 2.0, 
+                Some(RigidBodyType::KinematicPositionBased)
+            );
+
             let player = Player::new(
                 loc.0, 
                 loc.1, 
-                Vector3::new(0.25, 1.8, 0.15),
+                Vector3::new(consts::PLAYER_WIDTH, consts::PLAYER_HEIGHT, 0.15),
                 EntityState::WAITING,
                 EntityVisibility::VISIBLE,
+                char_ref,
                 model_ref,
                 path_ref,
                 sensor_ref,
@@ -530,14 +529,14 @@ impl Game {
         renderer: &mut dyn Renderer,
         rng: &mut StdRng
     ) -> Vec<Npc> {
-        let mut spawn_locs = SpawnLocations::new(
+        let mut spawn_locs = SpawnLocManager::new(
             Map::get_nodes_transform(
-                self.map.find_nodes_by_partial_name(NPC_SPAWN_LOCATION_NAME)
+                self.map.find_nodes_by_partial_name(consts::NPC_SPAWN_LOCATION_NAME)
             )
         );
 
         if spawn_locs.locs.len() == 0 {
-            panic!("No spawn locations '{}' for npcs found", NPC_SPAWN_LOCATION_NAME);
+            panic!("No spawn locations '{}' for npcs found", consts::NPC_SPAWN_LOCATION_NAME);
         }
 
         let mut npcs = vec![];
@@ -556,12 +555,22 @@ impl Game {
 
             let loc = &spawn_locs.next(i, rng);
             let vis = if i == 0 {EntityVisibility::VISIBLE} else {EntityVisibility::HIDDEN};
+
+            let char_ref = self.physics.add_character(
+                &loc.0, 
+                &loc.1, 
+                consts::NPC_HEIGHT, 
+                consts::NPC_WIDTH / 2.0, 
+                Some(RigidBodyType::Fixed)
+            );
+
             let npc = Npc::new(
                 loc.0, 
                 loc.1, 
-                Vector3::new(0.25, 1.8, 0.15),
+                Vector3::new(consts::NPC_WIDTH, consts::NPC_HEIGHT, 0.15),
                 EntityState::WAITING,
                 vis,
+                char_ref,
                 model_ref,
                 rng
             );
@@ -602,13 +611,13 @@ impl Game {
         renderer: &mut dyn Renderer,
         rng: &mut StdRng
     ) -> Vec<Object> {
-        let mut spawn_locs = SpawnLocations::new(
+        let mut spawn_mng = SpawnLocManager::new(
             Map::get_nodes_transform(
                 self.map.find_nodes_by_partial_name(name)
             )
         );
 
-        if spawn_locs.locs.len() == 0 {
+        if spawn_mng.locs.len() == 0 {
             panic!("No spawn locations '{}' for objects found", name);
         }
 
@@ -629,8 +638,17 @@ impl Game {
                 asset_ref,
             }));
                 
-            let loc = &spawn_locs.next(i, rng);
+            let loc = &spawn_mng.next(i, rng);
             let is_active = active(i);
+
+            let char_ref = self.physics.add_character(
+                &loc.0, 
+                &loc.1, 
+                consts::EXIT_HEIGHT, 
+                consts::EXIT_WIDTH / 2.0, 
+                Some(RigidBodyType::Fixed)
+            );
+
             let obj = Object::new(
                 typ.clone(),
                 loc.0, 
@@ -638,6 +656,7 @@ impl Game {
                 Vector3::new(rad, rad, rad),
                 EntityState::WAITING,
                 if is_active {EntityVisibility::VISIBLE} else {EntityVisibility::HIDDEN},
+                char_ref,
                 model_ref,
                 rng
             );
@@ -904,11 +923,18 @@ impl Game {
                 player.data.pos = confined_pos.mul(&Vector3::new(1.0, 0.0, 1.0));
                 if !forced {
                     player.data.rot = player.calc_rot_away_from_hit();
-                    player.reward += PENALTY_WALL;
+                    player.reward += consts::PENALTY_WALL;
                 }
             }
             else {
-                player.data.pos = new_pos;
+                player.data.pos = if let Some(new_pos) = 
+                    self.physics.move_character(player.data.char_ref, &new_pos) {
+                    new_pos
+                }
+                else {
+                    new_pos
+                };
+                
                 if !forced {
                     player.data.rot = rot.clone();
                 }
@@ -1018,7 +1044,7 @@ impl Game {
                             self.state.winner = Some(i);
                             
                             let player = &mut self.entities.players[i];
-                            player.reward += REWARD_EXIT_REACHED;
+                            player.reward += consts::REWARD_EXIT_REACHED;
                             
                             if let Some(from) = player.set_state(EntityState::CELEBRATING, self.state.step) {
                                 self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
@@ -1051,7 +1077,7 @@ impl Game {
                         // biting and enough time elapsed?
                         if player.is_biting() &&
                             player.state_elapsed(self.state.step) >= 0.75 {
-                            player.reward += REWARD_BRAIN_EATEN;
+                            player.reward += consts::REWARD_BRAIN_EATEN;
 
                             // stop biting
                             if let Some(from) = player.set_state(EntityState::IDLE, self.state.step) {
@@ -1063,7 +1089,7 @@ impl Game {
                             }
                         
                             let npc = &mut self.entities.npcs[npc_num];
-                            npc.health += PENALTY_BITTEN;
+                            npc.health += consts::PENALTY_BITTEN;
                             // NPC has no health left? kill it and show another one
                             if npc.health <= 0.0 {
                                 if let Some(from) = npc.set_state(EntityState::DYING, self.state.step) {
@@ -1128,30 +1154,6 @@ impl Game {
                 }
             }
         }
-
-        // 4th: don't let them overlap
-        for i in 0..self.entities.players.len() {
-            let mut player = &self.entities.players[i];
-            if player.is_visible() && !player.is_dead() {
-                let player_bb = player.calc_bb();
-                for j in 0..self.entities.players.len() {
-                    if i != j {
-                        let other = &self.entities.players[j];
-                        if other.is_visible() && !other.is_dead() {
-                            let other_bb = other.calc_bb();
-                            if player_bb.intersects_with_box(&other_bb) {
-                                let rot = player.data.rot.mul(
-                                    &Quaternion::from_axis_and_angle(&UP, 270.0 * PI / 180.0)
-                                );
-                                self.move_player(
-                                    i, &rot, &Vector3::new(1.0, 1.0, 1.0), delta_time, true);
-                                player = &self.entities.players[i];
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     #[cfg(not(feature = "js"))]
@@ -1206,7 +1208,7 @@ impl Game {
                             // don't hurt or move away the player if in training mode or the ANN will get confused
                             if !self.options.training {
                                 let player = &mut self.entities.players[player_num];
-                                player.health += PENALTY_PUNCHED;
+                                player.health += consts::PENALTY_PUNCHED;
                                 // player has no health left? kill it
                                 if player.health <= 0.0 {
                                     if let Some(from) = player.set_state(EntityState::DYING, self.state.step) {

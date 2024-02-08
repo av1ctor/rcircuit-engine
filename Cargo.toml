@@ -30,6 +30,20 @@ version = "0.1.0"
 path = "../three-rs"
 features = []
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.rapier3d]
+version = "0.18.0"
+features = ["simd-stable", "serde-serialize"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.rapier3d]
+version = "0.18.0"
+features = ["wasm-bindgen", "serde-serialize"]
+
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1
+
 [features]
 default = ["navigation"]
 navigation = ["dep:gltf", "dep:navmesh-rs"]

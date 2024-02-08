@@ -4,11 +4,11 @@ use three_rs::math::{
 };
 use crate::map::NodeTransform;
 
-pub struct SpawnLocations {
+pub struct SpawnLocManager {
     pub locs: Vec<(NodeTransform, usize)>,
 }
 
-impl SpawnLocations {
+impl SpawnLocManager {
     pub fn new(
         nodes: Vec<NodeTransform>
     ) -> Self {
