@@ -11,6 +11,10 @@ impl PhysicsManager {
         Self {
         }
     }
+    pub fn step(
+        &mut self
+    ) {
+    }
 
     pub fn add_character(
         &mut self,

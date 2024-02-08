@@ -197,6 +197,8 @@ impl Env for Game {
 
         if self.options.max_steps == 0 ||
             self.state.step < self.options.max_steps {
+
+            self.physics.step();
         
             self.update_players(actions, delta_time, rng);
             
@@ -481,6 +483,7 @@ impl Game {
                 &loc.1, 
                 consts::PLAYER_HEIGHT, 
                 consts::PLAYER_WIDTH * 0.5, 
+                consts::PLAYER_MASS,
                 true,
                 Some(RigidBodyType::KinematicPositionBased)
             );
@@ -563,6 +566,7 @@ impl Game {
                 &loc.1, 
                 consts::NPC_HEIGHT, 
                 consts::NPC_WIDTH / 2.0, 
+                consts::NPC_MASS,
                 if i == 0 {true} else {false},
                 Some(RigidBodyType::Fixed)
             );
@@ -649,6 +653,7 @@ impl Game {
                 &loc.1, 
                 consts::EXIT_HEIGHT, 
                 consts::EXIT_WIDTH / 2.0, 
+                consts::EXIT_MASS,
                 false,
                 Some(RigidBodyType::Fixed)
             );

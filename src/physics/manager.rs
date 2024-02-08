@@ -9,28 +9,64 @@ use serde::{Deserialize, Serialize};
 use three_rs::math::{Quaternion, Vector3};
 use super::character::{Character, CharacterRef};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct PhysicsManager {
+    #[serde(skip)]
+    physics_pipeline: PhysicsPipeline,
+    island_manager: IslandManager,
+    integration_parameters: IntegrationParameters,
+    broad_phase: BroadPhase,
+    narrow_phase: NarrowPhase,
     query_pipeline: QueryPipeline,
+    ccd_solver: CCDSolver,
     rigid_body_set: RigidBodySet,
     collider_set: ColliderSet,
-    island_manager: IslandManager,
     impulse_joint_set: ImpulseJointSet,
-    multibody_impulse_joint_set: MultibodyJointSet,
+    multibody_joint_set: MultibodyJointSet,
+    gravity: Vector3,
     character_controller: KinematicCharacterController,
     characters: Vec<Character>,
+    num_dyn_chars: usize,
+}
+
+impl Clone for PhysicsManager {
+    fn clone(&self) -> Self {
+        Self { 
+            physics_pipeline: PhysicsPipeline::new(), 
+            island_manager: self.island_manager.clone(), 
+            integration_parameters: self.integration_parameters.clone(), 
+            broad_phase: self.broad_phase.clone(), 
+            narrow_phase: self.narrow_phase.clone(), 
+            query_pipeline: self.query_pipeline.clone(), 
+            ccd_solver: self.ccd_solver.clone(), 
+            rigid_body_set: self.rigid_body_set.clone(), 
+            collider_set: self.collider_set.clone(), 
+            impulse_joint_set: self.impulse_joint_set.clone(), 
+            multibody_joint_set: self.multibody_joint_set.clone(), 
+            gravity: self.gravity.clone(), 
+            character_controller: self.character_controller.clone(), 
+            characters: self.characters.clone(),
+            num_dyn_chars: self.num_dyn_chars,
+        }
+    }
 }
 
 impl PhysicsManager {
     pub fn new(
     ) -> Self {
         Self {
+            integration_parameters: IntegrationParameters::default(),
+            physics_pipeline: PhysicsPipeline::new(),
+            island_manager: IslandManager::default(),
+            broad_phase: BroadPhase::new(),
+            narrow_phase: NarrowPhase::new(),
             query_pipeline: QueryPipeline::new(),
+            ccd_solver: CCDSolver::new(),
             rigid_body_set: RigidBodySet::new(),
             collider_set: ColliderSet::new(),
-            island_manager: IslandManager::default(),
             impulse_joint_set: ImpulseJointSet::default(),
-            multibody_impulse_joint_set: MultibodyJointSet::default(),
+            multibody_joint_set: MultibodyJointSet::default(),
+            gravity: Vector3::zero(),
             character_controller: KinematicCharacterController{
                 slide: false,
                 autostep: None,
@@ -40,7 +76,28 @@ impl PhysicsManager {
                 ..KinematicCharacterController::default()
             },
             characters: vec![],
+            num_dyn_chars: 0,
         }
+    }
+
+    pub fn step(
+        &mut self
+    ) {
+        self.physics_pipeline.step(
+            &vector![self.gravity.x, self.gravity.y, self.gravity.z],
+            &self.integration_parameters,
+            &mut self.island_manager,
+            &mut self.broad_phase,
+            &mut self.narrow_phase,
+            &mut self.rigid_body_set,
+            &mut self.collider_set,
+            &mut self.impulse_joint_set,
+            &mut self.multibody_joint_set,
+            &mut self.ccd_solver,
+            Some(&mut self.query_pipeline),
+            &(),
+            &(),
+          );
     }
 
     pub fn add_character(
@@ -49,6 +106,7 @@ impl PhysicsManager {
         rot: &Quaternion,
         height: f32,
         radius: f32,
+        mass: f32,
         enabled: bool,
         rb_typ: Option<RigidBodyType>
     ) -> CharacterRef {
@@ -62,25 +120,33 @@ impl PhysicsManager {
         );
 
         let rb = match rb_typ {
-            Some(RigidBodyType::Dynamic) => 
+            Some(RigidBodyType::Dynamic) => {
+                if enabled {
+                    self.num_dyn_chars += 1
+                };
+                
                 Some(RigidBodyBuilder::dynamic()
                     .position(position)
                     .enabled(enabled)
-                    .build()),
-            Some(RigidBodyType::Fixed) => 
+                    .build())
+            },
+            Some(RigidBodyType::Fixed) => {
                 Some(RigidBodyBuilder::fixed()
                     .position(position)
                     .enabled(enabled)
-                    .build()),
-            Some(RigidBodyType::KinematicPositionBased) => 
+                    .build())
+            },
+            Some(RigidBodyType::KinematicPositionBased) => {
                 Some(RigidBodyBuilder::kinematic_position_based()
                     .position(position)
                     .enabled(enabled)
-                    .build()),
-            Some(RigidBodyType::KinematicVelocityBased) => 
+                    .build())
+            },
+            Some(RigidBodyType::KinematicVelocityBased) => {
                 Some(RigidBodyBuilder::kinematic_velocity_based()
                     .enabled(enabled)
-                    .build()),
+                    .build())
+            },
             None =>
                 None
         };
@@ -106,7 +172,7 @@ impl PhysicsManager {
         };
 
         self.characters.push(Character {
-            mass: 1.0,
+            mass,
             rigid_body_handle,
             collider_handle,
         });
@@ -121,8 +187,18 @@ impl PhysicsManager {
     ) {
         let char = &self.characters[char_ref];
         if let Some(rigid_body_handle) = char.rigid_body_handle {
+            let rb = self.rigid_body_set.get(rigid_body_handle).unwrap();
+            if rb.is_dynamic() {
+                if !rb.is_enabled() && enabled {
+                    self.num_dyn_chars += 1;
+                }
+                else if rb.is_enabled() && !enabled {
+                    self.num_dyn_chars -= 1;
+                }
+            };
+
             self.rigid_body_set.get_mut(rigid_body_handle).unwrap()
-            .set_enabled(enabled);    
+                .set_enabled(enabled);    
         }
         self.collider_set.get_mut(char.collider_handle).unwrap()
             .set_enabled(enabled);
@@ -135,12 +211,17 @@ impl PhysicsManager {
         let char = &self.characters[char_ref];
         
         if let Some(rigid_body_handle) = char.rigid_body_handle {
+            let rb = self.rigid_body_set.get(rigid_body_handle).unwrap();
+            if rb.is_dynamic() && rb.is_enabled() {
+                self.num_dyn_chars -= 1;
+            };
+
             self.rigid_body_set.remove(
                 rigid_body_handle, 
                 &mut self.island_manager, 
                 &mut self.collider_set, 
                 &mut self.impulse_joint_set, 
-                &mut self.multibody_impulse_joint_set, 
+                &mut self.multibody_joint_set, 
                 true
             );
         }
@@ -170,12 +251,12 @@ impl PhysicsManager {
             QueryFilter::new()
         };
 
-        let mut collided = false;
+        let mut collisions = vec![];
 
         let collider = self.collider_set.get(char.collider_handle).unwrap();
 
         let mvt = self.character_controller.move_shape(
-            1.0,
+            self.integration_parameters.dt,
             &self.rigid_body_set,
             &self.collider_set,
             &self.query_pipeline,
@@ -187,14 +268,29 @@ impl PhysicsManager {
                 translation.z,
             ],
             filter,
-            |_| {collided = true}
+            |c| {collisions.push(c)}
         );
+
+        if collisions.len() > 0 && self.num_dyn_chars > 0 {
+            for collision in &collisions {
+                self.character_controller.solve_character_collision_impulses(
+                    self.integration_parameters.dt,
+                    &mut self.rigid_body_set,
+                    &self.collider_set,
+                    &self.query_pipeline,
+                    collider.shape(),
+                    char.mass,
+                    collision,
+                    filter,
+                );
+            }
+        }
 
         if let Some(rb_handle) = collider.parent() {
             let rb = self.rigid_body_set.get_mut(rb_handle).unwrap();
             match rb.body_type() {
                 RigidBodyType::KinematicPositionBased => {
-                    rb.set_translation(rb.translation() + mvt.translation, false)
+                    rb.set_next_kinematic_translation(rb.translation() + mvt.translation)
                 },
                 _ => {
                 },
@@ -204,7 +300,7 @@ impl PhysicsManager {
         let collider = self.collider_set.get_mut(char.collider_handle).unwrap();
         collider.set_translation(collider.translation() + mvt.translation);
 
-        if !collided {
+        if collisions.len() == 0 {
             None
         }            
         else {
