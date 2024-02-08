@@ -2,7 +2,7 @@
     "name": "brains-engine",
     "private": true,
     "scripts": {
-      "build": "wasm-pack build --target web --release --features js --no-default-features"
+      "wasm": "wasm-pack build --target web --release --features js --no-default-features"
     },
     "module": "pkg/brains-engine.js",
     "types": "pkg/brains-engine.d.ts"
