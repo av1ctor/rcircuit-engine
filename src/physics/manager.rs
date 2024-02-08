@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use rapier3d::{
     control::KinematicCharacterController, 
     na::{Isometry, Translation3, UnitQuaternion}, 
@@ -33,6 +35,8 @@ impl PhysicsManager {
                 slide: false,
                 autostep: None,
                 snap_to_ground: None,
+                max_slope_climb_angle: 0.0,
+                min_slope_slide_angle: PI * 2.0,
                 ..KinematicCharacterController::default()
             },
             characters: vec![],
@@ -45,28 +49,40 @@ impl PhysicsManager {
         rot: &Quaternion,
         height: f32,
         radius: f32,
+        enabled: bool,
         rb_typ: Option<RigidBodyType>
     ) -> CharacterRef {
         let char_ref = self.characters.len();
 
-        let rb = if let Some(rb_typ) = rb_typ {
-            match rb_typ {
-                RigidBodyType::Dynamic => 
-                    Some(RigidBodyBuilder::dynamic()
-                        .build()),
-                RigidBodyType::Fixed => 
-                    Some(RigidBodyBuilder::fixed()
-                        .build()),
-                RigidBodyType::KinematicPositionBased => 
-                    Some(RigidBodyBuilder::kinematic_position_based()
-                        .build()),
-                RigidBodyType::KinematicVelocityBased => 
-                    Some(RigidBodyBuilder::kinematic_velocity_based()
-                        .build()),
-            }
-        }
-        else {
-            None
+        let position = Isometry::from_parts(
+            Translation3::new(pos.x, pos.y, pos.z), 
+            UnitQuaternion::from_quaternion(
+                rapier3d::na::Quaternion::new(rot.w, rot.x, rot.y, rot.z)
+            )
+        );
+
+        let rb = match rb_typ {
+            Some(RigidBodyType::Dynamic) => 
+                Some(RigidBodyBuilder::dynamic()
+                    .position(position)
+                    .enabled(enabled)
+                    .build()),
+            Some(RigidBodyType::Fixed) => 
+                Some(RigidBodyBuilder::fixed()
+                    .position(position)
+                    .enabled(enabled)
+                    .build()),
+            Some(RigidBodyType::KinematicPositionBased) => 
+                Some(RigidBodyBuilder::kinematic_position_based()
+                    .position(position)
+                    .enabled(enabled)
+                    .build()),
+            Some(RigidBodyType::KinematicVelocityBased) => 
+                Some(RigidBodyBuilder::kinematic_velocity_based()
+                    .enabled(enabled)
+                    .build()),
+            None =>
+                None
         };
         
         let rigid_body_handle = if let Some(rb) = rb {
@@ -76,22 +92,17 @@ impl PhysicsManager {
             None
         };
 
-        let coll = ColliderBuilder::capsule_x(height / 2.0, radius)
-            .position(Isometry::from_parts(
-                    Translation3::new(pos.x, pos.y, pos.z), 
-                    UnitQuaternion::from_quaternion(
-                        rapier3d::na::Quaternion::new(rot.w, rot.x, rot.y, rot.z)
-                    )
-                )
-            )
+        let collider = ColliderBuilder::capsule_y(height / 2.0 - radius, radius)
+            .position(position)
+            .enabled(enabled)
             .build();
 
         let collider_handle = if let Some(rigid_body_handle) = rigid_body_handle {
             self.collider_set.insert_with_parent(
-                coll, rigid_body_handle, &mut self.rigid_body_set)
+                collider, rigid_body_handle, &mut self.rigid_body_set)
         }
         else {
-            self.collider_set.insert(coll)
+            self.collider_set.insert(collider)
         };
 
         self.characters.push(Character {
@@ -101,6 +112,20 @@ impl PhysicsManager {
         });
 
         char_ref
+    }
+
+    pub fn toggle_character(
+        &mut self,
+        char_ref: CharacterRef,
+        enabled: bool
+    ) {
+        let char = &self.characters[char_ref];
+        if let Some(rigid_body_handle) = char.rigid_body_handle {
+            self.rigid_body_set.get_mut(rigid_body_handle).unwrap()
+            .set_enabled(enabled);    
+        }
+        self.collider_set.get_mut(char.collider_handle).unwrap()
+            .set_enabled(enabled);
     }
 
     pub fn remove_character(
@@ -133,17 +158,9 @@ impl PhysicsManager {
     pub fn move_character(
         &mut self,
         char_ref: CharacterRef,
-        to: &Vector3
+        translation: &Vector3
     ) -> Option<Vector3> {
-        let char = &mut self.characters[char_ref];
-        let collider = self.collider_set.get(char.collider_handle).unwrap();
-
-        let pos = collider.position();
-        let translation = vector![
-            to.x - pos.translation.x,
-            to.y - pos.translation.y,
-            to.z - pos.translation.z,
-        ];
+        let char = &self.characters[char_ref];
 
         let filter = if let Some(rigid_body_handle) = char.rigid_body_handle {
             QueryFilter::new()
@@ -155,42 +172,42 @@ impl PhysicsManager {
 
         let mut collided = false;
 
+        let collider = self.collider_set.get(char.collider_handle).unwrap();
+
         let mvt = self.character_controller.move_shape(
-            1.0 / 60.0,
+            1.0,
             &self.rigid_body_set,
             &self.collider_set,
             &self.query_pipeline,
             collider.shape(),
             collider.position(),
-            translation,
+            vector![
+                translation.x,
+                translation.y,
+                translation.z,
+            ],
             filter,
             |_| {collided = true}
         );
 
+        if let Some(rb_handle) = collider.parent() {
+            let rb = self.rigid_body_set.get_mut(rb_handle).unwrap();
+            match rb.body_type() {
+                RigidBodyType::KinematicPositionBased => {
+                    rb.set_translation(rb.translation() + mvt.translation, false)
+                },
+                _ => {
+                },
+            }
+        }
+
+        let collider = self.collider_set.get_mut(char.collider_handle).unwrap();
+        collider.set_translation(collider.translation() + mvt.translation);
+
         if !collided {
             None
-        }
+        }            
         else {
-
-            let collider = self.collider_set.get_mut(char.collider_handle).unwrap();
-
-            if let Some(rb_handle) = collider.parent() {
-                let rb = self.rigid_body_set.get_mut(rb_handle).unwrap();
-                match rb.body_type() {
-                    RigidBodyType::Dynamic => 
-                        rb.set_translation(mvt.translation, true),
-                    RigidBodyType::Fixed => 
-                        (),
-                    RigidBodyType::KinematicPositionBased => 
-                        rb.set_next_kinematic_translation(mvt.translation),
-                    RigidBodyType::KinematicVelocityBased => 
-                        (),
-                }
-            }
-            else {
-                collider.set_translation(mvt.translation);
-            }
-
             Some(Vector3::new(
                 mvt.translation.x,
                 mvt.translation.y,
