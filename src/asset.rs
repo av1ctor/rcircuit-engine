@@ -2,7 +2,10 @@
 use wasm_bindgen::prelude::*;
 use crate::env::AssetType;
 #[cfg(not(feature = "js"))]
-use crate::env::{Asset, AssetRef, AssetData, AssetValue};
+use crate::{
+    env::{Asset, AssetRef, AssetData, AssetValue},
+    consts
+};
 #[cfg(not(feature = "js"))]
 use std::collections::HashMap;
 
@@ -41,6 +44,10 @@ pub(crate) enum GameAssetRef {
     Player2 = 2,
     Player3 = 3,
     Player4 = 4,
+    Player5 = 5,
+    Player6 = 6,
+    Player7 = 7,
+    Player8 = 8,
     Npc1    = 50,
     Npc2    = 51,
     Npc3    = 52,
@@ -62,7 +69,7 @@ pub fn get_game_assets(
         )
     );
     
-    for i in 0..4 {
+    for i in 0..consts::MAX_PLAYERS {
         assets.insert(
             (GameAssetRef::Player1 as usize) + i,
             Asset::new(

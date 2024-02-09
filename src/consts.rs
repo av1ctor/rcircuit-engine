@@ -1,3 +1,5 @@
+pub const MAX_PLAYERS: usize = 8;
+
 pub const PLAYER_SPAWN_LOCATION_NAME: &str = "psl.";
 pub const NPC_SPAWN_LOCATION_NAME: &str = "ksl.";
 pub const EXIT_SPAWN_LOCATION_NAME: &str = "xsl.";
