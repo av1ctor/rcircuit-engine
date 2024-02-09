@@ -760,6 +760,7 @@ impl Game {
         }
     }
 
+    #[cfg(not(feature = "js"))]
     fn kill_player(
         &mut self, 
         num: usize
@@ -781,6 +782,7 @@ impl Game {
         self.physics.toggle_character(player.data.char_ref, false);
     }
 
+    #[cfg(not(feature = "js"))]
     fn kill_npc(
         &mut self, 
         num: usize
