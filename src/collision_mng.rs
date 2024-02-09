@@ -1,13 +1,11 @@
 #[cfg(not(feature = "js"))]
-use serde::{Deserialize, Serialize};
-#[cfg(not(feature = "js"))]
-use dodgy::{Agent, AvoidanceOptions};
-#[cfg(not(feature = "js"))]
-use glam::Vec2;
-#[cfg(not(feature = "js"))]
-use three_rs::math::Vector3;
-#[cfg(not(feature = "js"))]
-use crate::{entity::Entity, game::GameEntities};
+use {
+    serde::{Deserialize, Serialize},
+    dodgy::{Agent, AvoidanceOptions},
+    glam::Vec2,
+    three_rs::math::Vector3,
+    crate::{entity::Entity, game::GameEntities}
+};
 
 #[cfg_attr(not(feature = "js"), derive(Clone, Serialize, Deserialize))]
 pub struct CollisionAvoidanceManager {
@@ -36,7 +34,7 @@ impl CollisionAvoidanceManager {
                     Agent {
                         position: Vec2::new(p.data.pos.x, p.data.pos.z),
                         velocity: Vec2::new(p.vel.x, p.vel.z),
-                        radius: (p.data.dim.x / 2.0) * 1.5,
+                        radius: p.data.dim.x / 2.0,
                         avoidance_responsibility: 1.0,
                         max_velocity: p.vel.length(),
                     }

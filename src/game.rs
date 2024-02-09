@@ -925,25 +925,29 @@ impl Game {
         let player = &self.entities.players[num];
         let next_pos = player.data.pos.add(&translation);
         
-        if let Some(confined_pos) = 
+        if let Some(constrained_pos) = 
             self.map.move_along_surface(&player.data.pos, &next_pos) {            
-            if confined_pos.x != next_pos.x || confined_pos.z != next_pos.z {
+            if constrained_pos.x != next_pos.x || constrained_pos.z != next_pos.z {
                 let player = &mut self.entities.players[num];
                 player.preserve();
-                player.data.pos = confined_pos.mul(&Vector3::new(1.0, 0.0, 1.0));
+                player.data.pos = constrained_pos.mul(&Vector3::new(1.0, 0.0, 1.0));
                 if !forced {
                     player.data.rot = player.calc_rot_away_from_hit();
                     player.reward += consts::PENALTY_WALL;
                 }
             }
             else {
-                let new_translation = self.collision.move_player(
-                    num, translation, &self.entities, delta_time
-                );
-                //println!("{:?} {:?}", translation, new_translation);
+                let constrained_translation = if !self.options.training {
+                    self.collision.move_player(
+                        num, translation, &self.entities, delta_time)
+                }
+                else {
+                    translation
+                };
+
                 let player = &mut self.entities.players[num];
                 player.preserve();
-                player.data.pos.add_mut(&new_translation);
+                player.data.pos.add_mut(&constrained_translation);
                 if !forced {
                     player.data.rot = rot.clone();
                 }
@@ -1164,7 +1168,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn update_npcs(
         &mut self, 
-        _delta_time: f32,
+        delta_time: f32,
         rng: &mut StdRng,
     ) {
         // 1st: update the state
@@ -1234,6 +1238,13 @@ impl Game {
                                             to: player.data.state
                                         }));
                                     }
+
+                                    // and move player away from NPC
+                                    let inverse_rot = player.data.rot.mul(
+                                        &Quaternion::from_axis_and_angle(&UP, 180.0 * std::f32::consts::PI / 180.0)
+                                    );
+                                    self.move_player(
+                                        player_num, &inverse_rot, &Vector3::new(0.5, 0.0, 0.5), delta_time, true);
                                 }
                             }
                         }
