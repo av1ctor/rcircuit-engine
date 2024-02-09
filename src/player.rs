@@ -11,7 +11,6 @@ use three_rs::math::vector3::{FORWARD, UP};
 use crate::{
     entity::{Entity, EntityData, EntityState, EntityType, EntityVisibility}, 
     env::EnvObs, 
-    physics::character::CharacterRef, 
     renderer::ModelRef, 
     sensor::{Sensor, SensorReading} 
 };
@@ -135,7 +134,6 @@ impl Player {
         dim: Vector3,
         state: EntityState,
         vis: EntityVisibility,
-        char_ref: CharacterRef,
         model_ref: ModelRef,
         path_ref: ModelRef,
         sensor_ref: ModelRef,
@@ -150,7 +148,6 @@ impl Player {
             dim,
             state,
             vis,
-            char_ref,
             model_ref,
             rng
         );

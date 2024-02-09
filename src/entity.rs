@@ -6,10 +6,7 @@ use strum_macros::{Display, EnumCount};
 use three_rs::math::{
     box3::Box3, vector3::Vector3, Quaternion
 };
-use crate::{
-    physics::character::CharacterRef, 
-    renderer::ModelRef
-};
+use crate::renderer::ModelRef;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, EnumCount, Default)]
 #[cfg_attr(feature = "js", wasm_bindgen)]
@@ -92,8 +89,6 @@ pub struct EntityData {
     pub dim: Vector3,
     pub radius: f32,
     #[serde(skip)]
-    pub char_ref: CharacterRef,
-    #[serde(skip)]
     pub model_ref: ModelRef,
 }
 
@@ -106,7 +101,6 @@ impl EntityData {
         dim: Vector3,
         state: EntityState,
         vis: EntityVisibility,
-        char_ref: CharacterRef,
         model_ref: ModelRef,
         rng: &mut StdRng
     ) -> Self {
@@ -121,7 +115,6 @@ impl EntityData {
             state,
             state_changed_at: 0,
             vis,
-            char_ref,
             model_ref,
         }
     }

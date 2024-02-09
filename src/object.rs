@@ -6,7 +6,6 @@ use three_rs::math::{
 };
 use crate::{
     entity::{Entity, EntityData, EntityState, EntityType, EntityVisibility}, 
-    physics::character::CharacterRef, 
     renderer::ModelRef
 };
 
@@ -54,7 +53,6 @@ impl Object {
         dim: Vector3,
         state: EntityState,
         vis: EntityVisibility,
-        char_ref: CharacterRef,
         model_ref: ModelRef,
         rng: &mut StdRng
     ) -> Self {
@@ -66,7 +64,6 @@ impl Object {
             dim,
             state,
             vis,
-            char_ref,
             model_ref,
             rng
         );

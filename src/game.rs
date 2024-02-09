@@ -1,7 +1,7 @@
 #[cfg(not(feature = "js"))]
 use rand::{rngs::StdRng, Rng};
 #[cfg(not(feature = "js"))]
-use std::{collections::{HashMap, HashSet}, f32::consts::PI};
+use std::collections::{HashMap, HashSet};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
 use three_rs::math::Vector3;
@@ -32,12 +32,10 @@ use crate::{
     spawn_loc_mng::SpawnLocManager, 
     sensor::Sensor,
     object::ObjectType,
-    physics::manager::PhysicsManager,
+    collision_mng::CollisionAvoidanceManager,
 };
 #[cfg(feature = "js")]
 use crate::physics::null_manager::PhysicsManager;
-#[cfg(not(feature = "js"))]
-use rapier3d::dynamics::RigidBodyType;
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum GameStatus {
@@ -92,7 +90,7 @@ pub struct Game {
     pub options: GameOptions,
     pub state: GameState,
     pub map: Map,
-    pub physics: PhysicsManager,
+    pub collision: CollisionAvoidanceManager,
 }
 
 impl Env for Game {
@@ -204,8 +202,6 @@ impl Env for Game {
 
             self.update_objects(delta_time, rng);
             
-            self.physics.step();
-
             self.build_players_sensors(renderer);
         }
         else {
@@ -398,7 +394,7 @@ impl Game {
                 active_players: 0,
             },
             options,
-            physics: PhysicsManager::new(Vector3::zero()),
+            collision: CollisionAvoidanceManager::new(),
         }
     }
 
@@ -480,17 +476,6 @@ impl Game {
 
             let index = players.len();
 
-            let char_ref = self.physics.add_character(
-                index,
-                &loc.0, 
-                &loc.1, 
-                consts::PLAYER_HEIGHT, 
-                consts::PLAYER_WIDTH * 0.5, 
-                consts::PLAYER_MASS,
-                true,
-                Some(RigidBodyType::KinematicPositionBased)
-            );
-
             let player = Player::new(
                 index,
                 loc.0, 
@@ -498,7 +483,6 @@ impl Game {
                 Vector3::new(consts::PLAYER_WIDTH, consts::PLAYER_HEIGHT, 0.15),
                 EntityState::WAITING,
                 EntityVisibility::VISIBLE,
-                char_ref,
                 model_ref,
                 path_ref,
                 sensor_ref,
@@ -566,17 +550,6 @@ impl Game {
             let vis = if i == 0 {EntityVisibility::VISIBLE} else {EntityVisibility::HIDDEN};
             let index = npcs.len();
 
-            let char_ref = self.physics.add_character(
-                index,
-                &loc.0, 
-                &loc.1, 
-                consts::NPC_HEIGHT, 
-                consts::NPC_WIDTH / 2.0, 
-                consts::NPC_MASS,
-                if i == 0 {true} else {false},
-                Some(RigidBodyType::Fixed)
-            );
-
             let npc = Npc::new(
                 index,
                 loc.0, 
@@ -584,7 +557,6 @@ impl Game {
                 Vector3::new(consts::NPC_WIDTH, consts::NPC_HEIGHT, 0.15),
                 EntityState::WAITING,
                 vis,
-                char_ref,
                 model_ref,
                 rng
             );
@@ -656,17 +628,6 @@ impl Game {
             let is_active = active(i);
             let index = objects.len();
 
-            let char_ref = self.physics.add_character(
-                index,
-                &loc.0, 
-                &loc.1, 
-                consts::EXIT_HEIGHT, 
-                consts::EXIT_WIDTH / 2.0, 
-                consts::EXIT_MASS,
-                is_active,
-                Some(RigidBodyType::Fixed)
-            );
-
             let obj = Object::new(
                 typ.clone(),
                 index,
@@ -675,7 +636,6 @@ impl Game {
                 Vector3::new(rad, rad, rad),
                 EntityState::WAITING,
                 if is_active {EntityVisibility::VISIBLE} else {EntityVisibility::HIDDEN},
-                char_ref,
                 model_ref,
                 rng
             );
@@ -719,8 +679,6 @@ impl Game {
         if let Some(obj) = exit {
             obj.data.vis = EntityVisibility::VISIBLE;
 
-            self.physics.toggle_character(obj.data.char_ref, true);
-            
             self.events.push(GameEvent::EntityMoved(EntityMovedEvent{
                 model_ref: obj.data.model_ref,
                 pos: obj.data.pos,
@@ -742,8 +700,6 @@ impl Game {
             !n.is_visible() && !n.is_dead()
         ) {
             npc.data.vis = EntityVisibility::VISIBLE;
-            
-            self.physics.toggle_character(npc.data.char_ref, true);
             
             self.events.push(GameEvent::EntityMoved(
                 EntityMovedEvent {
@@ -778,8 +734,6 @@ impl Game {
             visible: false,
             model_ref: player.data.model_ref 
         }));
-
-        self.physics.toggle_character(player.data.char_ref, false);
     }
 
     #[cfg(not(feature = "js"))]
@@ -794,8 +748,6 @@ impl Game {
             visible: false,
             model_ref: npc.data.model_ref 
         }));
-
-        self.physics.toggle_character(npc.data.char_ref, false);
     }
 
     #[cfg(not(feature = "js"))]
@@ -967,19 +919,19 @@ impl Game {
         delta_time: f32,
         forced: bool
     ) {
-        let player = &mut self.entities.players[num];
-        
         let dir = FORWARD.apply_quaternion(&rot);
         
         let translation = dir.mul(vel)
             .mul_scalar(delta_time);
 
-        let target_pos = player.data.pos.add(&translation);
+        let player = &self.entities.players[num];
+        let next_pos = player.data.pos.add(&translation);
         
         if let Some(confined_pos) = 
-            self.map.move_along_surface(&player.data.pos, &target_pos) {
-            player.preserve();
-            if confined_pos.x != target_pos.x || confined_pos.z != target_pos.z {
+            self.map.move_along_surface(&player.data.pos, &next_pos) {            
+            if confined_pos.x != next_pos.x || confined_pos.z != next_pos.z {
+                let player = &mut self.entities.players[num];
+                player.preserve();
                 player.data.pos = confined_pos.mul(&Vector3::new(1.0, 0.0, 1.0));
                 if !forced {
                     player.data.rot = player.calc_rot_away_from_hit();
@@ -987,25 +939,19 @@ impl Game {
                 }
             }
             else {
-                player.data.pos.add_mut(&if !self.options.training {
-                    if let Some(translation) = 
-                        self.physics.move_character(
-                            player.data.char_ref, &translation) {
-                        translation
-                    }
-                    else {
-                        translation
-                    }
-                }
-                else {
-                    translation
-                });
-                
+                let new_translation = self.collision.move_player(
+                    num, translation, &self.entities, delta_time
+                );
+                //println!("{:?} {:?}", translation, new_translation);
+                let player = &mut self.entities.players[num];
+                player.preserve();
+                player.data.pos.add_mut(&new_translation);
                 if !forced {
                     player.data.rot = rot.clone();
                 }
             }
 
+            let player = &self.entities.players[num];
             let mean_rot = player.mean_rot();
 
             self.events.push(GameEvent::EntityMoved(
@@ -1220,7 +1166,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn update_npcs(
         &mut self, 
-        delta_time: f32,
+        _delta_time: f32,
         rng: &mut StdRng,
     ) {
         // 1st: update the state
@@ -1290,13 +1236,6 @@ impl Game {
                                             to: player.data.state
                                         }));
                                     }
-
-                                    // and move player away from NPC
-                                    let inverse_rot = player.data.rot.mul(
-                                        &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
-                                    );
-                                    self.move_player(
-                                        player_num, &inverse_rot, &Vector3::new(1.5, 1.5, 1.5), delta_time, true);
                                 }
                             }
                         }
