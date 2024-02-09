@@ -82,6 +82,7 @@ pub enum EntityVisibility {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct EntityData {
     pub id: usize,
+    pub index: usize,
     pub typ: EntityType,
     pub vis: EntityVisibility,
     pub state: EntityState,
@@ -99,6 +100,7 @@ pub struct EntityData {
 impl EntityData {
     pub fn new(
         typ: EntityType,
+        index: usize,
         pos: Vector3,
         rot: Quaternion,
         dim: Vector3,
@@ -110,6 +112,7 @@ impl EntityData {
     ) -> Self {
         Self { 
             id: rng.gen::<usize>(),
+            index,
             pos,
             rot,
             dim,

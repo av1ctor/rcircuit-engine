@@ -198,14 +198,14 @@ impl Env for Game {
         if self.options.max_steps == 0 ||
             self.state.step < self.options.max_steps {
 
-            self.physics.step();
-        
             self.update_players(actions, delta_time, rng);
             
             self.update_npcs(delta_time, rng);
 
             self.update_objects(delta_time, rng);
             
+            self.physics.step();
+
             self.build_players_sensors(renderer);
         }
         else {
@@ -478,7 +478,10 @@ impl Game {
 
             let loc = &spawn_mng.next(i, rng);
 
+            let index = players.len();
+
             let char_ref = self.physics.add_character(
+                index,
                 &loc.0, 
                 &loc.1, 
                 consts::PLAYER_HEIGHT, 
@@ -489,6 +492,7 @@ impl Game {
             );
 
             let player = Player::new(
+                index,
                 loc.0, 
                 loc.1, 
                 Vector3::new(consts::PLAYER_WIDTH, consts::PLAYER_HEIGHT, 0.15),
@@ -560,8 +564,10 @@ impl Game {
 
             let loc = &spawn_locs.next(i, rng);
             let vis = if i == 0 {EntityVisibility::VISIBLE} else {EntityVisibility::HIDDEN};
+            let index = npcs.len();
 
             let char_ref = self.physics.add_character(
+                index,
                 &loc.0, 
                 &loc.1, 
                 consts::NPC_HEIGHT, 
@@ -572,6 +578,7 @@ impl Game {
             );
 
             let npc = Npc::new(
+                index,
                 loc.0, 
                 loc.1, 
                 Vector3::new(consts::NPC_WIDTH, consts::NPC_HEIGHT, 0.15),
@@ -647,19 +654,22 @@ impl Game {
                 
             let loc = &spawn_mng.next(i, rng);
             let is_active = active(i);
+            let index = objects.len();
 
             let char_ref = self.physics.add_character(
+                index,
                 &loc.0, 
                 &loc.1, 
                 consts::EXIT_HEIGHT, 
                 consts::EXIT_WIDTH / 2.0, 
                 consts::EXIT_MASS,
-                false,
+                is_active,
                 Some(RigidBodyType::Fixed)
             );
 
             let obj = Object::new(
                 typ.clone(),
+                index,
                 loc.0, 
                 loc.1, 
                 Vector3::new(rad, rad, rad),
@@ -705,6 +715,7 @@ impl Game {
             o.typ == ObjectType::EXIT && 
             !o.is_visible() && !o.is_dead()
         );
+
         if let Some(obj) = exit {
             obj.data.vis = EntityVisibility::VISIBLE;
 
@@ -747,6 +758,42 @@ impl Game {
                 model_ref: npc.data.model_ref
             }));
         }
+    }
+
+    fn kill_player(
+        &mut self, 
+        num: usize
+    ) {
+        self.state.active_players -= 1;
+        if self.state.active_players == 0 {
+            self.state.status = GameStatus::FINISHED;
+            self.state.winner = None;
+        }
+
+        let player = &mut self.entities.players[num];
+                    
+        player.data.vis = EntityVisibility::HIDDEN;
+        self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
+            visible: false,
+            model_ref: player.data.model_ref 
+        }));
+
+        self.physics.toggle_character(player.data.char_ref, false);
+    }
+
+    fn kill_npc(
+        &mut self, 
+        num: usize
+    ) {
+        let npc = &mut self.entities.npcs[num];
+        
+        npc.data.vis = EntityVisibility::HIDDEN;
+        self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
+            visible: false,
+            model_ref: npc.data.model_ref 
+        }));
+
+        self.physics.toggle_character(npc.data.char_ref, false);
     }
 
     #[cfg(not(feature = "js"))]
@@ -795,7 +842,6 @@ impl Game {
         pos: &Vector3,
         radius: Option<f32>
     ) -> Option<(usize, EntityData, f32)> {
-
         let mut min_distance_sq = if let Some(radius) = radius {radius * 2.0} else {f32::MAX};
         let mut res = None;
 
@@ -818,7 +864,6 @@ impl Game {
         pos: &Vector3,
         typ: ObjectType
     ) -> EntityData {
-
         let mut min_distance = f32::MAX;
         let mut res = EntityData::default();
 
@@ -927,12 +972,12 @@ impl Game {
         let translation = dir.mul(vel)
             .mul_scalar(delta_time);
 
-        let new_pos = player.data.pos.add(&translation);
+        let target_pos = player.data.pos.add(&translation);
         
         if let Some(confined_pos) = 
-            self.map.move_along_surface(&player.data.pos, &new_pos) {
+            self.map.move_along_surface(&player.data.pos, &target_pos) {
             player.preserve();
-            if confined_pos.x != new_pos.x || confined_pos.z != new_pos.z {
+            if confined_pos.x != target_pos.x || confined_pos.z != target_pos.z {
                 player.data.pos = confined_pos.mul(&Vector3::new(1.0, 0.0, 1.0));
                 if !forced {
                     player.data.rot = player.calc_rot_away_from_hit();
@@ -940,20 +985,19 @@ impl Game {
                 }
             }
             else {
-                player.data.pos = if !self.options.training {
+                player.data.pos.add_mut(&if !self.options.training {
                     if let Some(translation) = 
                         self.physics.move_character(
                             player.data.char_ref, &translation) {
-                        dbg!(translation);
-                        new_pos.add(&translation)
+                        translation
                     }
                     else {
-                        new_pos
+                        translation
                     }
                 }
                 else {
-                    new_pos
-                };
+                    translation
+                });
                 
                 if !forced {
                     player.data.rot = rot.clone();
@@ -991,6 +1035,7 @@ impl Game {
         _rng: &mut StdRng,
     ) {
         // 1st: update state
+        let mut killed_idxs = vec![];
         for player in self.entities.players.iter_mut()
             .filter(|p| p.is_visible()) {
             if let Some((from, to)) = player.update_state(self.state.step) {
@@ -1001,19 +1046,13 @@ impl Game {
                 }));
 
                 if to == EntityState::DEAD {
-                    self.state.active_players -= 1;
-                    if self.state.active_players == 0 {
-                        self.state.status = GameStatus::FINISHED;
-                        self.state.winner = None;
-                    }
-                    
-                    player.data.vis = EntityVisibility::HIDDEN;
-                    self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
-                        visible: false,
-                        model_ref: player.data.model_ref 
-                    }));
+                    killed_idxs.push(player.data.index);
                 }
             }
+        }
+
+        for num in killed_idxs {
+            self.kill_player(num);
         }
 
         // 2nd: move player
@@ -1183,6 +1222,7 @@ impl Game {
         rng: &mut StdRng,
     ) {
         // 1st: update the state
+        let mut killed_idxs = vec![];
         for npc in self.entities.npcs.iter_mut()
             .filter(|n| n.is_visible()) {
             if let Some((from, to)) = npc.update_state(self.state.step) {
@@ -1193,13 +1233,13 @@ impl Game {
                 }));
 
                 if to == EntityState::DEAD {
-                    npc.data.vis = EntityVisibility::HIDDEN;
-                    self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
-                        visible: false,
-                        model_ref: npc.data.model_ref 
-                    }));
+                    killed_idxs.push(npc.data.index);
                 }
             }
+        }
+
+        for num in killed_idxs {
+            self.kill_npc(num);
         }
         
         // 2nd: check environment

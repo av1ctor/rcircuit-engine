@@ -129,6 +129,7 @@ pub struct Player {
 
 impl Player {
     pub fn new(
+        index: usize,
         pos: Vector3,
         rot: Quaternion,
         dim: Vector3,
@@ -143,6 +144,7 @@ impl Player {
     ) -> Player {
         let data = EntityData::new(
             EntityType::PLAYER,
+            index,
             pos,
             rot,
             dim,

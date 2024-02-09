@@ -43,6 +43,7 @@ pub struct Npc {
 
 impl Npc {
     pub fn new(
+        index: usize,
         pos: Vector3,
         rot: Quaternion,
         dim: Vector3,
@@ -54,6 +55,7 @@ impl Npc {
     ) -> Self {
         let data = EntityData::new(
             EntityType::NPC,
+            index,
             pos,
             rot,
             dim,

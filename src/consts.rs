@@ -14,7 +14,7 @@ pub const PLAYER_MASS: f32 = 90.0;
 
 pub const NPC_WIDTH: f32 = 0.6;
 pub const NPC_HEIGHT: f32 = 1.8;
-pub const NPC_MASS: f32 = 1000.0;
+pub const NPC_MASS: f32 = 50.0;
 
 pub const EXIT_WIDTH: f32 = 1.0;
 pub const EXIT_HEIGHT: f32 = 10.0;

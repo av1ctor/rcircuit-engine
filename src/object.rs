@@ -48,6 +48,7 @@ pub struct Object {
 impl Object {
     pub fn new(
         typ: ObjectType,
+        index: usize,
         pos: Vector3,
         rot: Quaternion,
         dim: Vector3,
@@ -59,6 +60,7 @@ impl Object {
     ) -> Self {
         let data = EntityData::new(
             EntityType::OBJECT,
+            index,
             pos,
             rot,
             dim,

@@ -1,7 +1,6 @@
 use std::f32::consts::PI;
-
 use rapier3d::{
-    control::KinematicCharacterController, 
+    control::{CharacterLength, KinematicCharacterController}, 
     na::{Isometry, Translation3, UnitQuaternion}, 
     prelude::*
 };
@@ -73,7 +72,8 @@ impl PhysicsManager {
                 autostep: None,
                 snap_to_ground: None,
                 max_slope_climb_angle: 0.0,
-                min_slope_slide_angle: PI * 2.0,
+                min_slope_slide_angle: PI / 2.0,
+                offset: CharacterLength::Absolute(0.01),
                 ..KinematicCharacterController::default()
             },
             characters: vec![],
@@ -103,6 +103,7 @@ impl PhysicsManager {
 
     pub fn add_character(
         &mut self,
+        id: usize,
         pos: &Vector3,
         rot: &Quaternion,
         height: f32,
@@ -141,14 +142,10 @@ impl PhysicsManager {
                 Some(RigidBodyBuilder::kinematic_position_based()
                     .position(position)
                     .enabled(enabled)
+                    //.enabled_translations(false, true, false)
                     .build())
             },
-            Some(RigidBodyType::KinematicVelocityBased) => {
-                Some(RigidBodyBuilder::kinematic_velocity_based()
-                    .enabled(enabled)
-                    .build())
-            },
-            None =>
+            _ =>
                 None
         };
         
@@ -159,9 +156,9 @@ impl PhysicsManager {
             None
         };
 
-        let collider = ColliderBuilder::capsule_y(height / 2.0 - radius, radius)
-            .position(position)
+        let mut collider = ColliderBuilder::capsule_y(height / 2.0 - radius, radius)
             .enabled(enabled)
+            .user_data(id as _)
             .build();
 
         let collider_handle = if let Some(rigid_body_handle) = rigid_body_handle {
@@ -169,6 +166,7 @@ impl PhysicsManager {
                 collider, rigid_body_handle, &mut self.rigid_body_set)
         }
         else {
+            collider.set_position(position);
             self.collider_set.insert(collider)
         };
 
@@ -247,9 +245,11 @@ impl PhysicsManager {
         let filter = if let Some(rigid_body_handle) = char.rigid_body_handle {
             QueryFilter::new()
                 .exclude_rigid_body(rigid_body_handle)
+                .predicate(&|_, c| c.is_enabled())
         }
         else {
             QueryFilter::new()
+                .predicate(&|_, c| c.is_enabled())
         };
 
         let mut collisions = vec![];
@@ -285,21 +285,25 @@ impl PhysicsManager {
                     filter,
                 );
             }
+
+            //FIXME: update the game object position and rotation
         }
 
         if let Some(rb_handle) = collider.parent() {
             let rb = self.rigid_body_set.get_mut(rb_handle).unwrap();
             match rb.body_type() {
                 RigidBodyType::KinematicPositionBased => {
-                    rb.set_next_kinematic_translation(rb.translation() + mvt.translation)
+                    rb.set_next_kinematic_translation(rb.translation() + mvt.translation);
                 },
                 _ => {
                 },
             }
+        
         }
-
-        let collider = self.collider_set.get_mut(char.collider_handle).unwrap();
-        collider.set_translation(collider.translation() + mvt.translation);
+        else {
+            let collider = self.collider_set.get_mut(char.collider_handle).unwrap();
+            collider.set_translation(collider.translation() + mvt.translation);
+        }
 
         if collisions.len() == 0 {
             None
