@@ -158,6 +158,11 @@ impl PhysicsManager {
 
         let mut collider = ColliderBuilder::capsule_y(height / 2.0 - radius, radius)
             .enabled(enabled)
+            .active_collision_types(
+                ActiveCollisionTypes::default() | 
+                ActiveCollisionTypes::KINEMATIC_FIXED |
+                ActiveCollisionTypes::KINEMATIC_KINEMATIC
+            )
             .user_data(id as _)
             .build();
 
@@ -293,7 +298,7 @@ impl PhysicsManager {
             let rb = self.rigid_body_set.get_mut(rb_handle).unwrap();
             match rb.body_type() {
                 RigidBodyType::KinematicPositionBased => {
-                    rb.set_next_kinematic_translation(rb.translation() + mvt.translation);
+                    rb.set_translation(rb.translation() + mvt.translation, true);
                 },
                 _ => {
                 },

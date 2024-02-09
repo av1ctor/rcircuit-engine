@@ -8,14 +8,14 @@ pub const PENALTY_PUNCHED: f32 = PENALTY_BITTEN / 5.0;
 pub const REWARD_BRAIN_EATEN: f32 = 100.0;
 pub const REWARD_EXIT_REACHED: f32 = 1000.0;
 
-pub const PLAYER_WIDTH: f32 = 0.6;
+pub const PLAYER_WIDTH: f32 = 1.0;
 pub const PLAYER_HEIGHT: f32 = 1.8;
-pub const PLAYER_MASS: f32 = 90.0;
+pub const PLAYER_MASS: f32 = 50.0;
 
-pub const NPC_WIDTH: f32 = 0.6;
+pub const NPC_WIDTH: f32 = 0.3;
 pub const NPC_HEIGHT: f32 = 1.8;
-pub const NPC_MASS: f32 = 50.0;
+pub const NPC_MASS: f32 = 80.0;
 
-pub const EXIT_WIDTH: f32 = 1.0;
-pub const EXIT_HEIGHT: f32 = 10.0;
+pub const EXIT_WIDTH: f32 = 0.3;
+pub const EXIT_HEIGHT: f32 = 5.0;
 pub const EXIT_MASS: f32 = 1000.0;
