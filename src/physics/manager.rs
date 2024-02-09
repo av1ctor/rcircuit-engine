@@ -158,11 +158,6 @@ impl PhysicsManager {
 
         let mut collider = ColliderBuilder::capsule_y(height / 2.0 - radius, radius)
             .enabled(enabled)
-            .active_collision_types(
-                ActiveCollisionTypes::default() | 
-                ActiveCollisionTypes::KINEMATIC_FIXED |
-                ActiveCollisionTypes::KINEMATIC_KINEMATIC
-            )
             .user_data(id as _)
             .build();
 
@@ -277,21 +272,25 @@ impl PhysicsManager {
             |c| {collisions.push(c)}
         );
 
-        if collisions.len() > 0 && self.num_dyn_chars > 0 {
+        if collisions.len() > 0 {
             for collision in &collisions {
-                self.character_controller.solve_character_collision_impulses(
-                    self.integration_parameters.dt,
-                    &mut self.rigid_body_set,
-                    &self.collider_set,
-                    &self.query_pipeline,
-                    collider.shape(),
-                    char.mass,
-                    collision,
-                    filter,
-                );
+                if self.num_dyn_chars > 0 {
+                    self.character_controller.solve_character_collision_impulses(
+                        self.integration_parameters.dt,
+                        &mut self.rigid_body_set,
+                        &self.collider_set,
+                        &self.query_pipeline,
+                        collider.shape(),
+                        char.mass,
+                        collision,
+                        filter,
+                    );
+                }
             }
 
-            //FIXME: update the game object position and rotation
+            if self.num_dyn_chars > 0 {
+                //FIXME: update the dynamic game objects' position and rotation
+            }
         }
 
         if let Some(rb_handle) = collider.parent() {
@@ -303,7 +302,6 @@ impl PhysicsManager {
                 _ => {
                 },
             }
-        
         }
         else {
             let collider = self.collider_set.get_mut(char.collider_handle).unwrap();
