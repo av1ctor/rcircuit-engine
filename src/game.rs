@@ -4,12 +4,12 @@ use rand::{rngs::StdRng, Rng};
 use std::collections::{HashMap, HashSet};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
-use three_rs::math::Vector3;
 #[cfg(not(feature = "js"))]
 use three_rs::math::{
     path3::Path3,
     FORWARD, UP,
-    Quaternion
+    Quaternion,
+    Vector3
 };
 #[cfg(feature = "js")]
 use crate::js_renderer::JsRenderer;
@@ -21,7 +21,8 @@ use crate::{
     map::Map, 
     npc::Npc, 
     object::Object, 
-    player::{Player, PlayerAction, PlayerFOV, NUM_SENSOR_FEATURES}
+    player::{Player, PlayerAction, PlayerFOV, NUM_SENSOR_FEATURES},
+    collision_mng::CollisionAvoidanceManager
 };
 #[cfg(not(feature = "js"))]
 use crate::{
@@ -32,10 +33,7 @@ use crate::{
     spawn_loc_mng::SpawnLocManager, 
     sensor::Sensor,
     object::ObjectType,
-    collision_mng::CollisionAvoidanceManager,
 };
-#[cfg(feature = "js")]
-use crate::physics::null_manager::PhysicsManager;
 
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum GameStatus {

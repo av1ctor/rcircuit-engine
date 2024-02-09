@@ -1,10 +1,15 @@
+#[cfg(not(feature = "js"))]
 use serde::{Deserialize, Serialize};
+#[cfg(not(feature = "js"))]
 use dodgy::{Agent, AvoidanceOptions};
+#[cfg(not(feature = "js"))]
 use glam::Vec2;
+#[cfg(not(feature = "js"))]
 use three_rs::math::Vector3;
+#[cfg(not(feature = "js"))]
 use crate::{entity::Entity, game::GameEntities};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[cfg_attr(not(feature = "js"), derive(Clone, Serialize, Deserialize))]
 pub struct CollisionAvoidanceManager {
 }
 
@@ -15,6 +20,7 @@ impl CollisionAvoidanceManager {
         }
     }
 
+    #[cfg(not(feature = "js"))]
     pub fn move_player(
         &mut self,
         player_num: usize,
@@ -63,6 +69,7 @@ impl CollisionAvoidanceManager {
         }
     }
 
+    #[cfg(not(feature = "js"))]
     fn find_neigbours<'a>(
         &'a self, 
         agent_num: usize, 

@@ -11,7 +11,6 @@ pub mod game;
 pub mod sensor;
 pub mod event;
 pub mod asset;
-#[cfg(not(feature = "js"))]
 pub mod collision_mng;
 #[cfg(feature = "js")]
 pub mod game_wrapper;
