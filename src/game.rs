@@ -1,7 +1,7 @@
 #[cfg(not(feature = "js"))]
 use rand::{rngs::StdRng, Rng};
 #[cfg(not(feature = "js"))]
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}, f32::consts::PI};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
 #[cfg(not(feature = "js"))]
@@ -839,8 +839,6 @@ impl Game {
         &mut self,
         renderer: &mut dyn Renderer
     ) {
-        use std::f32::consts::PI;
-
         let mut readings = vec![(false, vec![]); self.entities.players.len()];
         let mut paths = vec![];
 
@@ -1258,7 +1256,7 @@ impl Game {
 
                                     // and move player away from NPC
                                     let inverse_rot = player.data.rot.mul(
-                                        &Quaternion::from_axis_and_angle(&UP, 180.0 * std::f32::consts::PI / 180.0)
+                                        &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
                                     );
                                     self.move_player(
                                         player_num, &inverse_rot, &Vector3::new(0.5, 0.0, 0.5), delta_time, true);
