@@ -13,8 +13,8 @@ pub const REWARD_EXIT_REACHED: f32 = 1000.0;
 pub const PLAYER_WIDTH: f32 = 1.0;
 pub const PLAYER_HEIGHT: f32 = 1.8;
 
-pub const NPC_WIDTH: f32 = 0.3;
+pub const NPC_WIDTH: f32 = 1.0;
 pub const NPC_HEIGHT: f32 = 1.8;
 
-pub const EXIT_WIDTH: f32 = 0.3;
-pub const EXIT_HEIGHT: f32 = 5.0;
+pub const EXIT_WIDTH: f32 = 1.0;
+pub const EXIT_HEIGHT: f32 = 3.0;

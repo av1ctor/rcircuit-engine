@@ -552,7 +552,7 @@ impl Game {
                 index,
                 loc.0, 
                 loc.1, 
-                Vector3::new(consts::NPC_WIDTH, consts::NPC_HEIGHT, 0.15),
+                Vector3::new(consts::NPC_WIDTH, consts::NPC_HEIGHT, 0.5),
                 EntityState::WAITING,
                 vis,
                 model_ref,
@@ -671,7 +671,7 @@ impl Game {
     ) {
         let exit = self.entities.objects.iter_mut().find(|o|
             o.typ == ObjectType::EXIT && 
-            !o.is_visible() && !o.is_dead()
+            !o.is_visible() && !o.is_dead_or_dying()
         );
 
         if let Some(obj) = exit {
@@ -695,7 +695,7 @@ impl Game {
         &mut self
     ) {
         if let Some(npc) = self.entities.npcs.iter_mut().find(|n|
-            !n.is_visible() && !n.is_dead()
+            !n.is_visible() && !n.is_dead_or_dying()
         ) {
             npc.data.vis = EntityVisibility::VISIBLE;
             
@@ -762,7 +762,7 @@ impl Game {
 
         for i in player_indexes {
             let player = &self.entities.players[i];
-            if player.is_visible() && !player.is_dead() {
+            if player.is_visible() && !player.is_dead_or_dying() {
                 let distance_sq = pos.sub(&player.data.pos).length_sq();
                 if distance_sq < min_distance_sq {
                     min_distance_sq = distance_sq;
@@ -798,7 +798,7 @@ impl Game {
         let mut res = None;
 
         for (i, npc) in self.entities.npcs.iter().enumerate().filter(|(_, n)| 
-            n.is_visible() && !n.is_dead()
+            n.is_visible() && !n.is_dead_or_dying()
         ) {
             let distance_sq = pos.sub(&npc.data.pos).length_sq();
             if distance_sq < min_distance_sq {
@@ -821,7 +821,7 @@ impl Game {
 
         for obj in self.entities.objects.iter().filter(|o| 
             o.typ == typ &&
-            o.is_visible() && !o.is_dead()
+            o.is_visible() && !o.is_dead_or_dying()
         ) {
             let distance = pos.sub(&obj.data.pos).length();
             if distance < min_distance {
@@ -1008,7 +1008,7 @@ impl Game {
         // 2nd: move player
         for (i, action) in actions.iter().enumerate() {
             let player = &mut self.entities.players[i];
-            if player.is_visible() && !player.is_dead() {
+            if player.is_visible() && !player.is_dead_or_dying() {
                 player.reward = 0.0;
 
                 if player.is_moving() {
@@ -1043,7 +1043,7 @@ impl Game {
         // 3rd: check environment
         for i in 0..self.entities.players.len() {
             let player = &self.entities.players[i];
-            if player.is_visible() && !player.is_dead() {
+            if player.is_visible() && !player.is_dead_or_dying() {
                 // all brains eaten? check if exit reached
                 if player.num_brains >= self.options.min_keys {
                     let door = self.entities.objects.iter().find(|o| o.typ == ObjectType::EXIT);
@@ -1195,7 +1195,7 @@ impl Game {
         // 2nd: check environment
         for i in 0..self.entities.npcs.len() {
             let npc = &self.entities.npcs[i];
-            if npc.is_visible() && !npc.is_dead() {
+            if npc.is_visible() && !npc.is_dead_or_dying() {
                 // any player close?
                 if let Some((player_num, player, distance_sq)) = 
                     self.find_closest_player(&npc.data.pos, Some(3.0), rng) {

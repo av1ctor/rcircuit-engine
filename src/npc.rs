@@ -65,7 +65,7 @@ impl Npc {
 
         Self { 
             data,
-            vel: Vector3::new(0.1, 0.1, 0.1),
+            vel: Vector3::zero(),
             health: 100.0, 
         }
     }

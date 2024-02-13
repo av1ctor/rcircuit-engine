@@ -42,9 +42,23 @@ impl CollisionAvoidanceManager {
             )
             .unzip::<usize, Agent, Vec<_>, Vec<_>>();
 
-        let agent_num = player_nums.iter().enumerate().find(|(_, num)| **num == player_num).unwrap().0;
+        let npcs = entities.npcs.iter()
+            .filter(|n| !n.is_dead() && n.is_visible())
+            .map(|n|
+                Agent {
+                    position: Vec2::new(n.data.pos.x, n.data.pos.z),
+                    velocity: Vec2::new(n.vel.x, n.vel.z),
+                    radius: n.data.dim.x / 2.0,
+                    avoidance_responsibility: 0.0,
+                    max_velocity: n.vel.length(),
+                }
+            )
+            .collect();
 
-        let neighbours = self.find_neigbours(agent_num, &agents);
+        let agent_num = player_nums.iter().enumerate()
+            .find(|(_, num)| **num == player_num).unwrap().0;
+
+        let neighbours = self.find_neigbours(agent_num, &agents, &npcs);
         if neighbours.len() == 0 {
             translation
         }
@@ -63,7 +77,11 @@ impl CollisionAvoidanceManager {
                 }
             );
             
-            Vector3::new(avoidance_velocity.x, 0.0, avoidance_velocity.y)
+            Vector3::new(
+                avoidance_velocity.x, 
+                translation.y, 
+                avoidance_velocity.y
+            )
         }
     }
 
@@ -71,20 +89,28 @@ impl CollisionAvoidanceManager {
     fn find_neigbours<'a>(
         &'a self, 
         agent_num: usize, 
-        agents: &'a Vec<Agent>
+        agents: &'a Vec<Agent>, 
+        npcs: &'a Vec<Agent>
     ) -> Vec<&Agent> {
         let mut neigbours = vec![];
 
         let agent = &agents[agent_num];
-        let radius_sq = agent.radius * 10.0 * 2.0;
+        let max_distance_sq = agent.radius * 10.0 * 2.0;
         
         for (i, ag) in agents.iter().enumerate() {
             if i != agent_num {
                 let distance_sq = ag.position.distance_squared(agent.position);
-                //dbg!(distance_sq);
-                if distance_sq < radius_sq {
+                if distance_sq < max_distance_sq {
                     neigbours.push(ag);
                 }
+            }
+        }
+
+        let max_distance_sq = agent.radius * 3.0 * 2.0;
+        for npc in npcs.iter() {
+            let distance_sq = npc.position.distance_squared(agent.position);
+            if distance_sq < max_distance_sq {
+                neigbours.push(npc);
             }
         }
         
