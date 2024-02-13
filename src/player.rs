@@ -9,6 +9,7 @@ use three_rs::math::{
 #[cfg(not(feature = "js"))]
 use three_rs::math::vector3::{FORWARD, UP};
 use crate::{
+    consts, 
     entity::{Entity, EntityData, EntityState, EntityType, EntityVisibility}, 
     env::EnvObs, 
     renderer::ModelRef, 
@@ -22,9 +23,10 @@ use crate::{
 
 pub const NUM_SENSOR_FEATURES: usize = 1;
 
-#[derive(EnumCount)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, EnumCount)]
 #[repr(C)]
 pub enum PlayerAction {
+    #[default]
     MoveForward,
     TurnRight,
     TurnLeft,
@@ -44,6 +46,21 @@ impl TryFrom<usize> for PlayerAction {
     }
 
     type Error = String;
+}
+
+impl From<&Option<usize>> for PlayerAction {
+    fn from(
+        value: &Option<usize>
+    ) -> Self {
+        unsafe { 
+            if let Some(action) = value {
+                std::mem::transmute(*action as u32) 
+            }
+            else {
+                PlayerAction::default()
+            }
+        }
+    }
 }
 
 const STATE_TRANSITIONS: &[Option<EntityState>] = &[
@@ -103,6 +120,7 @@ impl Default for PlayerSensor {
 
 #[derive(Clone, Debug, Default)]
 pub struct PlayerHistory {
+    pub action: PlayerAction,
     pub rot: Quaternion,
 }
 
@@ -114,6 +132,7 @@ pub struct Player {
     pub num_brains: usize,
     pub health: f32,
     pub reward: f32,
+    pub action: PlayerAction,
     #[serde(skip)]
     pub path_ref: ModelRef,
     #[serde(skip)]
@@ -154,11 +173,12 @@ impl Player {
 
         Self { 
             data,
-            turn_angle: 45.0 * (PI / 180.0),
+            turn_angle: consts::PLAYER_TURNING_ANGLE * PI / 180.0,
             vel: Vector3::new(0.1, 0.1, 0.1),
             num_brains: 0, 
             health: 100.0, 
             reward: 0.0,
+            action: PlayerAction::default(),
             path_ref,
             sensor_ref,
             readings_ref,
@@ -250,7 +270,8 @@ impl Player {
         &mut self
     ) {
         self.history.push_back(PlayerHistory { 
-            rot: self.data.rot.clone()
+            action: self.action.clone(),
+            rot: self.data.rot.clone(),
         });
     }
 

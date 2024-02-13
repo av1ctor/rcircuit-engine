@@ -927,6 +927,7 @@ impl Game {
     fn move_player(
         &mut self,
         num: usize,
+        action: &Option<usize>,
         rot: &Quaternion,
         vel: &Vector3,
         delta_time: f32,
@@ -947,6 +948,7 @@ impl Game {
                 player.preserve();
                 player.data.pos = constrained_pos.mul(&Vector3::new(1.0, 0.0, 1.0));
                 if !forced {
+                    player.action = action.into();
                     player.data.rot = player.calc_rot_away_from_hit();
                     player.reward += consts::PENALTY_WALL;
                 }
@@ -964,6 +966,7 @@ impl Game {
                 player.preserve();
                 player.data.pos.add_mut(&constrained_translation);
                 if !forced {
+                    player.action = action.into();
                     player.data.rot = rot.clone();
                 }
             }
@@ -1050,7 +1053,7 @@ impl Game {
                     };
 
                     let vel = player.vel.clone();
-                    self.move_player(i, &rot, &vel, delta_time, false);
+                    self.move_player(i, action, &rot, &vel, delta_time, false);
                 }
             }
         }
@@ -1259,7 +1262,13 @@ impl Game {
                                         &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
                                     );
                                     self.move_player(
-                                        player_num, &inverse_rot, &Vector3::new(0.5, 0.0, 0.5), delta_time, true);
+                                        player_num, 
+                                        &None, 
+                                        &inverse_rot, 
+                                        &Vector3::new(0.5, 0.0, 0.5), 
+                                        delta_time, 
+                                        true
+                                    );
                                 }
                             }
                         }
