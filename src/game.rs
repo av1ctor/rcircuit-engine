@@ -851,12 +851,17 @@ impl Game {
                 self.find_closest_object(&player.data.pos, ObjectType::EXIT).pos
             }
             else {
-                if let Some((npc_num, distance_sq)) = self.find_closest_npc(&player.data.pos, None) {
+                if let Some((npc_num, distance_sq)) = 
+                    self.find_closest_npc(&player.data.pos, None) {
                     let npc = &mut self.entities.npcs[npc_num];
                     
-                    let around_pos = if distance_sq > 1.5 * 2.0 {
-                        let rot = Quaternion::from_axis_and_angle(&UP, npc.targeted_cnt as f32 % 4.0 * 90.0 * PI / 180.0);
+                    let rot = Quaternion::from_axis_and_angle(
+                        &UP, npc.targeted_cnt as f32 % 4.0 * 90.0 * PI / 180.0);
+                    let around_pos = if distance_sq > 3.0 * 2.0 {
                         Vector3::new(0.0, 0.0, 2.0).apply_quaternion(&rot)
+                    }
+                    else if distance_sq > 2.0 * 2.0 {
+                        Vector3::new(0.0, 0.0, 1.0).apply_quaternion(&rot)
                     }
                     else {
                         Vector3::zero()
