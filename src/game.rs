@@ -749,7 +749,7 @@ impl Game {
     }
 
     #[cfg(not(feature = "js"))]
-    fn find_closest_player(
+    fn find_closest_player_shuffled(
         &self,
         pos: &Vector3,
         radius: Option<f32>,
@@ -793,7 +793,7 @@ impl Game {
         &self,
         pos: &Vector3,
         radius: Option<f32>
-    ) -> Option<(usize, EntityData, f32)> {
+    ) -> Option<(usize, f32)> {
         let mut min_distance_sq = if let Some(radius) = radius {radius * 2.0} else {f32::MAX};
         let mut res = None;
 
@@ -803,7 +803,7 @@ impl Game {
             let distance_sq = pos.sub(&npc.data.pos).length_sq();
             if distance_sq < min_distance_sq {
                 min_distance_sq = distance_sq;
-                res = Some((i, npc.data.clone(), distance_sq));
+                res = Some((i, distance_sq));
             }
         }
 
@@ -839,16 +839,33 @@ impl Game {
         &mut self,
         renderer: &mut dyn Renderer
     ) {
+        use std::f32::consts::PI;
+
         let mut readings = vec![(false, vec![]); self.entities.players.len()];
         let mut paths = vec![];
+
+        for npc in &mut self.entities.npcs {
+            npc.targeted_cnt = 0;
+        }
 
         for (i, player) in self.entities.players.iter().enumerate() {
             let target_pos = if player.num_brains == self.options.min_keys { 
                 self.find_closest_object(&player.data.pos, ObjectType::EXIT).pos
             }
             else {
-                if let Some((_, npc, _)) = self.find_closest_npc(&player.data.pos, None) {
-                    npc.pos
+                if let Some((npc_num, distance_sq)) = self.find_closest_npc(&player.data.pos, None) {
+                    let npc = &mut self.entities.npcs[npc_num];
+                    
+                    let around_pos = if distance_sq > 2.0 * 2.0 {
+                        let rot = Quaternion::from_axis_and_angle(&UP, npc.targeted_cnt as f32 % 4.0 * 90.0 * PI / 180.0);
+                        Vector3::new(0.0, 0.0, 2.0).apply_quaternion(&rot)
+                    }
+                    else {
+                        Vector3::zero()
+                    };
+                    
+                    npc.targeted_cnt += 1;
+                    npc.data.pos.add(&around_pos)
                 }
                 else {
                     Vector3::zero()
@@ -1079,7 +1096,7 @@ impl Game {
                 // check the map..
                 else {
                     // any npc close?
-                    if let Some((npc_num, _, _)) = 
+                    if let Some((npc_num, _)) = 
                         self.find_closest_npc(&player.data.pos, Some(1.0)) {
 
                         let player = &mut self.entities.players[i];
@@ -1130,7 +1147,7 @@ impl Game {
                                 }
                             }
                         }
-                        // otherwise, if moving, start biting (and don't let the player get too close to the this NPC)
+                        // otherwise, if moving, start biting (and, at same time, don't let the player get too close to the this NPC)
                         else if player.is_moving() {
                             if let Some(from) = player.set_state(EntityState::BITING, self.state.step) {
                                 self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
@@ -1198,7 +1215,7 @@ impl Game {
             if npc.is_visible() && !npc.is_dead_or_dying() {
                 // any player close?
                 if let Some((player_num, player, distance_sq)) = 
-                    self.find_closest_player(&npc.data.pos, Some(3.0), rng) {
+                    self.find_closest_player_shuffled(&npc.data.pos, Some(3.0), rng) {
                     // close enough to be punched?
                     if distance_sq <= 1.0 * 2.0 {
                         // is the NPC already punching and enough time elapsed?

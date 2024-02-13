@@ -38,6 +38,7 @@ pub struct Npc {
     pub data: EntityData,
     pub vel: Vector3,
     pub health: f32,
+    pub targeted_cnt: usize,
 }
 
 impl Npc {
@@ -67,6 +68,7 @@ impl Npc {
             data,
             vel: Vector3::zero(),
             health: 100.0, 
+            targeted_cnt: 0,
         }
     }
 
