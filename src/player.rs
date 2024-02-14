@@ -204,7 +204,10 @@ impl Player {
     pub fn mean_rot(
         &self
     ) -> Quaternion {
-        Quaternion::average(&self.history.iter().map(|h| h.rot).collect())
+        Quaternion::average(&self.history.iter()
+            .map(|h| h.rot)
+            .collect()
+        )
     }
 
     #[cfg(not(feature = "js"))]
