@@ -6,7 +6,7 @@ use strum_macros::{Display, EnumCount};
 use three_rs::math::{
     box3::Box3, vector3::Vector3, Quaternion
 };
-use crate::renderer::ModelRef;
+use neuralarena_cdk::models::renderer::ModelRef;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, EnumCount, Default)]
 #[cfg_attr(feature = "js", wasm_bindgen)]

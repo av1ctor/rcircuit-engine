@@ -4,9 +4,9 @@ use three_rs::math::{
     vector3::Vector3, 
     Quaternion
 };
-use crate::{
-    entity::{Entity, EntityData, EntityState, EntityType, EntityVisibility}, 
-    renderer::ModelRef
+use neuralarena_cdk::models::renderer::ModelRef;
+use crate::entity::{
+    Entity, EntityData, EntityState, EntityType, EntityVisibility
 };
 
 const STATE_TRANSITIONS: &[Option<EntityState>] = &[

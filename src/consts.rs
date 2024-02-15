@@ -1,3 +1,4 @@
+pub const MIN_PLAYERS: usize = 1;
 pub const MAX_PLAYERS: usize = 8;
 
 pub const PLAYER_SPAWN_LOCATION_NAME: &str = "psl.";

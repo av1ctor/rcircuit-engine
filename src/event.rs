@@ -1,8 +1,8 @@
 use serde::{Serialize, Deserialize};
 use three_rs::math::{Quaternion, Vector3};
-use crate::{
-    env::AssetRef, 
-    entity::{EntityType, EntityState}, 
+use crate::entity::{EntityType, EntityState};
+use neuralarena_cdk::models::{
+    assets::AssetRef, 
     renderer::ModelRef
 };
 

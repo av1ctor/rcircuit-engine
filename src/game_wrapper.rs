@@ -3,8 +3,10 @@ use crate::game::{
     Game, GameOptions, LevelOptions
 };
 use crate::player::PlayerFOV;
-use crate::env::Env;
-use crate::js_renderer::JsRenderer;
+use neuralarena_cdk::models::{
+    env::Env,
+    js_renderer::JsRenderer
+};
 use crate::map::Map;
 
 #[wasm_bindgen]

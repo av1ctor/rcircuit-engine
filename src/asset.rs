@@ -1,10 +1,11 @@
 #[cfg(feature = "js")]
 use wasm_bindgen::prelude::*;
-use crate::env::AssetType;
+use neuralarena_cdk::models::assets::AssetType;
 #[cfg(not(feature = "js"))]
-use crate::{
-    env::{Asset, AssetRef, AssetData, AssetValue},
-    consts
+use crate::consts;
+#[cfg(not(feature = "js"))]
+use neuralarena_cdk::models::assets::{
+    Asset, AssetRef, AssetData, AssetValue
 };
 #[cfg(not(feature = "js"))]
 use std::collections::HashMap;

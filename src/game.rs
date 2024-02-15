@@ -12,11 +12,11 @@ use three_rs::math::{
     Vector3
 };
 #[cfg(feature = "js")]
-use crate::js_renderer::JsRenderer;
+use neuralarena_cdk::models::js_renderer::JsRenderer;
 #[cfg(not(feature = "js"))]
-use crate::renderer::Renderer;
+use neuralarena_cdk::models::renderer::Renderer;
+use neuralarena_cdk::models::env::{Env, EnvObs};
 use crate::{
-    env::{Env, EnvObs}, 
     event::*, 
     map::Map, 
     npc::Npc, 
@@ -25,10 +25,14 @@ use crate::{
     collision_mng::CollisionAvoidanceManager
 };
 #[cfg(not(feature = "js"))]
+use neuralarena_cdk::models::{
+    assets::{Asset, AssetRef},
+    env::{EnvAction, EnvStep, EnvPlayer}
+};
+#[cfg(not(feature = "js"))]
 use crate::{
     consts,
-    asset::{GameAssetRef, get_game_assets}, 
-    env::{Asset, AssetRef, EnvAction, EnvStep, EnvPlayer},
+    asset::GameAssetRef, 
     entity::{Entity, EntityData, EntityState, EntityVisibility, EntityType}, 
     spawn_loc_mng::SpawnLocManager, 
     sensor::Sensor,
@@ -91,12 +95,12 @@ pub struct Game {
     pub collision: CollisionAvoidanceManager,
 }
 
-impl Env for Game {
+impl Env<EntityState> for Game {
     #[cfg(not(feature = "js"))]
     fn get_assets(
         &self
     ) -> HashMap::<AssetRef, Asset> {
-        get_game_assets()
+        super::asset::get_game_assets()
     }
     
     fn get_num_actions(
@@ -122,7 +126,7 @@ impl Env for Game {
     #[cfg(not(feature = "js"))]
     fn reset(
         &mut self,
-        renderer: &mut dyn Renderer,
+        renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng,
     ) -> Vec<EnvObs> {
         renderer.reset();
@@ -174,9 +178,9 @@ impl Env for Game {
     #[cfg(not(feature = "js"))]
     fn step(
         &mut self, 
-        actions: &Vec<Option<crate::env::EnvAction>>, 
+        actions: &Vec<Option<EnvAction>>, 
         delta_time: f32,
-        renderer: &mut dyn Renderer,
+        renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng,
     ) -> EnvStep {
 
@@ -258,7 +262,7 @@ impl Env for Game {
     #[cfg(all(not(feature = "js"), not(target_arch = "wasm32")))]
     fn render(
         &mut self,
-        renderer: &mut dyn Renderer,
+        renderer: &mut dyn Renderer<EntityState>,
         events_only: bool
     ) {
         for event in &self.events {
@@ -368,7 +372,7 @@ impl Env for Game {
     #[cfg(all(not(feature = "js"), target_arch = "wasm32"))]
     fn render(
         &mut self,
-        _renderer: &mut dyn Renderer,
+        _renderer: &mut dyn Renderer<EntityState>,
         _events_only: bool
     ) {
         self.events = vec![];
@@ -399,7 +403,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn spawn_entities(
         &mut self,
-        renderer: &mut dyn Renderer,
+        renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng
     ) -> GameEntities {
         // players
@@ -427,7 +431,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn spawn_players(
         &mut self,
-        renderer: &mut dyn Renderer,
+        renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng
     ) -> Vec<Player> {
         let mut spawn_mng = SpawnLocManager::new(
@@ -517,7 +521,7 @@ impl Game {
     #[cfg(not(feature = "js"))]
     fn spawn_npcs(
         &mut self,
-        renderer: &mut dyn Renderer,
+        renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng
     ) -> Vec<Npc> {
         let mut spawn_locs = SpawnLocManager::new(
@@ -592,7 +596,7 @@ impl Game {
         typ: ObjectType,
         name: &str,
         active: &dyn Fn(usize) -> bool,
-        renderer: &mut dyn Renderer,
+        renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng
     ) -> Vec<Object> {
         let mut spawn_mng = SpawnLocManager::new(
@@ -837,7 +841,7 @@ impl Game {
     #[cfg_attr(target_arch = "wasm32", allow(unused_variables))]
     fn build_players_sensors(
         &mut self,
-        renderer: &mut dyn Renderer
+        renderer: &mut dyn Renderer<EntityState>
     ) {
         let mut readings = vec![(false, vec![]); self.entities.players.len()];
         let mut paths = vec![];

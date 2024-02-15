@@ -8,11 +8,13 @@ use three_rs::math::{
 };
 #[cfg(not(feature = "js"))]
 use three_rs::math::vector3::{FORWARD, UP};
+use neuralarena_cdk::models::{
+    renderer::ModelRef,
+    env::EnvObs
+};
 use crate::{
     consts, 
     entity::{Entity, EntityData, EntityState, EntityType, EntityVisibility}, 
-    env::EnvObs, 
-    renderer::ModelRef, 
     sensor::{Sensor, SensorReading} 
 };
 #[cfg(not(feature = "js"))]

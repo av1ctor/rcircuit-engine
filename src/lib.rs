@@ -1,5 +1,3 @@
-pub mod env;
-pub mod renderer;
 pub mod consts;
 pub mod entity;
 pub mod player;
@@ -14,5 +12,3 @@ pub mod asset;
 pub mod collision_mng;
 #[cfg(feature = "js")]
 pub mod game_wrapper;
-#[cfg(feature = "js")]
-pub mod js_renderer;
