@@ -580,6 +580,7 @@ dependencies = [
  "serde",
  "serde_json",
  "three-rs",
+ "wasm-bindgen",
 ]
 
 [[package]]

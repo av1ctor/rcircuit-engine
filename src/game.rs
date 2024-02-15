@@ -22,6 +22,7 @@ use crate::{
     npc::Npc, 
     object::Object, 
     player::{Player, PlayerAction, PlayerFOV, NUM_SENSOR_FEATURES},
+    entity::EntityState, 
     collision_mng::CollisionAvoidanceManager
 };
 #[cfg(not(feature = "js"))]
@@ -33,7 +34,7 @@ use neuralarena_cdk::models::{
 use crate::{
     consts,
     asset::GameAssetRef, 
-    entity::{Entity, EntityData, EntityState, EntityVisibility, EntityType}, 
+    entity::{Entity, EntityData, EntityVisibility, EntityType}, 
     spawn_loc_mng::SpawnLocManager, 
     sensor::Sensor,
     object::ObjectType,

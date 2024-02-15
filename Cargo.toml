@@ -37,4 +37,4 @@ codegen-units = 1
 [features]
 default = ["navigation"]
 navigation = ["dep:gltf", "dep:navmesh-rs", "dep:glam", "dep:dodgy"]
-js = ["dep:wasm-bindgen", "dep:getrandom"]
+js = ["dep:wasm-bindgen", "dep:getrandom", "neuralarena-cdk/js"]
