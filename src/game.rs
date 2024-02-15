@@ -99,9 +99,10 @@ pub struct Game {
 impl Env<EntityState> for Game {
     #[cfg(not(feature = "js"))]
     fn get_assets(
-        &self
+        &self,
+        path: &String
     ) -> HashMap::<AssetRef, Asset> {
-        super::asset::get_game_assets()
+        super::asset::get_game_assets(path)
     }
     
     fn get_num_actions(

@@ -1,40 +1,11 @@
-#[cfg(feature = "js")]
-use wasm_bindgen::prelude::*;
-use neuralarena_cdk::models::assets::AssetType;
 #[cfg(not(feature = "js"))]
 use crate::consts;
 #[cfg(not(feature = "js"))]
 use neuralarena_cdk::models::assets::{
-    Asset, AssetRef, AssetData, AssetValue
+    Asset, AssetRef, AssetData, AssetValue, AssetType
 };
 #[cfg(not(feature = "js"))]
 use std::collections::HashMap;
-
-#[repr(usize)]
-#[cfg_attr(feature = "js", wasm_bindgen)]
-#[derive(PartialEq)]
-pub enum GameAssetType {
-    Level   = 0,
-    Player  = 1,
-    Npc     = 2,
-    Exit    = 3,
-}
-
-impl From<AssetType> for GameAssetType {
-    fn from(
-        value: AssetType
-    ) -> Self {
-        unsafe { std::mem::transmute(value) }
-    }
-}
-
-impl From<GameAssetType> for AssetType {
-    fn from(
-        value: GameAssetType
-    ) -> Self {
-        value as _
-    }
-}
 
 #[cfg(not(feature = "js"))]
 #[repr(C)]
@@ -57,38 +28,49 @@ pub(crate) enum GameAssetRef {
 
 #[cfg(not(feature = "js"))]
 pub fn get_game_assets(
+    path: &String
 ) -> HashMap<AssetRef, Asset> {
     let mut assets = HashMap::new();
-    
+
     assets.insert(
         GameAssetRef::Level as _, 
         Asset::new(
-            GameAssetType::Level as _, 
+            AssetType::Level as _, 
             AssetData::new(&[
-                ("path", &AssetValue::None)
+                ("path", &AssetValue::Text(path.replace("{}", "maps/level-0/map.gltf")))
             ])
         )
     );
+
+    let zombies = vec!["man", "girl", "woman", "boy"];
     
     for i in 0..consts::MAX_PLAYERS {
         assets.insert(
             (GameAssetRef::Player1 as usize) + i,
             Asset::new(
-                GameAssetType::Player as _, 
+                AssetType::Player as _, 
                 AssetData::new(&[
-                    ("num", &AssetValue::U32(i as _))
+                    ("num", &AssetValue::U32(i as _)),
+                    ("path", &AssetValue::Text(
+                        path.replace("{}", &format!("models/zombies/{}/default.gltf", zombies[i % 4]))
+                    ))
                 ])
             )
         );
     }
 
+    let npcs = vec!["man"];
+
     for i in 0..3 {
         assets.insert(
             (GameAssetRef::Npc1 as usize) + i,
             Asset::new(
-                GameAssetType::Npc as _, 
+                AssetType::Npc as _, 
                 AssetData::new(&[
-                    ("num", &AssetValue::U32(i as _))
+                    ("num", &AssetValue::U32(i as _)),
+                    ("path", &AssetValue::Text(
+                        path.replace("{}", &format!("models/npcs/{}/default.gltf", npcs[i % 1]))
+                    ))
                 ])
             )
         );
@@ -97,8 +79,9 @@ pub fn get_game_assets(
     assets.insert(
         GameAssetRef::Exit as _, 
         Asset::new(
-            GameAssetType::Exit as _, 
+            AssetType::Object as _, 
             AssetData::new(&[
+                ("num", &AssetValue::U32(GameAssetRef::Exit as _))
             ])
         )
     );
