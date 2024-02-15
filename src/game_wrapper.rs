@@ -16,65 +16,6 @@ extern "C" {
 }
 
 #[wasm_bindgen]
-pub struct PlayerFOVWrapper {
-    #[wasm_bindgen(skip)]
-    pub wrapped: PlayerFOV,
-}
-
-#[wasm_bindgen]
-impl PlayerFOVWrapper {
-    #[wasm_bindgen(constructor)]
-    pub fn new(
-        rays: usize,
-        angle: f32,
-        max_dist: f32
-    ) -> Self {
-        Self {
-            wrapped: PlayerFOV {
-                rays,
-                angle,
-                max_dist,
-            }
-        }
-    }
-}
-
-#[wasm_bindgen]
-pub struct GameOptionsWrapper {
-    #[wasm_bindgen(skip)]
-    pub wrapped: GameOptions,
-}
-
-#[wasm_bindgen]
-impl GameOptionsWrapper {
-    #[wasm_bindgen(constructor)]
-    pub fn new(
-        fov: PlayerFOVWrapper,
-        num_players: usize,
-        min_keys: usize,
-        player_radius: f32,
-        debug: bool,
-        training: bool,
-        max_steps: usize
-    ) -> Self {
-        Self {
-            wrapped: GameOptions {
-                level: LevelOptions {
-                    num: 0,
-                },
-                fov: fov.wrapped,
-                num_players,
-                min_keys,
-                player_radius,
-                debug,
-                training,
-                max_steps
-            }
-        }
-    }
-}
-
-#[wasm_bindgen]
 pub struct GameWrapper {
     #[wasm_bindgen(skip)]
     pub game: Game,
@@ -84,12 +25,26 @@ pub struct GameWrapper {
 impl GameWrapper {
     #[wasm_bindgen(constructor)]
     pub fn new(
-        options: GameOptionsWrapper
     ) -> Self {
         Self {
             game: Game::new(
                 Map::new(&[], &[]), 
-                options.wrapped
+                GameOptions {
+                    level: LevelOptions {
+                        num: 0,
+                    },
+                    fov: PlayerFOV { 
+                        rays: 0, 
+                        angle: 0.0, 
+                        max_dist: 0.0, 
+                    },
+                    num_players: 0,
+                    min_keys: 0,
+                    player_radius: 0.0,
+                    debug: false,
+                    training: false,
+                    max_steps: 0
+                }
             ),
         }
     }
