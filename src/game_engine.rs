@@ -16,13 +16,13 @@ extern "C" {
 }
 
 #[wasm_bindgen]
-pub struct GameWrapper {
+pub struct GameEngine {
     #[wasm_bindgen(skip)]
     pub game: Game,
 }
 
 #[wasm_bindgen]
-impl GameWrapper {
+impl GameEngine {
     #[wasm_bindgen(constructor)]
     pub fn new(
     ) -> Self {

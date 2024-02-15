@@ -1,13 +1,9 @@
-#[cfg(not(feature = "js"))]
 use crate::consts;
-#[cfg(not(feature = "js"))]
 use neuralarena_cdk::models::assets::{
     Asset, AssetRef, AssetData, AssetValue, AssetType
 };
-#[cfg(not(feature = "js"))]
 use std::collections::HashMap;
 
-#[cfg(not(feature = "js"))]
 #[repr(C)]
 #[allow(dead_code)]
 pub(crate) enum GameAssetRef {
@@ -26,7 +22,6 @@ pub(crate) enum GameAssetRef {
     Exit    = 99,
 }
 
-#[cfg(not(feature = "js"))]
 pub fn get_game_assets(
     path: &String
 ) -> HashMap<AssetRef, Asset> {

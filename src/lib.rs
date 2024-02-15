@@ -8,7 +8,8 @@ pub mod map;
 pub mod game;
 pub mod sensor;
 pub mod event;
-pub mod asset;
 pub mod collision_mng;
+#[cfg(not(feature = "js"))]
+pub mod asset;
 #[cfg(feature = "js")]
-pub mod game_wrapper;
+pub mod game_engine;

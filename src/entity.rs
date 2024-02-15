@@ -1,5 +1,3 @@
-#[cfg(feature = "js")]
-use wasm_bindgen::prelude::*;
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
 use strum_macros::{Display, EnumCount};
@@ -9,7 +7,6 @@ use three_rs::math::{
 use neuralarena_cdk::models::renderer::ModelRef;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, EnumCount, Default)]
-#[cfg_attr(feature = "js", wasm_bindgen)]
 #[repr(C)]
 pub enum EntityType {
     #[default]
@@ -20,29 +17,36 @@ pub enum EntityType {
 }
 
 #[derive(Clone, Copy, Debug, Display, PartialEq, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "js", wasm_bindgen)]
 #[repr(C)]
 pub enum EntityState {
     #[default]
     WAITING     = 0,
     IDLE        = 1,
     WALKING     = 2,
-    RUNNING     = 3,
-    JUMPING     = 4,
-    BITING      = 5,
-    CELEBRATING = 6,
-    DANCING     = 7,
-    CROUCHING   = 8,
-    SITTING     = 9,
-    SHOOTING    = 10,
-    PUNCHING    = 11,
-    KICKING     = 12,
-    CLIMBING    = 13,
-    HIT         = 14,
-    EXPLODING   = 15,
-    AGONIZING   = 16,
-    DYING       = 17,
-    DEAD        = 18,
+    BITING      = 3,
+    CELEBRATING = 4,
+    PUNCHING    = 5,
+    HIT         = 6,
+    DYING       = 7,
+    DEAD        = 8,
+}
+
+impl Into<&str> for EntityState {
+    fn into(
+        self
+    ) -> &'static str {
+        match self {
+            EntityState::WAITING => "Waiting",
+            EntityState::IDLE => "Idle",
+            EntityState::WALKING => "Walking",
+            EntityState::BITING => "Biting",
+            EntityState::CELEBRATING => "Celebrating",
+            EntityState::PUNCHING => "Punching",
+            EntityState::HIT => "Hit",
+            EntityState::DYING => "Dying",
+            EntityState::DEAD => "Dead",
+        }
+    }
 }
 
 const STATE_DURATIONS: &[usize] = &[
@@ -68,7 +72,6 @@ const STATE_DURATIONS: &[usize] = &[
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "js", wasm_bindgen)]
 #[repr(C)]
 pub enum EntityVisibility {
     #[default]
@@ -208,8 +211,7 @@ pub trait Entity {
     fn is_moving(
         &self 
     ) -> bool {
-        self.get_data().state == EntityState::WALKING || 
-        self.get_data().state == EntityState::RUNNING
+        self.get_data().state == EntityState::WALKING
     }
 
     #[inline(always)]

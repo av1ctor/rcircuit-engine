@@ -348,7 +348,7 @@ impl Env<EntityState> for Game {
 
                 GameEvent::EntityStateChanged(e) => {
                     renderer.change_model_state(
-                        e.model_ref, e.from as u32, e.to as u32);
+                        e.model_ref, e.from.to_string(), e.to.to_string());
                 },
 
                 GameEvent::EntityRemoved(e) => {
