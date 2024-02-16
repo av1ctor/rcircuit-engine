@@ -2,8 +2,8 @@
     "name": "brains-engine",
     "private": true,
     "scripts": {
-      "wasm": "wasm-pack build --target web --release --features js --no-default-features"
+      "build-wasm": "wasm-pack build --target web --release --out-name game-engine --features js --no-default-features"
     },
-    "module": "pkg/brains-engine.js",
-    "types": "pkg/brains-engine.d.ts"
+    "module": "pkg/game-engine.js",
+    "types": "pkg/game-engine.d.ts"
 }
