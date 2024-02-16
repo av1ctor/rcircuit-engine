@@ -52,13 +52,9 @@ impl GameEngine {
     #[wasm_bindgen]
     pub fn render(
         &mut self,
-        entities: Vec<u8>,
         events: Vec<u8>,
         renderer: JsRenderer
     ) -> Result<(), String> {
-        if entities.len() > 0 {
-            self.game.deserialize_entities(&entities)?;
-        }
         if events.len() > 0 {
             self.game.deserialize_events(&events)?;
         }

@@ -229,22 +229,6 @@ impl Env<EntityState> for Game {
         }
     }
 
-    fn serialize_entities(
-        &self
-    ) -> Result<Vec<u8>, String> {
-        rmp_serde::to_vec(&self.entities)
-            .map_err(|err| err.to_string())
-    }
-
-    fn deserialize_entities(
-        &mut self,
-        buf: &Vec<u8>
-    ) -> Result<(), String> {
-        self.entities = rmp_serde::from_slice(buf)
-            .map_err(|err| err.to_string())?;
-        Ok(())
-    }
-
     fn serialize_events(
         &self
     ) -> Result<Vec<u8>, String> {
