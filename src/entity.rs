@@ -1,5 +1,6 @@
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
+use strum::EnumCount;
 use strum_macros::{Display, EnumCount};
 use three_rs::math::{
     box3::Box3, vector3::Vector3, Quaternion
@@ -16,7 +17,7 @@ pub enum EntityType {
     OBJECT  = 3,
 }
 
-#[derive(Clone, Copy, Debug, Display, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, Display, PartialEq, Serialize, Deserialize, EnumCount, Default)]
 #[repr(C)]
 pub enum EntityState {
     #[default]
@@ -35,20 +36,10 @@ const STATE_DURATIONS: &[usize] = &[
     /* WAITING: */      60 * 3,
     /* IDLE: */         60,
     /* WALKING: */      usize::MAX,
-    /* RUNNING: */      usize::MAX,
-    /* JUMPING: */      15,
     /* BITING: */       60,
     /* CELEBRATING: */  60 * 3,
-    /* DANCING: */      60 * 5,
-    /* CROUCHING: */    usize::MAX,
-    /* SITTING: */      usize::MAX,
-    /* SHOOTING: */     15, 
     /* PUNCHING: */     60,
-    /* KICKING: */      60,
-    /* CLIMBING: */     usize::MAX,
     /* HIT: */          30,
-    /* EXPLODING: */    60 * 3,
-    /* AGONIZING: */    60 * 3,
     /* DYING: */        60 * 5,
     /* DEAD: */         usize::MAX,
 ];
@@ -136,6 +127,8 @@ pub trait Entity {
         transitions: &[Option<EntityState>],
         step: usize
     ) -> Option<(EntityState, EntityState)> {
+        assert!(STATE_DURATIONS.len() == EntityState::COUNT);
+        
         let data = self.get_data();
         let elapsed = step - data.state_changed_at;
         let duration = STATE_DURATIONS[data.state as usize];

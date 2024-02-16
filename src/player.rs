@@ -2,6 +2,7 @@ use std::f32::consts::PI;
 use circular_buffer::CircularBuffer;
 use rand::rngs::StdRng;
 use serde::{Serialize, Deserialize};
+use strum::EnumCount;
 use strum_macros::EnumCount;
 use three_rs::math::{
     Vector3, Quaternion
@@ -69,20 +70,10 @@ const STATE_TRANSITIONS: &[Option<EntityState>] = &[
     /* WAITING: */      Some(EntityState::WALKING),
     /* IDLE: */         Some(EntityState::WALKING),
     /* WALKING: */      None,
-    /* RUNNING: */      None,
-    /* JUMPING: */      None,
     /* BITING: */       Some(EntityState::IDLE),
     /* CELEBRATING: */  None,
-    /* DANCING: */      None,
-    /* CROUCHING: */    None,
-    /* SITTING: */      None,
-    /* SHOOTING: */     None,
     /* PUNCHING: */     None,
-    /* KICKING: */      None,
-    /* CLIMBING: */     None,
     /* HIT: */          Some(EntityState::IDLE),        
-    /* EXPLODING: */    None,
-    /* AGONIZING: */    None,
     /* DYING: */        Some(EntityState::DEAD),        
     /* DEAD: */         None,                           
 ];
@@ -193,6 +184,8 @@ impl Player {
         &mut self,
         step: usize
     ) -> Option<(EntityState, EntityState)> {
+        assert!(STATE_TRANSITIONS.len() == EntityState::COUNT);
+        
         self.update_state_ex(STATE_TRANSITIONS, step)
     }
 

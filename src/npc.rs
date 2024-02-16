@@ -1,5 +1,6 @@
 use rand::rngs::StdRng;
 use serde::{Serialize, Deserialize};
+use strum::EnumCount;
 use three_rs::math::{
     vector3::Vector3, 
     Quaternion
@@ -13,25 +14,13 @@ const STATE_TRANSITIONS: &[Option<EntityState>] = &[
     /* WAITING: */      Some(EntityState::IDLE),
     /* IDLE: */         None,
     /* WALKING: */      None,
-    /* RUNNING: */      None,
-    /* JUMPING: */      None,
     /* BITING: */       None,
     /* CELEBRATING: */  None,
-    /* DANCING: */      None,
-    /* CROUCHING: */    None,
-    /* SITTING: */      None,
-    /* SHOOTING: */     None,
     /* PUNCHING: */     Some(EntityState::IDLE),
-    /* KICKING: */      None,
-    /* CLIMBING: */     None,
     /* HIT: */          Some(EntityState::IDLE),
-    /* EXPLODING: */    None,
-    /* AGONIZING: */    None,
     /* DYING: */        Some(EntityState::DEAD),
     /* DEAD: */         None,                           
 ];
-
-
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Npc {
@@ -76,6 +65,8 @@ impl Npc {
         &mut self,
         step: usize
     ) -> Option<(EntityState, EntityState)> {
+        assert!(STATE_TRANSITIONS.len() == EntityState::COUNT);
+
         self.update_state_ex(STATE_TRANSITIONS, step)
     }
 }
