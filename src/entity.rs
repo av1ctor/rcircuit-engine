@@ -31,24 +31,6 @@ pub enum EntityState {
     DEAD        = 8,
 }
 
-impl Into<&str> for EntityState {
-    fn into(
-        self
-    ) -> &'static str {
-        match self {
-            EntityState::WAITING => "Waiting",
-            EntityState::IDLE => "Idle",
-            EntityState::WALKING => "Walking",
-            EntityState::BITING => "Biting",
-            EntityState::CELEBRATING => "Celebrating",
-            EntityState::PUNCHING => "Punching",
-            EntityState::HIT => "Hit",
-            EntityState::DYING => "Dying",
-            EntityState::DEAD => "Dead",
-        }
-    }
-}
-
 const STATE_DURATIONS: &[usize] = &[
     /* WAITING: */      60 * 3,
     /* IDLE: */         60,
