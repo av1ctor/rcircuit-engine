@@ -28,7 +28,8 @@ use crate::{
 #[cfg(not(feature = "js"))]
 use neuralarena_cdk::models::{
     assets::{Asset, AssetRef},
-    env::{EnvAction, EnvStep, EnvPlayer}
+    env::{EnvAction, EnvStep, EnvPlayer},
+    instance::InstancePlayer
 };
 #[cfg(not(feature = "js"))]
 use crate::{
@@ -100,9 +101,10 @@ impl Env<EntityState> for Game {
     #[cfg(not(feature = "js"))]
     fn get_assets(
         &self,
-        path: &String
+        path: &String,
+        players: &Vec<InstancePlayer>
     ) -> HashMap::<AssetRef, Asset> {
-        super::asset::get_game_assets(path)
+        super::asset::get_game_assets(path, players)
     }
     
     fn get_num_actions(

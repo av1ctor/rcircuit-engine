@@ -1,6 +1,8 @@
-use crate::consts;
-use neuralarena_cdk::models::assets::{
-    Asset, AssetRef, AssetData, AssetValue, AssetType
+use neuralarena_cdk::models::{
+    assets::{
+        Asset, AssetData, AssetRef, AssetType, AssetValue
+    }, 
+    instance::InstancePlayer
 };
 use std::collections::HashMap;
 
@@ -23,7 +25,8 @@ pub(crate) enum GameAssetRef {
 }
 
 pub fn get_game_assets(
-    path: &String
+    path: &String,
+    players: &Vec<InstancePlayer>
 ) -> HashMap<AssetRef, Asset> {
     let mut assets = HashMap::new();
 
@@ -37,18 +40,15 @@ pub fn get_game_assets(
         )
     );
 
-    let zombies = vec!["man", "girl", "woman", "boy"];
-    
-    for i in 0..consts::MAX_PLAYERS {
+    for i in 0..players.len() {
+        let player = &players[i];
         assets.insert(
             (GameAssetRef::Player1 as usize) + i,
             Asset::new(
                 AssetType::Player as _, 
                 AssetData::new(&[
                     ("num", &AssetValue::U32(i as _)),
-                    ("path", &AssetValue::Text(
-                        path.replace("{}", &format!("models/zombies/{}/default.gltf", zombies[i % 4]))
-                    ))
+                    ("path", &AssetValue::Text(player.nft.model_url.clone()))
                 ])
             )
         );
