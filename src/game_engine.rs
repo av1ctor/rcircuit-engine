@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
+use crate::consts;
 use crate::game::{
-    Game, GameOptions, LevelOptions
+    Game, GameOptions, MapInfo
 };
 use crate::player::PlayerFOV;
 use neuralarena_cdk::models::{
@@ -29,10 +30,11 @@ impl GameEngine {
         Self {
             game: Game::new(
                 Map::new(&[], &[]), 
+                MapInfo {
+                    map_id: consts::MAP_ID_CONTAINERS,
+                    ..Default::default()
+                },
                 GameOptions {
-                    level: LevelOptions {
-                        num: 0,
-                    },
                     fov: PlayerFOV { 
                         rays: 0, 
                         angle: 0.0, 

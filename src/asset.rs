@@ -1,13 +1,15 @@
-use neuralarena_cdk::models::assets::{
-    Asset, AssetData, 
-    AssetRef, AssetType, AssetValue
+use neuralarena_cdk::models::{
+    assets::{
+        Asset, AssetData, 
+        AssetRef, AssetType, AssetValue
+    },
+    game::GameMapId
 };
 use std::collections::HashMap;
 
 #[repr(C)]
 #[allow(dead_code)]
 pub(crate) enum GameAssetRef {
-    Level   = 0,
     Player1 = 1,
     Player2 = 2,
     Player3 = 3,
@@ -16,6 +18,16 @@ pub(crate) enum GameAssetRef {
     Player6 = 6,
     Player7 = 7,
     Player8 = 8,
+    Map0    = 20,
+    Map1    = 21,
+    Map2    = 22,
+    Map3    = 23,
+    Map4    = 24,
+    Map5    = 25,
+    Map6    = 26,
+    Map7    = 27,
+    Map8    = 28,
+    Map9    = 29,
     Npc1    = 50,
     Npc2    = 51,
     Npc3    = 52,
@@ -24,16 +36,22 @@ pub(crate) enum GameAssetRef {
 
 pub fn get_game_assets(
     path: &String,
+    map_id: GameMapId,
     players_paths: &Vec<String>
 ) -> HashMap<AssetRef, Asset> {
     let mut assets = HashMap::new();
 
     assets.insert(
-        GameAssetRef::Level as _, 
+        (GameAssetRef::Map0 as usize) + map_id as usize, 
         Asset::new(
-            AssetType::Level as _, 
+            AssetType::Map, 
             AssetData::new(&[
-                ("path", &AssetValue::Text(path.replace("{}", "maps/level-0/map.gltf")))
+                (
+                    "path", 
+                    &AssetValue::Text(
+                        path.replace("{}", &format!("maps/{}/map.gltf", map_id as usize))
+                    )
+                )
             ])
         )
     );

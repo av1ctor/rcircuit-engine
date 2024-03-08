@@ -15,7 +15,10 @@ use three_rs::math::{
 use neuralarena_cdk::models::js_renderer::JsRenderer;
 #[cfg(not(feature = "js"))]
 use neuralarena_cdk::models::renderer::Renderer;
-use neuralarena_cdk::models::env::{Env, EnvObs};
+use neuralarena_cdk::models::{
+    env::{Env, EnvObs},
+    game::GameMapId
+};
 use crate::{
     event::*, 
     map::Map, 
@@ -58,17 +61,12 @@ pub struct GameState {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MapInfo {
+    pub map_id: GameMapId,
     pub num_keys: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct LevelOptions {
-    pub num: usize,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GameOptions {
-    pub level: LevelOptions,
     pub fov: PlayerFOV,
     pub num_players: usize,
     pub min_keys: usize,
@@ -96,14 +94,30 @@ pub struct Game {
     pub collision: CollisionAvoidanceManager,
 }
 
+#[cfg(not(feature = "js"))]
+pub struct GameMap {
+    pub map: &'static [u8],
+    pub navmesh: &'static [u8],
+}
+
+#[cfg(not(feature = "js"))]
+pub const MAPS: &[GameMap] = &[
+    GameMap {
+        map: include_bytes!("../maps/containers/map-no-tex.glb"),
+        navmesh: include_bytes!("../maps/containers/navmesh.bin"),
+    }
+];
+
+
 impl Env<EntityState> for Game {
     #[cfg(not(feature = "js"))]
     fn get_assets(
         &self,
         path: &String,
+        map_id: GameMapId,
         players_paths: &Vec<String>
     ) -> HashMap::<AssetRef, Asset> {
-        super::asset::get_game_assets(path, players_paths)
+        super::asset::get_game_assets(path, map_id, players_paths)
     }
     
     fn get_num_actions(
@@ -136,19 +150,20 @@ impl Env<EntityState> for Game {
         self.events = vec![];
 
         // map
-        let level_ref = renderer.add_model(GameAssetRef::Level as usize)
-            .expect("Could not load level-0");
+        let level_ref = renderer.add_model(self.map_info.map_id.into())
+            .expect(&format!("Could not load map {}", self.map_info.map_id));
         
         self.events.push(GameEvent::EntityCreated(EntityCreatedEvent {
             model_ref: level_ref,
             typ: EntityType::UNKNOWN,
-            asset_ref: GameAssetRef::Level as _,
+            asset_ref: (GameAssetRef::Map0 as usize) + self.map_info.map_id,
         }));
 
         // entities
         self.entities = self.spawn_entities(renderer, rng);
         
         self.map_info = MapInfo { 
+            map_id: self.map_info.map_id,
             num_keys: self.options.num_players * self.options.min_keys
         };
 
@@ -372,13 +387,14 @@ impl Env<EntityState> for Game {
 impl Game {
     pub fn new(
         map: Map, 
+        map_info: MapInfo,
         options: GameOptions
     ) -> Self {
         Self { 
             map,
             entities: GameEntities::default(),
             events: vec![],
-            map_info: MapInfo::default(),
+            map_info,
             state: GameState { 
                 status: GameStatus::IDLE, 
                 winner: None, 

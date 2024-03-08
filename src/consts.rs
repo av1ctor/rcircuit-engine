@@ -1,3 +1,5 @@
+use neuralarena_cdk::models::game::GameMapId;
+
 pub const MIN_PLAYERS: usize = 1;
 pub const MAX_PLAYERS: usize = 8;
 
@@ -20,3 +22,7 @@ pub const NPC_HEIGHT: f32 = 1.8;
 
 pub const EXIT_WIDTH: f32 = 1.0;
 pub const EXIT_HEIGHT: f32 = 3.0;
+
+// maps
+pub const MAP_ID_CONTAINERS: GameMapId = 0;
+pub const NUM_MAPS: usize = 1;
