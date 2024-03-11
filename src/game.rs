@@ -103,8 +103,8 @@ pub struct GameMap {
 #[cfg(not(feature = "js"))]
 pub const MAPS: &[GameMap] = &[
     GameMap {
-        map: include_bytes!("../maps/containers/map-no-tex.glb"),
-        navmesh: include_bytes!("../maps/containers/navmesh.bin"),
+        map: include_bytes!("../maps/0/map.glb"),
+        navmesh: include_bytes!("../maps/0/navmesh.bin"),
     }
 ];
 
