@@ -36,10 +36,10 @@ const STATE_DURATIONS: &[usize] = &[
     /* WAITING: */      60 * 3,
     /* IDLE: */         60,
     /* WALKING: */      usize::MAX,
-    /* BITING: */       60,
+    /* BITING: */       60 * 4,
     /* CELEBRATING: */  60 * 3,
-    /* PUNCHING: */     60,
-    /* HIT: */          30,
+    /* PUNCHING: */     90,
+    /* HIT: */          60,
     /* DYING: */        60 * 5,
     /* DEAD: */         usize::MAX,
 ];
