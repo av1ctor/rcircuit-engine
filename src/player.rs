@@ -70,7 +70,7 @@ const STATE_TRANSITIONS: &[Option<EntityState>] = &[
     /* WAITING: */      Some(EntityState::WALKING),
     /* IDLE: */         Some(EntityState::WALKING),
     /* WALKING: */      None,
-    /* BITING: */       Some(EntityState::IDLE),
+    /* ATTACKING: */    Some(EntityState::IDLE),
     /* CELEBRATING: */  None,
     /* PUNCHING: */     None,
     /* HIT: */          Some(EntityState::IDLE),        
@@ -192,7 +192,7 @@ impl Player {
     pub fn is_biting(
         &self 
     ) -> bool {
-        self.data.state == EntityState::BITING
+        self.data.state == EntityState::ATTACKING
     }
     
     #[cfg(not(feature = "js"))]

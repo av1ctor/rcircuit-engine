@@ -1116,20 +1116,18 @@ impl Game {
                         self.find_closest_npc(&player.data.pos, Some(1.0)) {
 
                         let player = &mut self.entities.players[i];
-                        // biting and enough time elapsed?
-                        if player.is_biting() &&
-                            player.state_elapsed(self.state.step) >= 0.75 {
+                        //if moving, start biting (and, at same time, don't let the player get too close to the this NPC)
+                        if player.is_moving() {
                             player.reward += consts::REWARD_BRAIN_EATEN;
-
-                            // stop biting
-                            if let Some(from) = player.set_state(EntityState::IDLE, self.state.step) {
+    
+                            if let Some(from) = player.set_state(EntityState::ATTACKING, self.state.step) {
                                 self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
                                     model_ref: player.data.model_ref,
                                     from,
                                     to: player.data.state
                                 }));
                             }
-                        
+
                             let npc = &mut self.entities.npcs[npc_num];
                             npc.health += consts::PENALTY_BITTEN;
                             // NPC has no health left? kill it and show another one
@@ -1149,10 +1147,9 @@ impl Game {
                                 
                                 self.show_next_npc();
                             }
-                            // otherwise, just change its state to hurting
                             else {
                                 if npc.data.state != EntityState::HIT && 
-                                    npc.state_elapsed(self.state.step) >= 0.5 {
+                                    (npc.data.state == EntityState::IDLE || npc.state_elapsed(self.state.step) >= 0.75) {
                                     if let Some(from) = npc.set_state(EntityState::HIT, self.state.step) {
                                         self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
                                             model_ref: npc.data.model_ref,
@@ -1161,16 +1158,6 @@ impl Game {
                                         }));
                                     }
                                 }
-                            }
-                        }
-                        // otherwise, if moving, start biting (and, at same time, don't let the player get too close to the this NPC)
-                        else if player.is_moving() {
-                            if let Some(from) = player.set_state(EntityState::BITING, self.state.step) {
-                                self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
-                                    model_ref: player.data.model_ref,
-                                    from,
-                                    to: player.data.state
-                                }));
                             }
                         }
 
@@ -1234,13 +1221,11 @@ impl Game {
                     self.find_closest_player_shuffled(&npc.data.pos, Some(3.0), rng) {
                     // close enough to be punched?
                     if distance_sq <= 1.0 * 2.0 {
-                        // is the NPC already punching and enough time elapsed?
-                        if npc.data.state == EntityState::PUNCHING &&
+                        // if npc is not punching, begin doing that if enough time elapsed since the last state started
+                        if npc.data.state != EntityState::PUNCHING && 
                             npc.state_elapsed(self.state.step) >= 0.75 {
-                            
-                            // stop punching
                             let npc = &mut self.entities.npcs[i];
-                            if let Some(from) = npc.set_state(EntityState::IDLE, self.state.step) {
+                            if let Some(from) = npc.set_state(EntityState::PUNCHING, self.state.step) {
                                 self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
                                     model_ref: npc.data.model_ref,
                                     from,
@@ -1262,41 +1247,31 @@ impl Game {
                                         }));
                                     }
                                 }
-                                // otherwise, just change its state to hurting
                                 else {
-                                    if let Some(from) = player.set_state(EntityState::HIT, self.state.step) {
-                                        self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
-                                            model_ref: player.data.model_ref,
-                                            from,
-                                            to: player.data.state
-                                        }));
+                                    if player.data.state != EntityState::HIT && 
+                                        (player.data.state == EntityState::IDLE || player.state_elapsed(self.state.step) >= 0.75) {
+                                        if let Some(from) = player.set_state(EntityState::HIT, self.state.step) {
+                                            self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                                model_ref: player.data.model_ref,
+                                                from,
+                                                to: player.data.state
+                                            }));
+                                        }
                                     }
-
-                                    // and move player away from NPC
-                                    let inverse_rot = player.data.rot.mul(
-                                        &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
-                                    );
-                                    self.move_player(
-                                        player_num, 
-                                        &None, 
-                                        &inverse_rot, 
-                                        &Vector3::new(0.5, 0.0, 0.5), 
-                                        delta_time, 
-                                        true
-                                    );
                                 }
-                            }
-                        }
-                        // otherwise, start punching if enough time elapsed
-                        else if npc.data.state != EntityState::PUNCHING && 
-                            npc.state_elapsed(self.state.step) >= 0.5 {
-                            let npc = &mut self.entities.npcs[i];
-                            if let Some(from) = npc.set_state(EntityState::PUNCHING, self.state.step) {
-                                self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
-                                    model_ref: npc.data.model_ref,
-                                    from,
-                                    to: npc.data.state
-                                }));
+
+                                // and move player away from NPC
+                                let inverse_rot = player.data.rot.mul(
+                                    &Quaternion::from_axis_and_angle(&UP, 180.0 * PI / 180.0)
+                                );
+                                self.move_player(
+                                    player_num, 
+                                    &None, 
+                                    &inverse_rot, 
+                                    &Vector3::new(1.0, 0.0, 1.0),
+                                    delta_time, 
+                                    true
+                                );
                             }
                         }
                     }

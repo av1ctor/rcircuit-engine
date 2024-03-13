@@ -14,7 +14,7 @@ const STATE_TRANSITIONS: &[Option<EntityState>] = &[
     /* WAITING: */      Some(EntityState::IDLE),
     /* IDLE: */         None,
     /* WALKING: */      None,
-    /* BITING: */       None,
+    /* ATTACKING: */    None,
     /* CELEBRATING: */  None,
     /* PUNCHING: */     Some(EntityState::IDLE),
     /* HIT: */          Some(EntityState::IDLE),
