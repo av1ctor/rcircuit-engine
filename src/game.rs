@@ -454,13 +454,13 @@ impl Game {
 
         for i in 0..self.options.num_players {
             let model_ref = renderer.add_model(
-                (GameAssetRef::Player1 as usize) + i
+                (GameAssetRef::Player0 as usize) + i
             ).unwrap();
             
             self.events.push(GameEvent::EntityCreated(EntityCreatedEvent {
                 model_ref,
                 typ: EntityType::PLAYER,
-                asset_ref: (GameAssetRef::Player1 as usize) + i,
+                asset_ref: (GameAssetRef::Player0 as usize) + i,
             }));
 
             #[cfg(not(target_arch = "wasm32"))]
@@ -545,13 +545,13 @@ impl Game {
 
         for i in 0..num_npcs {
             let model_ref = renderer.add_model(
-                GameAssetRef::Npc1 as usize // + i
+                GameAssetRef::Npc0 as usize // + i
             ).unwrap();
             
             self.events.push(GameEvent::EntityCreated(EntityCreatedEvent {
                 model_ref,
                 typ: EntityType::PLAYER,
-                asset_ref: GameAssetRef::Npc1 as usize //+ i,
+                asset_ref: GameAssetRef::Npc0 as usize //+ i,
             }));
 
             let loc = &spawn_locs.next(i, rng);

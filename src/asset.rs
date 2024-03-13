@@ -8,30 +8,31 @@ use neuralarena_cdk::models::{
 use std::collections::HashMap;
 
 #[repr(C)]
-#[allow(dead_code)]
 pub enum GameAssetRef {
-    Player1 = 1,
-    Player2 = 2,
-    Player3 = 3,
-    Player4 = 4,
-    Player5 = 5,
-    Player6 = 6,
-    Player7 = 7,
-    Player8 = 8,
-    Map0    = 20,
-    Map1    = 21,
-    Map2    = 22,
-    Map3    = 23,
-    Map4    = 24,
-    Map5    = 25,
-    Map6    = 26,
-    Map7    = 27,
-    Map8    = 28,
-    Map9    = 29,
-    Npc1    = 50,
-    Npc2    = 51,
-    Npc3    = 52,
-    Exit    = 99,
+    Map0    = 10,
+    Map1    = 11,
+    Map2    = 12,
+    Map3    = 13,
+    Map4    = 14,
+    Map5    = 15,
+    Map6    = 16,
+    Map7    = 17,
+    Map8    = 18,
+    Map9    = 19,
+    Player0 = 30,
+    Player1 = 31,
+    Player2 = 32,
+    Player3 = 33,
+    Player4 = 34,
+    Player5 = 35,
+    Player6 = 36,
+    Player7 = 37,
+    Player8 = 38,
+    Player9 = 39,
+    Npc0    = 50,
+    Npc1    = 51,
+    Npc2    = 52,
+    Exit    = 70,
 }
 
 pub fn get_game_assets(
@@ -58,7 +59,7 @@ pub fn get_game_assets(
 
     for i in 0..players_paths.len() {
         assets.insert(
-            (GameAssetRef::Player1 as usize) + i,
+            (GameAssetRef::Player0 as usize) + i,
             Asset::new(
                 AssetType::Player as _, 
                 AssetData::new(&[
@@ -73,7 +74,7 @@ pub fn get_game_assets(
 
     for i in 0..3 {
         assets.insert(
-            (GameAssetRef::Npc1 as usize) + i,
+            (GameAssetRef::Npc0 as usize) + i,
             Asset::new(
                 AssetType::Npc as _, 
                 AssetData::new(&[

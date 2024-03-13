@@ -1,7 +1,7 @@
 use neuralarena_cdk::models::game::GameMapId;
 
 pub const MIN_PLAYERS: usize = 1;
-pub const MAX_PLAYERS: usize = 8;
+pub const MAX_PLAYERS: usize = 10;
 
 pub const PLAYER_SPAWN_LOCATION_NAME: &str = "psl.";
 pub const NPC_SPAWN_LOCATION_NAME: &str = "ksl.";
