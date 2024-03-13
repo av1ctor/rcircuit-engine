@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 #[repr(C)]
 #[allow(dead_code)]
-pub(crate) enum GameAssetRef {
+pub enum GameAssetRef {
     Player1 = 1,
     Player2 = 2,
     Player3 = 3,
