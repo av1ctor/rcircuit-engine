@@ -5,22 +5,24 @@ use serde::{Serialize, Deserialize};
 use strum::EnumCount;
 use strum_macros::EnumCount;
 use three_rs::math::{
-    Vector3, Quaternion
+    Vector3, 
+    Quaternion,
+    vector3::{FORWARD, UP}
 };
-#[cfg(not(feature = "js"))]
-use three_rs::math::vector3::{FORWARD, UP};
 use neuralarena_cdk::models::{
     renderer::ModelRef,
     env::EnvObs
 };
 use crate::{
     consts, 
-    entities::{Entity, EntityData, EntityState, EntityType, EntityVisibility}, 
-    sensor::{Sensor, SensorReading} 
-};
-#[cfg(not(feature = "js"))]
-use crate::{
-    sensor::{SensorReadingHit, SensorReadingTarget}, 
+    entities::{
+        Entity, EntityData, EntityState, 
+        EntityType, EntityVisibility
+    }, 
+    sensor::{
+        Sensor, SensorReading, 
+        SensorReadingHit, SensorReadingTarget
+    }, 
     map::Map
 };
 
@@ -195,7 +197,6 @@ impl Player {
         self.data.state == EntityState::ATTACKING
     }
     
-    #[cfg(not(feature = "js"))]
     pub fn mean_rot(
         &self
     ) -> Quaternion {
@@ -205,7 +206,6 @@ impl Player {
         )
     }
 
-    #[cfg(not(feature = "js"))]
     pub fn calc_rot_away_from_hit(
         &self
     ) -> Quaternion {
@@ -273,7 +273,6 @@ impl Player {
         });
     }
 
-    #[cfg(not(feature = "js"))]
     pub fn get_sensor_readings(
         &self,
         target_pos: &Vector3,
@@ -324,7 +323,6 @@ impl Player {
         (has_hits, readings)
     }
 
-    #[cfg(not(feature = "js"))]
     pub fn gen_vis_sensor_readings(
         pos: &Vector3,
         readings: &Vec<SensorReading>,
