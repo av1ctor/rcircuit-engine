@@ -1,5 +1,6 @@
 pub mod consts;
 pub mod entities;
+#[cfg(not(feature = "js"))]
 pub mod spawn_loc_mng;
 pub mod map;
 pub mod engine;
