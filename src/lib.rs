@@ -1,11 +1,8 @@
 pub mod consts;
-pub mod entity;
-pub mod player;
-pub mod npc;
-pub mod object;
+pub mod entities;
 pub mod spawn_loc_mng;
 pub mod map;
-pub mod game;
+pub mod engine;
 pub mod sensor;
 pub mod event;
 pub mod collision_mng;

@@ -4,7 +4,7 @@ use {
     dodgy::{Agent, AvoidanceOptions},
     glam::Vec2,
     three_rs::math::Vector3,
-    crate::{entity::Entity, game::GameEntities}
+    crate::{entities::Entity, engine::GameEntities}
 };
 
 #[cfg_attr(not(feature = "js"), derive(Clone, Serialize, Deserialize))]

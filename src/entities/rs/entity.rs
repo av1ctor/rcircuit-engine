@@ -1,36 +1,11 @@
 use rand::{rngs::StdRng, Rng};
 use serde::{Serialize, Deserialize};
 use strum::EnumCount;
-use strum_macros::{Display, EnumCount};
 use three_rs::math::{
     box3::Box3, vector3::Vector3, Quaternion
 };
 use neuralarena_cdk::models::renderer::ModelRef;
-
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, EnumCount, Default)]
-#[repr(C)]
-pub enum EntityType {
-    #[default]
-    UNKNOWN = 0,
-    PLAYER  = 1,
-    NPC     = 2,
-    OBJECT  = 3,
-}
-
-#[derive(Clone, Copy, Debug, Display, PartialEq, Serialize, Deserialize, EnumCount, Default)]
-#[repr(C)]
-pub enum EntityState {
-    #[default]
-    WAITING     = 0,
-    IDLE        = 1,
-    WALKING     = 2,
-    ATTACKING   = 3,
-    CELEBRATING = 4,
-    PUNCHING    = 5,
-    HIT         = 6,
-    DYING       = 7,
-    DEAD        = 8,
-}
+use crate::entities::{EntityState, EntityType, EntityVisibility};
 
 const STATE_DURATIONS: &[usize] = &[
     /* WAITING: */      60 * 3,
@@ -43,14 +18,6 @@ const STATE_DURATIONS: &[usize] = &[
     /* DYING: */        60 * 5,
     /* DEAD: */         usize::MAX,
 ];
-
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Default)]
-#[repr(C)]
-pub enum EntityVisibility {
-    #[default]
-    HIDDEN  = 0,
-    VISIBLE = 1,
-}
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct EntityData {

@@ -6,7 +6,7 @@ use three_rs::math::{
     Quaternion
 };
 use neuralarena_cdk::models::renderer::ModelRef;
-use crate::entity::{
+use crate::entities::{
     Entity, EntityData, EntityState, EntityType, EntityVisibility
 };
 

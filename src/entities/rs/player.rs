@@ -15,7 +15,7 @@ use neuralarena_cdk::models::{
 };
 use crate::{
     consts, 
-    entity::{Entity, EntityData, EntityState, EntityType, EntityVisibility}, 
+    entities::{Entity, EntityData, EntityState, EntityType, EntityVisibility}, 
     sensor::{Sensor, SensorReading} 
 };
 #[cfg(not(feature = "js"))]

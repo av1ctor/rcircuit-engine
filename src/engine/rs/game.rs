@@ -1,123 +1,44 @@
-#[cfg(not(feature = "js"))]
 use rand::{rngs::StdRng, Rng};
-#[cfg(not(feature = "js"))]
 use std::{collections::{HashMap, HashSet}, f32::consts::PI};
-use serde::{Serialize, Deserialize};
 use strum::EnumCount;
-#[cfg(not(feature = "js"))]
 use three_rs::math::{
     path3::Path3,
     FORWARD, UP,
     Quaternion,
     Vector3
 };
-#[cfg(feature = "js")]
-use neuralarena_cdk::models::js_renderer::JsRenderer;
-#[cfg(not(feature = "js"))]
-use neuralarena_cdk::models::renderer::Renderer;
 use neuralarena_cdk::models::{
-    env::{Env, EnvObs},
-    game::GameMapId
+    assets::{Asset, AssetRef}, 
+    env::{Env, EnvAction, EnvObs, EnvPlayer, EnvStep}, 
+    game::GameMapId, 
+    instance::InstanceEntities, 
+    renderer::Renderer
 };
 use crate::{
+    asset::{get_game_assets, GameAssetRef}, 
+    collision_mng::CollisionAvoidanceManager, 
+    consts, 
+    engine::{Game, GameEntities, GameOptions, GameState, GameStatus, MapInfo}, 
+    entities::{
+        Entity, EntityData, EntityState, EntityType, EntityVisibility, 
+        Npc, 
+        Object, ObjectType, 
+        Player, PlayerAction, NUM_SENSOR_FEATURES
+    }, 
     event::*, 
     map::Map, 
-    npc::Npc, 
-    object::Object, 
-    player::{Player, PlayerAction, PlayerFOV, NUM_SENSOR_FEATURES},
-    entity::EntityState, 
-    collision_mng::CollisionAvoidanceManager
+    sensor::Sensor, 
+    spawn_loc_mng::SpawnLocManager
 };
-#[cfg(not(feature = "js"))]
-use neuralarena_cdk::models::{
-    assets::{Asset, AssetRef},
-    env::{EnvAction, EnvStep, EnvPlayer}
-};
-#[cfg(not(feature = "js"))]
-use crate::{
-    consts,
-    asset::GameAssetRef, 
-    entity::{Entity, EntityData, EntityVisibility, EntityType}, 
-    spawn_loc_mng::SpawnLocManager, 
-    sensor::Sensor,
-    object::ObjectType,
-};
-
-#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
-pub enum GameStatus {
-    IDLE,
-    RUNNING,
-    TIMEDOUT,
-    FINISHED,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GameState {
-    pub status: GameStatus,
-    pub winner: Option<usize>,
-    pub step: usize,
-    pub active_players: usize,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct MapInfo {
-    pub map_id: GameMapId,
-    pub num_keys: usize,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GameOptions {
-    pub fov: PlayerFOV,
-    pub num_players: usize,
-    pub min_keys: usize,
-    pub player_radius: f32,
-    pub debug: bool,
-    pub training: bool,
-    pub max_steps: usize,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct GameEntities {
-    pub players: Vec<Player>,
-    pub npcs: Vec<Npc>,
-    pub objects: Vec<Object>,
-}
-
-#[cfg_attr(not(feature = "js"), derive(Clone, Serialize, Deserialize))]
-pub struct Game {
-    pub map_info: MapInfo,
-    pub events: Vec<GameEvent>,
-    pub entities: GameEntities,
-    pub options: GameOptions,
-    pub state: GameState,
-    pub map: Map,
-    pub collision: CollisionAvoidanceManager,
-}
-
-#[cfg(not(feature = "js"))]
-pub struct GameMap {
-    pub map: &'static [u8],
-    pub navmesh: &'static [u8],
-}
-
-#[cfg(not(feature = "js"))]
-pub const MAPS: &[GameMap] = &[
-    GameMap {
-        map: include_bytes!("../maps/0/map.glb"),
-        navmesh: include_bytes!("../maps/0/navmesh.bin"),
-    }
-];
-
 
 impl Env<EntityState> for Game {
-    #[cfg(not(feature = "js"))]
     fn get_assets(
         &self,
         path: &String,
         map_id: GameMapId,
         players_paths: &Vec<String>
     ) -> HashMap::<AssetRef, Asset> {
-        super::asset::get_game_assets(path, map_id, players_paths)
+        get_game_assets(path, map_id, players_paths)
     }
     
     fn get_num_actions(
@@ -132,7 +53,6 @@ impl Env<EntityState> for Game {
         NUM_SENSOR_FEATURES * self.options.fov.rays
     }
 
-    #[cfg(not(feature = "js"))]
     fn random_action(
         &mut self,
         rng: &mut StdRng
@@ -140,7 +60,6 @@ impl Env<EntityState> for Game {
         rng.gen::<usize>() % self.get_num_actions()
     }
 
-    #[cfg(not(feature = "js"))]
     fn reset(
         &mut self,
         renderer: &mut dyn Renderer<EntityState>,
@@ -184,16 +103,6 @@ impl Env<EntityState> for Game {
             .collect()
     }
 
-    #[cfg(feature = "js")]
-    fn reset(
-        &mut self,
-        renderer: JsRenderer,
-    ) -> Vec<EnvObs> {
-        renderer.reset();
-        vec![]
-    }
-
-    #[cfg(not(feature = "js"))]
     fn step(
         &mut self, 
         actions: &Vec<Option<EnvAction>>, 
@@ -252,16 +161,14 @@ impl Env<EntityState> for Game {
             .map_err(|err| err.to_string())
     }
 
-    fn deserialize_events(
-        &mut self,
-        buf: &Vec<u8>
-    ) -> Result<(), String> {
-        self.events = rmp_serde::from_slice(buf)
-            .map_err(|err| err.to_string())?;
-        Ok(())
+    fn serialize_entities(
+        &self
+    ) -> Result<Vec<u8>, String> {
+        rmp_serde::to_vec::<InstanceEntities>(&self.entities.clone().into())
+            .map_err(|err| err.to_string())
     }
 
-    #[cfg(all(not(feature = "js"), not(target_arch = "wasm32")))]
+    #[cfg(not(target_arch = "wasm32"))]
     fn render(
         &mut self,
         renderer: &mut dyn Renderer<EntityState>,
@@ -317,64 +224,7 @@ impl Env<EntityState> for Game {
         self.events = vec![];
     }
 
-    #[cfg(feature = "js")]
-    fn render(
-        &mut self,
-        renderer: JsRenderer,
-    ) {
-        for event in &self.events {
-            match event {
-                GameEvent::EntityCreated(e) => {
-                    renderer.add_model(e.asset_ref, e.model_ref);
-                },
-                
-                GameEvent::EntitySpawned(e) => {
-                    renderer.set_model_position(
-                        e.model_ref, &e.pos.to_slice()
-                    );
-                    renderer.set_model_rotation(
-                        e.model_ref, &e.rot.to_slice()
-                    );
-                },
-                
-                GameEvent::EntityMoved(e) => {
-                    renderer.set_model_position(
-                        e.model_ref, &e.pos.to_slice()
-                    );
-                    renderer.set_model_rotation(
-                        e.model_ref, &e.rot.to_slice()
-                    );
-                },
-
-                GameEvent::EntityStateChanged(e) => {
-                    renderer.change_model_state(
-                        e.model_ref, 
-                        e.from.to_string().to_lowercase(), 
-                        e.to.to_string().to_lowercase()
-                    );
-                },
-
-                GameEvent::EntityRemoved(e) => {
-                    renderer.hide_model(e.model_ref);
-                },
-                
-                GameEvent::EntityVisChanged(e) => {
-                    if e.visible {
-                        renderer.show_model(e.model_ref);
-                    }
-                    else {
-                        renderer.hide_model(e.model_ref);
-                    }
-                }
-            }
-        }
-
-        renderer.render();
-
-        self.events = vec![];
-    }
-
-    #[cfg(all(not(feature = "js"), target_arch = "wasm32"))]
+    #[cfg(target_arch = "wasm32")]
     fn render(
         &mut self,
         _renderer: &mut dyn Renderer<EntityState>,
@@ -406,7 +256,6 @@ impl Game {
         }
     }
 
-    #[cfg(not(feature = "js"))]
     fn spawn_entities(
         &mut self,
         renderer: &mut dyn Renderer<EntityState>,
@@ -434,7 +283,6 @@ impl Game {
         }
     }
 
-    #[cfg(not(feature = "js"))]
     fn spawn_players(
         &mut self,
         renderer: &mut dyn Renderer<EntityState>,
@@ -524,7 +372,6 @@ impl Game {
         players
     }
 
-    #[cfg(not(feature = "js"))]
     fn spawn_npcs(
         &mut self,
         renderer: &mut dyn Renderer<EntityState>,
@@ -596,7 +443,6 @@ impl Game {
         npcs
     }
 
-    #[cfg(not(feature = "js"))]
     fn spawn_objects(
         &mut self,
         typ: ObjectType,
@@ -675,7 +521,6 @@ impl Game {
         objects
     }
 
-    #[cfg(not(feature = "js"))]
     fn show_exit(
         &mut self
     ) {
@@ -700,7 +545,6 @@ impl Game {
         }
     }
 
-    #[cfg(not(feature = "js"))]
     fn show_next_npc(
         &mut self
     ) {
@@ -724,7 +568,6 @@ impl Game {
         }
     }
 
-    #[cfg(not(feature = "js"))]
     fn kill_player(
         &mut self, 
         num: usize
@@ -744,7 +587,6 @@ impl Game {
         }));
     }
 
-    #[cfg(not(feature = "js"))]
     fn kill_npc(
         &mut self, 
         num: usize
@@ -758,7 +600,6 @@ impl Game {
         }));
     }
 
-    #[cfg(not(feature = "js"))]
     fn find_closest_player_shuffled(
         &self,
         pos: &Vector3,
@@ -784,7 +625,6 @@ impl Game {
         res
     }
 
-    #[cfg(not(feature = "js"))]
     fn shuffle_players_idx(
         &self,
         rng: &mut StdRng
@@ -798,7 +638,6 @@ impl Game {
         indexes.into_iter().collect()
     }
 
-    #[cfg(not(feature = "js"))]
     fn find_closest_npc(
         &self,
         pos: &Vector3,
@@ -820,7 +659,6 @@ impl Game {
         res
     }
 
-    #[cfg(not(feature = "js"))]
     fn find_closest_object(
         &self,
         pos: &Vector3,
@@ -843,7 +681,6 @@ impl Game {
         res
     }
 
-    #[cfg(not(feature = "js"))]
     #[cfg_attr(target_arch = "wasm32", allow(unused_variables))]
     fn build_players_sensors(
         &mut self,
@@ -938,7 +775,6 @@ impl Game {
         }
     }
 
-    #[cfg(not(feature = "js"))]
     fn move_player(
         &mut self,
         num: usize,
@@ -999,7 +835,6 @@ impl Game {
         }
     }
 
-    #[cfg(not(feature = "js"))]
     fn check_exit(
         player: &Player,
         obj: &Object,
@@ -1010,7 +845,6 @@ impl Game {
         player_bb.intersects_with_box(&item_bb)
     }
 
-    #[cfg(not(feature = "js"))]
     fn update_players(
         &mut self, 
         actions: &Vec<Option<usize>>, 
@@ -1185,7 +1019,6 @@ impl Game {
         }
     }
 
-    #[cfg(not(feature = "js"))]
     fn update_npcs(
         &mut self, 
         delta_time: f32,
@@ -1296,7 +1129,6 @@ impl Game {
         }
     }
 
-    #[cfg(not(feature = "js"))]
     fn update_objects(
         &mut self,
         _delta_time: f32,

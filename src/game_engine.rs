@@ -1,9 +1,8 @@
 use wasm_bindgen::prelude::*;
 use crate::consts;
-use crate::game::{
-    Game, GameOptions, MapInfo
+use crate::engine::{
+    Game, MapInfo
 };
-use crate::player::PlayerFOV;
 use neuralarena_cdk::models::{
     env::Env,
     js_renderer::JsRenderer
@@ -33,19 +32,6 @@ impl GameEngine {
                 MapInfo {
                     map_id: consts::MAP_ID_CONTAINERS,
                     ..Default::default()
-                },
-                GameOptions {
-                    fov: PlayerFOV { 
-                        rays: 0, 
-                        angle: 0.0, 
-                        max_dist: 0.0, 
-                    },
-                    num_players: 0,
-                    min_keys: 0,
-                    player_radius: 0.0,
-                    debug: false,
-                    training: false,
-                    max_steps: 0
                 }
             ),
         }
@@ -54,9 +40,13 @@ impl GameEngine {
     #[wasm_bindgen]
     pub fn render(
         &mut self,
+        entities: Vec<u8>,
         events: Vec<u8>,
         renderer: JsRenderer
     ) -> Result<(), String> {
+        if entities.len() > 0 {
+            self.game.deserialize_entities(&entities)?;
+        }
         if events.len() > 0 {
             self.game.deserialize_events(&events)?;
         }
