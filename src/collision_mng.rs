@@ -1,4 +1,3 @@
-#[cfg(not(feature = "js"))]
 use {
     serde::{Deserialize, Serialize},
     dodgy::{Agent, AvoidanceOptions},
@@ -7,7 +6,7 @@ use {
     crate::{entities::Entity, engine::GameEntities}
 };
 
-#[cfg_attr(not(feature = "js"), derive(Clone, Serialize, Deserialize))]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CollisionAvoidanceManager {
 }
 
@@ -18,7 +17,6 @@ impl CollisionAvoidanceManager {
         }
     }
 
-    #[cfg(not(feature = "js"))]
     pub fn move_player(
         &mut self,
         player_num: usize,
@@ -85,7 +83,6 @@ impl CollisionAvoidanceManager {
         }
     }
 
-    #[cfg(not(feature = "js"))]
     fn find_neigbours<'a>(
         &'a self, 
         agent_num: usize, 
