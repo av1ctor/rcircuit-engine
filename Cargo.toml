@@ -1,5 +1,8 @@
 [package]
 name = "brains-engine"
+description = "Brains game engine"
+repository = "https://github.com/av1ctor/brains-engine"
+license = "GPLv3"
 version = "0.1.0"
 edition = "2021"
 

@@ -1,13 +1,9 @@
 use wasm_bindgen::prelude::*;
-use crate::consts;
-use crate::engine::{
-    Game, MapInfo
-};
+use crate::engine::Game;
 use neuralarena_cdk::models::{
     env::Env,
     js_renderer::JsRenderer
 };
-use crate::map::Map;
 
 #[wasm_bindgen]
 extern "C" {
@@ -27,13 +23,7 @@ impl GameEngine {
     pub fn new(
     ) -> Self {
         Self {
-            game: Game::new(
-                Map::new(&[], &[]), 
-                MapInfo {
-                    map_id: consts::MAP_ID_CONTAINERS,
-                    ..Default::default()
-                }
-            ),
+            game: Game::new(),
         }
     }
 

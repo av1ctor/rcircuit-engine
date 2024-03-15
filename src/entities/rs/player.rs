@@ -19,7 +19,7 @@ use crate::{
         Entity, EntityData, EntityState, 
         EntityType, EntityVisibility
     }, 
-    sensor::{
+    engine::sensor::{
         Sensor, SensorReading, 
         SensorReadingHit, SensorReadingTarget
     }, 

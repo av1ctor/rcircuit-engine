@@ -1,14 +1,5 @@
 pub mod consts;
 pub mod entities;
-#[cfg(not(feature = "js"))]
-pub mod spawn_loc_mng;
 pub mod map;
 pub mod engine;
-pub mod sensor;
 pub mod event;
-#[cfg(not(feature = "js"))]
-pub mod collision_mng;
-#[cfg(not(feature = "js"))]
-pub mod asset;
-#[cfg(feature = "js")]
-pub mod game_engine;

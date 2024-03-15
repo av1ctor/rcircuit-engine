@@ -2,11 +2,10 @@ use neuralarena_cdk::models::js_renderer::JsRenderer;
 use neuralarena_cdk::models::env::{Env, EnvObs};
 use crate::{
     event::*, 
-    map::Map, 
     entities::EntityState 
 };
 use crate::engine::{
-    Game, MapInfo, GameEntities, GameState, GameStatus
+    Game, GameEntities
 };
 
 impl Env<EntityState> for Game {
@@ -98,20 +97,10 @@ impl Env<EntityState> for Game {
 
 impl Game {
     pub fn new(
-        map: Map, 
-        map_info: MapInfo
     ) -> Self {
         Self { 
-            map,
             entities: GameEntities::default(),
             events: vec![],
-            map_info,
-            state: GameState { 
-                status: GameStatus::IDLE, 
-                winner: None, 
-                step: 0,
-                active_players: 0,
-            },
         }
     }
 }

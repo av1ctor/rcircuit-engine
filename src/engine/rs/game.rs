@@ -15,8 +15,6 @@ use neuralarena_cdk::models::{
     renderer::Renderer
 };
 use crate::{
-    asset::{get_game_assets, GameAssetRef}, 
-    collision_mng::CollisionAvoidanceManager, 
     consts, 
     engine::{Game, GameEntities, GameOptions, GameState, GameStatus, MapInfo}, 
     entities::{
@@ -26,9 +24,14 @@ use crate::{
         Player, PlayerAction, NUM_SENSOR_FEATURES
     }, 
     event::*, 
-    map::Map, 
-    sensor::Sensor, 
-    spawn_loc_mng::SpawnLocManager
+    map::Map
+};
+
+use super::{
+    asset::{get_game_assets, GameAssetRef}, 
+    collision_mng::CollisionAvoidanceManager, 
+    spawn_loc_mng::SpawnLocManager,
+    sensor::Sensor
 };
 
 impl Env<EntityState> for Game {
