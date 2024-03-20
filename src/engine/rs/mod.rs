@@ -23,7 +23,6 @@ pub struct GameOptions {
     pub player_radius: f32,
     pub debug: bool,
     pub training: bool,
-    pub max_steps: usize,
 }
 
 impl Into<InstanceEntities> for GameEntities {

@@ -9,7 +9,6 @@ use crate::{
 pub enum GameStatus {
     IDLE,
     RUNNING,
-    TIMEDOUT,
     FINISHED,
 }
 

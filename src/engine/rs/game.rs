@@ -117,7 +117,6 @@ impl Env<EntityState> for Game {
         if self.state.status != GameStatus::RUNNING {
             return EnvStep {
                 terminated: true,
-                timedout: false,
                 winner: self.state.winner.clone(),
                 players: vec![],
             };
@@ -125,24 +124,16 @@ impl Env<EntityState> for Game {
 
         self.state.step += 1;
 
-        if self.options.max_steps == 0 ||
-            self.state.step < self.options.max_steps {
+        self.update_players(actions, delta_time, rng);
+        
+        self.update_npcs(delta_time, rng);
 
-            self.update_players(actions, delta_time, rng);
-            
-            self.update_npcs(delta_time, rng);
-
-            self.update_objects(delta_time, rng);
-            
-            self.build_players_sensors(renderer);
-        }
-        else {
-            self.state.status = GameStatus::TIMEDOUT;
-        }
+        self.update_objects(delta_time, rng);
+        
+        self.build_players_sensors(renderer);
 
         EnvStep {
             terminated: self.state.status != GameStatus::RUNNING,
-            timedout: self.state.status == GameStatus::TIMEDOUT,
             winner: self.state.winner,
             players: self.entities.players
                 .iter()
