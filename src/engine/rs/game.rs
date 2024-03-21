@@ -108,7 +108,7 @@ impl Env<EntityState> for Game {
 
     fn step(
         &mut self, 
-        actions: &Vec<Option<EnvAction>>, 
+        actions: &Vec<(usize, Option<EnvAction>)>, 
         delta_time: f32,
         renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng,
@@ -841,7 +841,7 @@ impl Game {
 
     fn update_players(
         &mut self, 
-        actions: &Vec<Option<usize>>, 
+        actions: &Vec<(usize, Option<usize>)>, 
         delta_time: f32,
         _rng: &mut StdRng,
     ) {
@@ -867,7 +867,9 @@ impl Game {
         }
 
         // 2nd: move player
-        for (i, action) in actions.iter().enumerate() {
+        for (p, action) in actions {
+            let i = *p;
+
             let player = &mut self.entities.players[i];
             if player.is_visible() && !player.is_dead_or_dying() {
                 player.reward = 0.0;
@@ -902,7 +904,9 @@ impl Game {
         }
 
         // 3rd: check environment
-        for i in 0..self.entities.players.len() {
+        for (p, _) in actions {
+            let i = *p;
+
             let player = &self.entities.players[i];
             if player.is_visible() && !player.is_dead_or_dying() {
                 // all brains eaten? check if exit reached

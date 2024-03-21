@@ -31,11 +31,11 @@ impl Into<InstanceEntities> for GameEntities {
     ) -> InstanceEntities {
         InstanceEntities {
             players: self.players.iter().map(|p| InstancePlayerEntity {
-                health: p.health / 100.0,
+                health: p.health,
                 score: p.num_brains as _,
             }).collect(),
             npcs: self.npcs.iter().map(|n| InstanceNpcEntity {
-                health: n.health / 100.0,
+                health: n.health,
             }).collect(),
             objects: self.objects.iter().map(|_| InstanceObjectEntity {
             }).collect(),
