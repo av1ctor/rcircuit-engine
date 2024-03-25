@@ -166,7 +166,7 @@ impl Env<EntityState> for Game {
     fn render(
         &mut self,
         renderer: &mut dyn Renderer<EntityState>,
-        events_only: bool
+        update_only: bool
     ) {
         for event in &self.events {
             match event {
@@ -211,7 +211,7 @@ impl Env<EntityState> for Game {
             }
         }
 
-        if !events_only {
+        if !update_only {
             renderer.render();
         }
 
@@ -222,7 +222,7 @@ impl Env<EntityState> for Game {
     fn render(
         &mut self,
         _renderer: &mut dyn Renderer<EntityState>,
-        _events_only: bool
+        _update_only: bool
     ) {
         self.events = vec![];
     }

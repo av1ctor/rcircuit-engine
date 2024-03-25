@@ -38,6 +38,7 @@ impl Env<EntityState> for Game {
     fn render(
         &mut self,
         renderer: JsRenderer,
+        update_only: bool
     ) {
         for event in &self.events {
             match event {
@@ -89,7 +90,9 @@ impl Env<EntityState> for Game {
         renderer.set_players(self.entities.players.clone());
         renderer.set_npcs(self.entities.npcs.clone());
 
-        renderer.render();
+        if !update_only {
+            renderer.render();
+        }
 
         self.events = vec![];
     }

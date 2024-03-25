@@ -109,27 +109,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "brains-engine"
-version = "0.1.0"
-dependencies = [
- "candid",
- "circular-buffer",
- "dodgy",
- "getrandom",
- "glam",
- "gltf",
- "navmesh-rs",
- "neuralarena-cdk",
- "rand",
- "rmp-serde",
- "serde",
- "strum",
- "strum_macros",
- "three-rs",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -772,6 +751,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom",
+]
+
+[[package]]
+name = "rcircuit-engine"
+version = "0.1.0"
+dependencies = [
+ "candid",
+ "circular-buffer",
+ "dodgy",
+ "getrandom",
+ "glam",
+ "gltf",
+ "navmesh-rs",
+ "neuralarena-cdk",
+ "rand",
+ "rmp-serde",
+ "serde",
+ "strum",
+ "strum_macros",
+ "three-rs",
+ "wasm-bindgen",
 ]
 
 [[package]]

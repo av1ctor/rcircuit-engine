@@ -1,5 +1,5 @@
 {
-    "name": "brains-engine",
+    "name": "rcircuit-engine",
     "private": true,
     "scripts": {
       "build-wasm": "wasm-pack build --target web --release --out-name game-engine --features js --no-default-features"
