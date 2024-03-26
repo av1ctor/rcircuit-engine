@@ -33,7 +33,7 @@ impl GameEngine {
         entities: Vec<u8>,
         events: Vec<u8>,
         renderer: JsRenderer,
-        update_only: bool
+        delta_time: f32
     ) -> Result<(), String> {
         if entities.len() > 0 {
             self.game.deserialize_entities(&entities)?;
@@ -42,7 +42,7 @@ impl GameEngine {
             self.game.deserialize_events(&events)?;
         }
         
-        self.game.render(renderer, update_only);
+        self.game.render(renderer, delta_time);
         
         Ok(())
     }

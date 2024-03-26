@@ -166,7 +166,7 @@ impl Env<EntityState> for Game {
     fn render(
         &mut self,
         renderer: &mut dyn Renderer<EntityState>,
-        update_only: bool
+        delta_time: f32
     ) {
         for event in &self.events {
             match event {
@@ -211,18 +211,18 @@ impl Env<EntityState> for Game {
             }
         }
 
-        if !update_only {
-            renderer.render();
-        }
-
         self.events = vec![];
+
+        renderer.update(delta_time);
+
+        renderer.render();
     }
 
     #[cfg(target_arch = "wasm32")]
     fn render(
         &mut self,
         _renderer: &mut dyn Renderer<EntityState>,
-        _update_only: bool
+        _delta_time: f32
     ) {
         self.events = vec![];
     }
@@ -696,20 +696,26 @@ impl Game {
                     self.find_closest_npc(&player.data.pos, None) {
                     let npc = &mut self.entities.npcs[npc_num];
                     
-                    let rot = Quaternion::from_axis_and_angle(
-                        &UP, npc.targeted_cnt as f32 % 4.0 * 90.0 * PI / 180.0);
-                    let around_pos = if distance_sq > 3.0 * 2.0 {
-                        Vector3::new(0.0, 0.0, 2.0).apply_quaternion(&rot)
-                    }
-                    else if distance_sq > 2.0 * 2.0 {
-                        Vector3::new(0.0, 0.0, 1.0).apply_quaternion(&rot)
+                    if !self.options.training {
+                        let rot = Quaternion::from_axis_and_angle(
+                            &UP, (npc.targeted_cnt as f32 % 4.0) * 90.0 * PI / 180.0);
+
+                        let around_pos = if distance_sq > 3.0 * 2.0 {
+                            Vector3::new(0.0, 0.0, 2.0).apply_quaternion(&rot)
+                        }
+                        else if distance_sq > 2.0 * 2.0 {
+                            Vector3::new(0.0, 0.0, 1.0).apply_quaternion(&rot)
+                        }
+                        else {
+                            Vector3::zero()
+                        };
+                        
+                        npc.targeted_cnt += 1;
+                        npc.data.pos.add(&around_pos)
                     }
                     else {
-                        Vector3::zero()
-                    };
-                    
-                    npc.targeted_cnt += 1;
-                    npc.data.pos.add(&around_pos)
+                        npc.data.pos
+                    }
                 }
                 else {
                     Vector3::zero()
@@ -948,9 +954,9 @@ impl Game {
                         self.find_closest_npc(&player.data.pos, Some(1.0)) {
 
                         let player = &mut self.entities.players[i];
-                        //if moving, start biting (and, at same time, don't let the player get too close to the this NPC)
+                        //if moving, start attacking (and, at same time, don't let the player get too close to the this NPC)
                         if player.is_moving() {
-                            player.reward += consts::REWARD_BRAIN_EATEN;
+                            player.reward += consts::REWARD_ATTACK_HIT;
     
                             if let Some(from) = player.set_state(EntityState::ATTACKING, self.state.step) {
                                 self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
@@ -961,7 +967,7 @@ impl Game {
                             }
 
                             let npc = &mut self.entities.npcs[npc_num];
-                            npc.health += consts::PENALTY_BITTEN;
+                            npc.health += consts::PENALTY_HIT;
                             // NPC has no health left? kill it and show another one
                             if npc.health <= 0.0 {
                                 if let Some(from) = npc.set_state(EntityState::DYING, self.state.step) {
@@ -1099,7 +1105,7 @@ impl Game {
                                     player_num, 
                                     &None, 
                                     &inverse_rot, 
-                                    &Vector3::new(1.0, 0.0, 1.0),
+                                    &Vector3::new(consts::PLAYER_VELOCITY, 0.0, consts::PLAYER_VELOCITY),
                                     delta_time, 
                                     true
                                 );

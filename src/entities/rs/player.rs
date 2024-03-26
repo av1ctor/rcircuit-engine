@@ -169,7 +169,11 @@ impl Player {
         Self { 
             data,
             turn_angle: consts::PLAYER_TURNING_ANGLE * PI / 180.0,
-            vel: Vector3::new(0.1, 0.1, 0.1),
+            vel: Vector3::new(
+                consts::PLAYER_VELOCITY, 
+                consts::PLAYER_VELOCITY, 
+                consts::PLAYER_VELOCITY
+            ),
             num_brains: 0, 
             health: 100.0, 
             reward: 0.0,

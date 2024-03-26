@@ -5,17 +5,20 @@ use three_rs::math::{
     box3::Box3, vector3::Vector3, Quaternion
 };
 use neuralarena_cdk::models::renderer::ModelRef;
-use crate::entities::{EntityState, EntityType, EntityVisibility};
+use crate::{
+    consts, 
+    entities::{EntityState, EntityType, EntityVisibility}
+};
 
 const STATE_DURATIONS: &[usize] = &[
-    /* WAITING: */      60 * 3,
-    /* IDLE: */         60,
+    /* WAITING: */      consts::FPS * 3,
+    /* IDLE: */         consts::FPS * 1,
     /* WALKING: */      usize::MAX,
-    /* ATTACKING: */    60,
-    /* CELEBRATING: */  60 * 3,
-    /* PUNCHING: */     45,
-    /* HIT: */          60,
-    /* DYING: */        60 * 5,
+    /* ATTACKING: */    consts::FPS * 1,
+    /* CELEBRATING: */  consts::FPS * 3,
+    /* PUNCHING: */     (consts::FPS * 3) / 4,
+    /* HIT: */          consts::FPS * 1,
+    /* DYING: */        consts::FPS * 5,
     /* DEAD: */         usize::MAX,
 ];
 

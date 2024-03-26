@@ -2,7 +2,7 @@ use neuralarena_cdk::models::js_renderer::JsRenderer;
 use neuralarena_cdk::models::env::{Env, EnvObs};
 use crate::{
     event::*, 
-    entities::EntityState 
+    entities::EntityState,
 };
 use crate::engine::{
     Game, GameEntities
@@ -38,7 +38,7 @@ impl Env<EntityState> for Game {
     fn render(
         &mut self,
         renderer: JsRenderer,
-        update_only: bool
+        delta_time: f32
     ) {
         for event in &self.events {
             match event {
@@ -87,14 +87,14 @@ impl Env<EntityState> for Game {
             }
         }
 
+        self.events = vec![];
+
         renderer.set_players(self.entities.players.clone());
         renderer.set_npcs(self.entities.npcs.clone());
 
-        if !update_only {
-            renderer.render();
-        }
+        renderer.update(delta_time);
 
-        self.events = vec![];
+        renderer.render();
     }
 }
 
