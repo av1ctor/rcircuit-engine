@@ -10,8 +10,8 @@ use three_rs::math::{
 use neuralarena_cdk::models::{
     assets::{Asset, AssetRef}, 
     env::{Env, EnvAction, EnvObs, EnvPlayer, EnvStep}, 
-    game::GameMapId, 
-    instance::InstanceEntities, 
+    game::{GameMapId, GameSfx}, 
+    instance::{InstanceEntities, InstancePlayer}, 
     renderer::Renderer
 };
 use crate::{
@@ -26,7 +26,6 @@ use crate::{
     event::*, 
     map::Map
 };
-
 use super::{
     asset::{get_game_assets, GameAssetRef}, 
     collision_mng::CollisionAvoidanceManager, 
@@ -39,9 +38,10 @@ impl Env<EntityState> for Game {
         &self,
         path: &String,
         map_id: GameMapId,
-        players_paths: &Vec<String>
+        players: &Vec<Option<&InstancePlayer>>,
+        game_sfx_sets: Option<&Vec<HashMap<String, GameSfx>>>
     ) -> HashMap::<AssetRef, Asset> {
-        get_game_assets(path, map_id, players_paths)
+        get_game_assets(path, map_id, players, game_sfx_sets)
     }
     
     fn get_num_actions(

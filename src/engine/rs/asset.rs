@@ -3,7 +3,8 @@ use neuralarena_cdk::models::{
         Asset, AssetData, 
         AssetRef, AssetType, AssetValue
     },
-    game::GameMapId
+    game::{GameMapId, GameSfx}, 
+    instance::InstancePlayer
 };
 use std::collections::HashMap;
 
@@ -36,9 +37,10 @@ pub enum GameAssetRef {
 }
 
 pub fn get_game_assets(
-    path: &String,
+    assets_url: &String,
     map_id: GameMapId,
-    players_paths: &Vec<String>
+    players: &Vec<Option<&InstancePlayer>>,
+    game_sfx_sets: Option<&Vec<HashMap<String, GameSfx>>>
 ) -> HashMap<AssetRef, Asset> {
     let mut assets = HashMap::new();
 
@@ -48,43 +50,102 @@ pub fn get_game_assets(
             AssetType::Map, 
             AssetData::new(&[
                 (
-                    "path", 
+                    "model_url", 
                     &AssetValue::Text(
-                        path.replace("{}", &format!("maps/{}/map.gltf", map_id as usize))
+                        assets_url.replace("{}", &format!("maps/{}/map.gltf", map_id as usize))
                     )
                 )
             ])
         )
     );
 
-    for i in 0..players_paths.len() {
-        assets.insert(
-            (GameAssetRef::Player0 as usize) + i,
-            Asset::new(
-                AssetType::Player as _, 
-                AssetData::new(&[
-                    ("num", &AssetValue::U32(i as _)),
-                    ("path", &AssetValue::Text(players_paths[i].clone()))
-                ])
-            )
-        );
+    for i in 0..players.len() {
+        if let Some(player) = players[i] {
+            let set_num = player.nft.props.sfx_set;
+            let mut sfx_set = HashMap::<String, AssetValue>::new();
+            for e in &player.nft_col.nas1.sfx_sets[set_num] {
+                sfx_set.insert(
+                    e.0.clone(), 
+                    AssetValue::Map(HashMap::from(
+                        [
+                            ("url".to_string(), AssetValue::Text(e.1.url.clone())),
+                            ("repeat".to_string(), AssetValue::Bool(e.1.repeat)),
+                        ]
+                    ))
+                );
+            }
+
+            assets.insert(
+                (GameAssetRef::Player0 as usize) + i,
+                Asset::new(
+                    AssetType::Player as _, 
+                    AssetData::new(&[
+                        ("num", &AssetValue::U32(i as _)),
+                        ("model_url", &AssetValue::Text(player.nft.props.model_url.clone())),
+                        ("sfx_set", &AssetValue::Map(sfx_set)),
+                    ])
+                )
+            );
+        }
+        else {
+            assets.insert(
+                (GameAssetRef::Player0 as usize) + i,
+                Asset::new(
+                    AssetType::Player as _, 
+                    AssetData::new(&[
+                        ("num", &AssetValue::U32(i as _)),
+                        ("model_url", &AssetValue::Text("".to_string())),
+                    ])
+                )
+            );
+        }
     }
 
     let npcs = vec!["man"];
 
     for i in 0..3 {
-        assets.insert(
-            (GameAssetRef::Npc0 as usize) + i,
-            Asset::new(
-                AssetType::Npc as _, 
-                AssetData::new(&[
-                    ("num", &AssetValue::U32(i as _)),
-                    ("path", &AssetValue::Text(
-                        path.replace("{}", &format!("models/npcs/{}/default.gltf", npcs[i % 1]))
+        if let Some(game_sfx_sets) = game_sfx_sets {
+            let mut sfx_set = HashMap::<String, AssetValue>::new();
+            for e in &game_sfx_sets[i % 1] {
+                sfx_set.insert(
+                    e.0.clone(), 
+                    AssetValue::Map(HashMap::from(
+                        [
+                            ("url".to_string(), AssetValue::Text(e.1.url.clone())),
+                            ("repeat".to_string(), AssetValue::Bool(e.1.repeat)),
+                        ]
                     ))
-                ])
-            )
-        );
+                );
+            }
+            
+            assets.insert(
+                (GameAssetRef::Npc0 as usize) + i,
+                Asset::new(
+                    AssetType::Npc as _, 
+                    AssetData::new(&[
+                        ("num", &AssetValue::U32(i as _)),
+                        ("model_url", &AssetValue::Text(
+                            assets_url.replace("{}", &format!("models/npcs/{}/default.gltf", npcs[i % 1]))
+                        )),
+                        ("sfx_set", &AssetValue::Map(sfx_set)),
+                    ])
+                )
+            );
+        }
+        else {
+            assets.insert(
+                (GameAssetRef::Npc0 as usize) + i,
+                Asset::new(
+                    AssetType::Npc as _, 
+                    AssetData::new(&[
+                        ("num", &AssetValue::U32(i as _)),
+                        ("model_url", &AssetValue::Text(
+                            assets_url.replace("{}", &format!("models/npcs/{}/default.gltf", npcs[i % 1]))
+                        )),
+                    ])
+                )
+            );
+        }
     }
     
     assets.insert(
