@@ -214,7 +214,9 @@ impl Env<EntityState> for Game {
 
         renderer.update(delta_time);
 
-        renderer.render();
+        if delta_time != 0.0 {
+            renderer.render();
+        }
     }
 
     #[cfg(target_arch = "wasm32")]
