@@ -10,7 +10,7 @@ use three_rs::math::{
 use neuralarena_cdk::models::{
     assets::{Asset, AssetRef}, 
     env::{Env, EnvAction, EnvObs, EnvPlayer, EnvStep}, 
-    game::{GameMapId, GameSfx}, 
+    game::{GameInfo, GameMapId}, 
     instance::{InstanceEntities, InstancePlayer}, 
     renderer::Renderer
 };
@@ -36,12 +36,11 @@ use super::{
 impl Env<EntityState> for Game {
     fn get_assets(
         &self,
-        path: &String,
+        game: Option<&GameInfo>,
         map_id: GameMapId,
-        players: &Vec<Option<&InstancePlayer>>,
-        game_sfx_sets: Option<&Vec<HashMap<String, GameSfx>>>
+        players: &Vec<Option<&InstancePlayer>>
     ) -> HashMap::<AssetRef, Asset> {
-        get_game_assets(path, map_id, players, game_sfx_sets)
+        get_game_assets(game, map_id, players)
     }
     
     fn get_num_actions(

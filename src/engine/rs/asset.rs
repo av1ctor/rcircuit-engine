@@ -3,7 +3,7 @@ use neuralarena_cdk::models::{
         Asset, AssetData, 
         AssetRef, AssetType, AssetValue
     },
-    game::{GameMapId, GameSfx}, 
+    game::{GameInfo, GameMapId}, 
     instance::InstancePlayer
 };
 use std::collections::HashMap;
@@ -37,27 +37,40 @@ pub enum GameAssetRef {
 }
 
 pub fn get_game_assets(
-    assets_url: &String,
+    game: Option<&GameInfo>,
     map_id: GameMapId,
-    players: &Vec<Option<&InstancePlayer>>,
-    game_sfx_sets: Option<&Vec<HashMap<String, GameSfx>>>
+    players: &Vec<Option<&InstancePlayer>>
 ) -> HashMap<AssetRef, Asset> {
     let mut assets = HashMap::new();
 
-    assets.insert(
-        (GameAssetRef::Map0 as usize) + map_id as usize, 
-        Asset::new(
-            AssetType::Map, 
-            AssetData::new(&[
-                (
-                    "model_url", 
-                    &AssetValue::Text(
-                        assets_url.replace("{}", &format!("maps/{}/map.gltf", map_id as usize))
+    if let Some(game) = game {
+        let map = &game.maps[map_id];
+
+        assets.insert(
+            (GameAssetRef::Map0 as usize) + map_id as usize, 
+            Asset::new(
+                AssetType::Map, 
+                AssetData::new(&[
+                    ("model_url", &AssetValue::Text(map.urls.model.clone())),
+                    ("music_url", &AssetValue::Text(map.urls.music.clone()))
+                ])
+            )
+        );
+    }
+    else {
+        assets.insert(
+            (GameAssetRef::Map0 as usize) + map_id as usize, 
+            Asset::new(
+                AssetType::Map, 
+                AssetData::new(&[
+                    (
+                        "model_url", 
+                        &AssetValue::Text("".to_string())
                     )
-                )
-            ])
-        )
-    );
+                ])
+            )
+        );
+    }
 
     for i in 0..players.len() {
         if let Some(player) = players[i] {
@@ -104,9 +117,11 @@ pub fn get_game_assets(
     let npcs = vec!["man"];
 
     for i in 0..3 {
-        if let Some(game_sfx_sets) = game_sfx_sets {
+        if let Some(game) = game {
+            let assets_url = &game.urls.assets;
+
             let mut sfx_set = HashMap::<String, AssetValue>::new();
-            for e in &game_sfx_sets[i % 1] {
+            for e in &game.sfx_sets[i % 1] {
                 sfx_set.insert(
                     e.0.clone(), 
                     AssetValue::Map(HashMap::from(
@@ -139,9 +154,7 @@ pub fn get_game_assets(
                     AssetType::Npc as _, 
                     AssetData::new(&[
                         ("num", &AssetValue::U32(i as _)),
-                        ("model_url", &AssetValue::Text(
-                            assets_url.replace("{}", &format!("models/npcs/{}/default.gltf", npcs[i % 1]))
-                        )),
+                        ("model_url", &AssetValue::Text("".to_string())),
                     ])
                 )
             );
