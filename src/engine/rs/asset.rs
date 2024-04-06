@@ -46,13 +46,19 @@ pub fn get_game_assets(
     if let Some(game) = game {
         let map = &game.maps[map_id];
 
+        let music_urls = HashMap::<String, AssetValue>::from([
+            ("main".to_string(), AssetValue::Text(map.urls.music.main.clone())),
+            ("victory".to_string(), AssetValue::Text(map.urls.music.victory.clone())),
+            ("over".to_string(), AssetValue::Text(map.urls.music.over.clone())),
+        ]);
+
         assets.insert(
             (GameAssetRef::Map0 as usize) + map_id as usize, 
             Asset::new(
                 AssetType::Map, 
                 AssetData::new(&[
                     ("model_url", &AssetValue::Text(map.urls.model.clone())),
-                    ("music_url", &AssetValue::Text(map.urls.music.clone()))
+                    ("music_urls", &AssetValue::Map(music_urls)),
                 ])
             )
         );
