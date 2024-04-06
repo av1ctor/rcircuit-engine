@@ -43,6 +43,7 @@ pub fn get_game_assets(
 ) -> HashMap<AssetRef, Asset> {
     let mut assets = HashMap::new();
 
+    // map
     if let Some(game) = game {
         let map = &game.maps[map_id];
 
@@ -78,6 +79,7 @@ pub fn get_game_assets(
         );
     }
 
+    // players
     for i in 0..players.len() {
         if let Some(player) = players[i] {
             let set_num = player.nft.props.sfx_set;
@@ -120,6 +122,7 @@ pub fn get_game_assets(
         }
     }
 
+    // NPCs
     let npcs = vec!["man"];
 
     for i in 0..3 {
@@ -167,15 +170,32 @@ pub fn get_game_assets(
         }
     }
     
-    assets.insert(
-        GameAssetRef::Exit as _, 
-        Asset::new(
-            AssetType::Object as _, 
-            AssetData::new(&[
-                ("num", &AssetValue::U32(GameAssetRef::Exit as _))
-            ])
-        )
-    );
+    // objects
+    if let Some(game) = game {
+        let assets_url = &game.urls.assets;
+        assets.insert(
+            GameAssetRef::Exit as _, 
+            Asset::new(
+                AssetType::Object as _, 
+                AssetData::new(&[
+                    ("num", &AssetValue::U32(GameAssetRef::Exit as _)),
+                    ("model_url", &AssetValue::Text(assets_url.replace("{}", "models/exit/stage.gltf"))),
+                ])
+            )
+        );
+    }
+    else {
+        assets.insert(
+            GameAssetRef::Exit as _, 
+            Asset::new(
+                AssetType::Object as _, 
+                AssetData::new(&[
+                    ("num", &AssetValue::U32(GameAssetRef::Exit as _)),
+                    ("model_url", &AssetValue::Text("".to_string())),
+                ])
+            )
+        );
+    }
     
     assets
 }

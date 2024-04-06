@@ -918,9 +918,9 @@ impl Game {
             if player.is_visible() && !player.is_dead_or_dying() {
                 // all brains eaten? check if exit reached
                 if player.num_brains >= self.options.min_keys {
-                    let door = self.entities.objects.iter().find(|o| o.typ == ObjectType::EXIT);
-                    if let Some(door) = door {
-                        if Self::check_exit(player, door) {
+                    let exit = self.entities.objects.iter().find(|o| o.typ == ObjectType::EXIT);
+                    if let Some(exit) = exit {
+                        if Self::check_exit(player, exit) {
                             self.state.status = GameStatus::FINISHED;
                             self.state.winner = Some(i);
                             
