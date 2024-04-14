@@ -6,6 +6,7 @@ use crate::map::NodeTransform;
 
 pub struct SpawnLocManager {
     pub locs: Vec<(NodeTransform, usize)>,
+    last_loc: usize,
 }
 
 impl SpawnLocManager {
@@ -17,6 +18,7 @@ impl SpawnLocManager {
                 nodes.iter()
                     .map(|n| (n.clone(), 0usize))
                     .collect::<Vec<_>>(),
+            last_loc: usize::MAX,
         }   
     }
 
@@ -34,7 +36,14 @@ impl SpawnLocManager {
             .filter(|l| l.1 <= min_cnt)
             .collect::<Vec<_>>();
         
-        let l = rng.gen::<usize>() % min_locs.len();
+        let l = loop {
+            let loc = rng.gen::<usize>() % min_locs.len();
+            if loc != self.last_loc || min_locs.len() <= 1 {
+                break loc;
+            }
+        };
+
+        self.last_loc = l;
             
         min_locs[l].1 += 1;
 
