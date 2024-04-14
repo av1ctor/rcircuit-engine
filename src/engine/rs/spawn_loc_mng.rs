@@ -24,16 +24,14 @@ impl SpawnLocManager {
 
     pub fn next(
         &mut self,
-        idx: usize,
         rng: &mut StdRng
     ) -> (Vector3, Quaternion) {
         let min_cnt = self.locs.iter()
-                .map(|l| l.1)
-                .filter(|cnt| *cnt <= idx)
-                .reduce(|min, cnt| if cnt <= min {cnt} else {min})
-                .unwrap();
+            .map(|l| l.1)
+            .min()
+            .unwrap();
         let mut min_locs = self.locs.iter_mut()
-            .filter(|l| l.1 <= min_cnt)
+            .filter(|l| l.1 == min_cnt)
             .collect::<Vec<_>>();
         
         let l = loop {

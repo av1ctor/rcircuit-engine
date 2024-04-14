@@ -64,6 +64,7 @@ impl Env<EntityState> for Game {
 
     fn reset(
         &mut self,
+        inst_players: &Vec<InstancePlayer>,
         renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng,
     ) -> Vec<EnvObs> {
@@ -81,7 +82,7 @@ impl Env<EntityState> for Game {
         }));
 
         // entities
-        self.entities = self.spawn_entities(renderer, rng);
+        self.entities = self.spawn_entities(inst_players, renderer, rng);
         
         self.map_info = MapInfo { 
             map_id: self.map_info.map_id,
@@ -253,11 +254,12 @@ impl Game {
 
     fn spawn_entities(
         &mut self,
+        inst_players: &Vec<InstancePlayer>,
         renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng
     ) -> GameEntities {
         // players
-        let players = self.spawn_players(renderer, rng);
+        let players = self.spawn_players(inst_players, renderer, rng);
 
         // npcs
         let npcs = self.spawn_npcs(renderer, rng);
@@ -280,6 +282,7 @@ impl Game {
 
     fn spawn_players(
         &mut self,
+        inst_players: &Vec<InstancePlayer>,
         renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng
     ) -> Vec<Player> {
@@ -323,15 +326,22 @@ impl Game {
             #[cfg(target_arch = "wasm32")]
             let (path_ref, sensor_ref, readings_ref) = (0, 0, 0);
 
-            let loc = &spawn_mng.next(i, rng);
+            let loc = &spawn_mng.next(rng);
 
             let index = players.len();
+
+            let inst_player = &inst_players[index];
 
             let player = Player::new(
                 index,
                 loc.0, 
                 loc.1, 
-                Vector3::new(consts::PLAYER_WIDTH, consts::PLAYER_HEIGHT, 0.15),
+                Vector3::new(
+                    inst_player.nft.props.radius*1.5, 
+                    inst_player.nft.props.height, 
+                    0.15
+                ),
+                inst_player.nft.props.radius,
                 EntityState::WAITING,
                 EntityVisibility::VISIBLE,
                 model_ref,
@@ -396,15 +406,24 @@ impl Game {
                 asset_ref: GameAssetRef::Npc0 as usize //+ i,
             }));
 
-            let loc = &spawn_locs.next(i, rng);
-            let vis = if i == 0 {EntityVisibility::VISIBLE} else {EntityVisibility::HIDDEN};
+            let loc = &spawn_locs.next(rng);
+            let vis = if i == 0 {
+                EntityVisibility::VISIBLE
+            } else {
+                EntityVisibility::HIDDEN
+            };
             let index = npcs.len();
 
             let npc = Npc::new(
                 index,
                 loc.0, 
                 loc.1, 
-                Vector3::new(consts::NPC_WIDTH, consts::NPC_HEIGHT, 0.5),
+                Vector3::new(
+                    consts::NPC_WIDTH, 
+                    consts::NPC_HEIGHT, 
+                    0.5
+                ),
+                consts::NPC_RADIUS,
                 EntityState::WAITING,
                 vis,
                 model_ref,
@@ -459,8 +478,6 @@ impl Game {
         let mut objects = vec![];
         let num_objs = 1;
 
-        let rad = 1.0;
-
         for i in 0..num_objs {
             let asset_ref = GameAssetRef::Exit as usize;
             
@@ -473,7 +490,7 @@ impl Game {
                 asset_ref,
             }));
                 
-            let loc = &spawn_mng.next(i, rng);
+            let loc = &spawn_mng.next(rng);
             let is_active = active(i);
             let index = objects.len();
 
@@ -482,9 +499,18 @@ impl Game {
                 index,
                 loc.0, 
                 loc.1, 
-                Vector3::new(rad, rad, rad),
+                Vector3::new(
+                    consts::EXIT_RADIUS, 
+                    consts::EXIT_RADIUS, 
+                    0.2
+                ),
+                consts::EXIT_RADIUS,
                 EntityState::WAITING,
-                if is_active {EntityVisibility::VISIBLE} else {EntityVisibility::HIDDEN},
+                if is_active {
+                    EntityVisibility::VISIBLE
+                } else {
+                    EntityVisibility::HIDDEN
+                },
                 model_ref,
                 rng
             );
@@ -934,25 +960,28 @@ impl Game {
                                     to: player.data.state
                                 }));
                             }
+
+                            // all other players player should become idle
+                            for j in 0..self.entities.players.len() {
+                                if j != i {
+                                    let player = &mut self.entities.players[j];
+                                    if let Some(from) = player.set_state(EntityState::IDLE, self.state.step) {
+                                        self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
+                                            model_ref: player.data.model_ref,
+                                            from,
+                                            to: player.data.state
+                                        }));
+                                    }
+                                }
+                            }
                         }
-                    }
-                }
-                // finished and not the winner? turn off animations
-                else if self.state.status == GameStatus::FINISHED {
-                    let player = &mut self.entities.players[i];
-                    if let Some(from) = player.set_state(EntityState::IDLE, self.state.step) {
-                        self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
-                            model_ref: player.data.model_ref,
-                            from,
-                            to: player.data.state
-                        }));
                     }
                 }
                 // check the map..
                 else {
                     // any npc close?
                     if let Some((npc_num, _)) = 
-                        self.find_closest_npc(&player.data.pos, Some(1.0)) {
+                        self.find_closest_npc(&player.data.pos, Some(player.data.radius)) {
 
                         let player = &mut self.entities.players[i];
                         //if moving, start attacking (and, at same time, don't let the player get too close to the this NPC)
@@ -1054,11 +1083,11 @@ impl Game {
         for i in 0..self.entities.npcs.len() {
             let npc = &self.entities.npcs[i];
             if npc.is_visible() && !npc.is_dead_or_dying() {
-                // any player close?
+                // any player close enough?
                 if let Some((player_num, player, distance_sq)) = 
                     self.find_closest_player_shuffled(&npc.data.pos, Some(3.0), rng) {
                     // close enough to be punched?
-                    if distance_sq <= 1.0 * 2.0 {
+                    if distance_sq <= npc.data.radius * 2.0 {
                         // if npc is not punching, begin doing that if enough time elapsed since the last state started
                         if npc.data.state != EntityState::PUNCHING && 
                             npc.state_elapsed(self.state.step) >= 0.75 {

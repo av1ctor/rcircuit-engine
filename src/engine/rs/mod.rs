@@ -20,7 +20,6 @@ pub struct GameOptions {
     pub fov: PlayerFOV,
     pub num_players: usize,
     pub min_keys: usize,
-    pub player_radius: f32,
     pub debug: bool,
     pub training: bool,
 }

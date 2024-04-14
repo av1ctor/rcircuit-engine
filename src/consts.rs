@@ -17,16 +17,16 @@ pub const PENALTY_PUNCHED: f32 = PENALTY_HIT / 5.0;
 pub const REWARD_ATTACK_HIT: f32 = 100.0;
 pub const REWARD_EXIT_REACHED: f32 = 1000.0;
 
-pub const PLAYER_WIDTH: f32 = 1.0;
-pub const PLAYER_HEIGHT: f32 = 1.8;
 pub const PLAYER_TURNING_ANGLE: f32 = 6.0 * (ANIM_FPS as f32 / FPS as f32);
 pub const PLAYER_VELOCITY: f32 = 0.1 * (ANIM_FPS as f32 / FPS as f32);
 
 pub const NPC_WIDTH: f32 = 1.0;
 pub const NPC_HEIGHT: f32 = 1.8;
+pub const NPC_RADIUS: f32 = 0.7;
 
 pub const EXIT_WIDTH: f32 = 1.0;
 pub const EXIT_HEIGHT: f32 = 3.0;
+pub const EXIT_RADIUS: f32 = 3.0;
 
 // maps
 pub const MAP_ID_CONTAINERS: GameMapId = 0;
