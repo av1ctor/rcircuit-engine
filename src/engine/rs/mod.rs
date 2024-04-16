@@ -32,6 +32,7 @@ impl Into<InstanceEntities> for GameEntities {
             players: self.players.iter().map(|p| InstancePlayerEntity {
                 health: p.health,
                 score: p.num_brains as _,
+                xp: p.xp,
             }).collect(),
             npcs: self.npcs.iter().map(|n| InstanceNpcEntity {
                 health: n.health,

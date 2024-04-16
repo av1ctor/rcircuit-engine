@@ -82,7 +82,8 @@ pub fn get_game_assets(
     // players
     for i in 0..players.len() {
         if let Some(player) = players[i] {
-            let set_num = player.nft.props.sfx_set;
+            let props = player.nft.props.as_ref().unwrap();
+            let set_num = props.sfx_set;
             let mut sfx_set = HashMap::<String, AssetValue>::new();
             for e in &player.nft_col.nas1.sfx_sets[set_num] {
                 sfx_set.insert(
@@ -102,7 +103,7 @@ pub fn get_game_assets(
                     AssetType::Player as _, 
                     AssetData::new(&[
                         ("num", &AssetValue::U32(i as _)),
-                        ("model_url", &AssetValue::Text(player.nft.props.model_url.clone())),
+                        ("model_url", &AssetValue::Text(props.model_url.clone())),
                         ("sfx_set", &AssetValue::Map(sfx_set)),
                     ])
                 )

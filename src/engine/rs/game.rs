@@ -9,7 +9,7 @@ use three_rs::math::{
 };
 use neuralarena_cdk::models::{
     assets::{Asset, AssetRef}, 
-    env::{Env, EnvAction, EnvObs, EnvPlayer, EnvStep}, 
+    env::{Env, EnvAction, EnvObs, EnvPlayer, EnvPlayerOptions, EnvStep}, 
     game::{GameInfo, GameMapId}, 
     instance::{InstanceEntities, InstancePlayer}, 
     renderer::Renderer
@@ -64,7 +64,7 @@ impl Env<EntityState> for Game {
 
     fn reset(
         &mut self,
-        inst_players: &Vec<InstancePlayer>,
+        players_options: &Vec<EnvPlayerOptions>,
         renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng,
     ) -> Vec<EnvObs> {
@@ -82,7 +82,7 @@ impl Env<EntityState> for Game {
         }));
 
         // entities
-        self.entities = self.spawn_entities(inst_players, renderer, rng);
+        self.entities = self.spawn_entities(players_options, renderer, rng);
         
         self.map_info = MapInfo { 
             map_id: self.map_info.map_id,
@@ -254,12 +254,12 @@ impl Game {
 
     fn spawn_entities(
         &mut self,
-        inst_players: &Vec<InstancePlayer>,
+        players_options: &Vec<EnvPlayerOptions>,
         renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng
     ) -> GameEntities {
         // players
-        let players = self.spawn_players(inst_players, renderer, rng);
+        let players = self.spawn_players(players_options, renderer, rng);
 
         // npcs
         let npcs = self.spawn_npcs(renderer, rng);
@@ -282,7 +282,7 @@ impl Game {
 
     fn spawn_players(
         &mut self,
-        inst_players: &Vec<InstancePlayer>,
+        players_options: &Vec<EnvPlayerOptions>,
         renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng
     ) -> Vec<Player> {
@@ -330,18 +330,13 @@ impl Game {
 
             let index = players.len();
 
-            let inst_player = &inst_players[index];
+            let options = &players_options[index];
 
             let player = Player::new(
                 index,
                 loc.0, 
                 loc.1, 
-                Vector3::new(
-                    inst_player.nft.props.radius*1.5, 
-                    inst_player.nft.props.height, 
-                    0.15
-                ),
-                inst_player.nft.props.radius,
+                options,
                 EntityState::WAITING,
                 EntityVisibility::VISIBLE,
                 model_ref,
@@ -952,6 +947,7 @@ impl Game {
                             
                             let player = &mut self.entities.players[i];
                             player.reward += consts::REWARD_EXIT_REACHED;
+                            player.xp += 1;
                             
                             if let Some(from) = player.set_state(EntityState::CELEBRATING, self.state.step) {
                                 self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {

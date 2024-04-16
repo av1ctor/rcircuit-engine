@@ -10,8 +10,8 @@ use three_rs::math::{
     vector3::{FORWARD, UP}
 };
 use neuralarena_cdk::models::{
-    renderer::ModelRef,
-    env::EnvObs
+    env::{EnvObs, EnvPlayerOptions}, 
+    renderer::ModelRef
 };
 use crate::{
     consts, 
@@ -127,6 +127,7 @@ pub struct Player {
     pub num_brains: usize,
     pub health: f32,
     pub reward: f32,
+    pub xp: u32,
     pub action: PlayerAction,
     #[serde(skip)]
     pub path_ref: ModelRef,
@@ -145,8 +146,7 @@ impl Player {
         index: usize,
         pos: Vector3,
         rot: Quaternion,
-        dim: Vector3,
-        radius: f32,
+        options: &EnvPlayerOptions,
         state: EntityState,
         vis: EntityVisibility,
         model_ref: ModelRef,
@@ -160,8 +160,12 @@ impl Player {
             index,
             pos,
             rot,
-            dim,
-            radius,
+            Vector3::new(
+                options.radius*1.5, 
+                options.height, 
+                0.15
+            ),
+            options.radius,
             state,
             vis,
             model_ref,
@@ -179,6 +183,7 @@ impl Player {
             num_brains: 0, 
             health: 100.0, 
             reward: 0.0,
+            xp: options.xp,
             action: PlayerAction::default(),
             path_ref,
             sensor_ref,
