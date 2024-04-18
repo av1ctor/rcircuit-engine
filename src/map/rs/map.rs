@@ -7,7 +7,7 @@ use three_rs::math::{
     path3::Path3
 };
 
-const MAX_NAVMESH_PATH_LEN: usize = 64;
+const MAX_NAVMESH_PATH_LEN: usize = 1024;
 
 #[derive(Clone)]
 pub struct NodeTransform {
