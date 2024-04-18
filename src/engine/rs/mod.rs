@@ -67,5 +67,9 @@ pub const MAPS: &[GameMap] = &[
     GameMap {
         map: include_bytes!("../../../maps/1/map.glb"),
         navmesh: include_bytes!("../../../maps/1/navmesh.bin"),
+    },
+    GameMap {
+        map: include_bytes!("../../../maps/2/map.glb"),
+        navmesh: include_bytes!("../../../maps/2/navmesh.bin"),
     }
 ];

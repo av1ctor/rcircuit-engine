@@ -833,7 +833,8 @@ impl Game {
             if constrained_pos.length_sq() != next_pos.length_sq() {
                 let player = &mut self.entities.players[num];
                 player.preserve();
-                player.data.pos = constrained_pos.mul(&Vector3::new(1.0, 1.0, 1.0));
+                player.data.pos = constrained_pos
+                    .add(&Vector3::new(0.0, -consts::NAVMESH_CELL_HEIGHT / 2.0, 0.0));
                 if !forced {
                     player.action = action.into();
                     player.data.rot = player.calc_rot_away_from_hit();
