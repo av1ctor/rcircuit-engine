@@ -757,10 +757,24 @@ impl Game {
                     &player.data.pos, &target_pos)
             };
 
-            let target_pos = path.nodes[1].clone();
-            if self.options.debug {
-                paths.push(path);
+            let target_pos = if path.nodes.len() > 0 {
+                let pos = path.nodes[1].clone();
+
+                if self.options.debug {
+                    paths.push(path);
+                }
+    
+                pos
             }
+            else {
+                paths.push(Path3::new(vec![
+                    player.data.pos.clone(),
+                    target_pos.clone()
+                ]));
+                
+                target_pos.clone()
+            };
+
 
             readings[i] = player.get_sensor_readings(
                 &target_pos, &self.options.fov, &mut self.map);
@@ -816,10 +830,10 @@ impl Game {
         
         if let Some(constrained_pos) = 
             self.map.move_along_surface(&player.data.pos, &next_pos) {            
-            if constrained_pos.x != next_pos.x || constrained_pos.z != next_pos.z {
+            if constrained_pos.length_sq() != next_pos.length_sq() {
                 let player = &mut self.entities.players[num];
                 player.preserve();
-                player.data.pos = constrained_pos.mul(&Vector3::new(1.0, 0.0, 1.0));
+                player.data.pos = constrained_pos.mul(&Vector3::new(1.0, 1.0, 1.0));
                 if !forced {
                     player.action = action.into();
                     player.data.rot = player.calc_rot_away_from_hit();
