@@ -4,9 +4,15 @@ use three_rs::math::{
 };
 use crate::map::NodeTransform;
 
+pub struct SpawnLoc {
+    pub node: NodeTransform,
+    pub cnt: u32,
+    pub index: usize,
+}
+
 pub struct SpawnLocManager {
-    pub locs: Vec<(NodeTransform, usize)>,
-    last_loc: usize,
+    pub locs: Vec<SpawnLoc>,
+    last_index: usize,
 }
 
 impl SpawnLocManager {
@@ -15,10 +21,14 @@ impl SpawnLocManager {
     ) -> Self {
         Self {
             locs: 
-                nodes.iter()
-                    .map(|n| (n.clone(), 0usize))
+                nodes.iter().enumerate()
+                    .map(|(index, n)| SpawnLoc{
+                        node: n.clone(),
+                        cnt: 0,
+                        index
+                    })
                     .collect::<Vec<_>>(),
-            last_loc: usize::MAX,
+            last_index: usize::MAX,
         }   
     }
 
@@ -27,27 +37,29 @@ impl SpawnLocManager {
         rng: &mut StdRng
     ) -> (Vector3, Quaternion) {
         let min_cnt = self.locs.iter()
-            .map(|l| l.1)
+            .map(|l| l.cnt)
             .min()
             .unwrap();
         let mut min_locs = self.locs.iter_mut()
-            .filter(|l| l.1 == min_cnt)
+            .filter(|l| l.cnt == min_cnt)
             .collect::<Vec<_>>();
         
-        let l = loop {
-            let loc = rng.gen::<usize>() % min_locs.len();
-            if loc != self.last_loc || min_locs.len() <= 1 {
-                break loc;
+        let (l, index) = loop {
+            let l = rng.gen::<usize>() % min_locs.len();
+            let index = min_locs[l].index;
+            if index != self.last_index || min_locs.len() == 1 {
+                break (l, index);
             }
         };
 
-        self.last_loc = l;
+        self.last_index = index;
             
-        min_locs[l].1 += 1;
+        let loc = &mut min_locs[l];
+        loc.cnt += 1;
 
         (
-            min_locs[l].0.translation, 
-            min_locs[l].0.rotation, 
+            loc.node.translation, 
+            loc.node.rotation, 
         )
     }
 }
