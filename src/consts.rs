@@ -31,7 +31,6 @@ pub const EXIT_RADIUS: f32 = 3.0;
 // maps
 pub const MAP_ID_CONTAINERS: GameMapId = 0;
 pub const MAP_ID_LABYRINTH: GameMapId = 1;
-pub const MAP_ID_TERRAIN: GameMapId = 2;
-pub const NUM_MAPS: usize = 3;
+pub const NUM_MAPS: usize = 2;
 
 pub const NAVMESH_CELL_HEIGHT: f32 = 0.2;   // same value used to generate the navmesh
