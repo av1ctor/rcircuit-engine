@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::{collections::HashMap, f32::consts::PI};
 use circular_buffer::CircularBuffer;
 use rand::rngs::StdRng;
 use serde::{Serialize, Deserialize};
@@ -26,18 +26,18 @@ use crate::{
     map::Map
 };
 
-pub const NUM_SENSOR_FEATURES: usize = 1;
+pub const SEEK_TARGET_NUM_FEATURES: usize = 1;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, EnumCount)]
 #[repr(C)]
-pub enum PlayerAction {
+pub enum PlayerSeekTargetAction {
     #[default]
     MoveForward,
     TurnRight,
     TurnLeft,
 }
 
-impl TryFrom<usize> for PlayerAction {
+impl TryFrom<usize> for PlayerSeekTargetAction {
     fn try_from(v: usize) -> Result<Self, Self::Error> {
         if v == Self::MoveForward as usize {
             Ok(Self::MoveForward)
@@ -53,7 +53,7 @@ impl TryFrom<usize> for PlayerAction {
     type Error = String;
 }
 
-impl From<&Option<usize>> for PlayerAction {
+impl From<&Option<usize>> for PlayerSeekTargetAction {
     fn from(
         value: &Option<usize>
     ) -> Self {
@@ -62,7 +62,7 @@ impl From<&Option<usize>> for PlayerAction {
                 std::mem::transmute(*action as u32) 
             }
             else {
-                PlayerAction::default()
+                PlayerSeekTargetAction::default()
             }
         }
     }
@@ -115,7 +115,7 @@ impl Default for PlayerSensor {
 
 #[derive(Clone, Debug, Default)]
 pub struct PlayerHistory {
-    pub action: PlayerAction,
+    pub action: PlayerSeekTargetAction,
     pub rot: Quaternion,
 }
 
@@ -128,7 +128,7 @@ pub struct Player {
     pub health: f32,
     pub reward: f32,
     pub xp: f32,
-    pub action: PlayerAction,
+    pub action: PlayerSeekTargetAction,
     #[serde(skip)]
     pub path_ref: ModelRef,
     #[serde(skip)]
@@ -184,7 +184,7 @@ impl Player {
             health: 100.0, 
             reward: 0.0,
             xp: options.xp,
-            action: PlayerAction::default(),
+            action: PlayerSeekTargetAction::default(),
             path_ref,
             sensor_ref,
             readings_ref,
@@ -272,7 +272,9 @@ impl Player {
             });
         }
 
-        obs
+        HashMap::from([
+            ("seek-target".to_string(), obs),
+        ])
     }
 
     pub fn preserve(

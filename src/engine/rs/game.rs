@@ -21,7 +21,7 @@ use crate::{
         Entity, EntityData, EntityState, EntityType, EntityVisibility, 
         Npc, 
         Object, ObjectType, 
-        Player, PlayerAction, NUM_SENSOR_FEATURES
+        Player, PlayerSeekTargetAction, SEEK_TARGET_NUM_FEATURES
     }, 
     event::*, 
     map::Map
@@ -44,22 +44,31 @@ impl Env<EntityState> for Game {
     }
     
     fn get_num_actions(
-        &self
+        &self,
+        skill: &str
     ) -> usize {
-        PlayerAction::COUNT
+        match skill {
+            "seek-target" => PlayerSeekTargetAction::COUNT,
+            _ => panic!("Unknown skill")
+        }        
     }
 
     fn get_num_obs(
-        &self
+        &self,
+        skill: &str
     ) -> usize {
-        NUM_SENSOR_FEATURES * self.options.fov.rays
+        match skill {
+            "seek-target" => SEEK_TARGET_NUM_FEATURES * self.options.fov.rays,
+            _ => panic!("Unknown skill")
+        }   
     }
 
     fn random_action(
         &mut self,
+        skill: &str,
         rng: &mut StdRng
     ) -> EnvAction {
-        rng.gen::<usize>() % self.get_num_actions()
+        rng.gen::<usize>() % self.get_num_actions(skill)
     }
 
     fn reset(
@@ -140,6 +149,11 @@ impl Env<EntityState> for Game {
                 .map(|p| {
                     EnvPlayer {
                         active: p.is_moving(),
+                        skill: if p.is_moving() {
+                            "seek-target".to_string()
+                        } else {
+                            "".to_string()
+                        },
                         reward: p.reward,
                         obs: p.to_obs(),
                     }
@@ -923,15 +937,15 @@ impl Game {
                             player.data.rot.clone()
                         },
                         Some(action) => {
-                            match PlayerAction::try_from(action.clone()).unwrap() {
-                                PlayerAction::MoveForward =>
+                            match PlayerSeekTargetAction::try_from(action.clone()).unwrap() {
+                                PlayerSeekTargetAction::MoveForward =>
                                     player.data.rot.clone(),
-                                PlayerAction::TurnRight => {
+                                PlayerSeekTargetAction::TurnRight => {
                                     player.data.rot.mul(
                                         &Quaternion::from_axis_and_angle(&UP, player.turn_angle)
                                     )
                                 },
-                                PlayerAction::TurnLeft => {
+                                PlayerSeekTargetAction::TurnLeft => {
                                     player.data.rot.mul(
                                         &Quaternion::from_axis_and_angle(&UP, -player.turn_angle)
                                     )
