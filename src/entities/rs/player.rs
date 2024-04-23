@@ -127,7 +127,7 @@ pub struct Player {
     pub num_brains: usize,
     pub health: f32,
     pub reward: f32,
-    pub xp: u32,
+    pub xp: f32,
     pub action: PlayerAction,
     #[serde(skip)]
     pub path_ref: ModelRef,

@@ -962,7 +962,7 @@ impl Game {
                             
                             let player = &mut self.entities.players[i];
                             player.reward += consts::REWARD_EXIT_REACHED;
-                            player.xp += 1;
+                            player.xp += 1.0;
                             
                             if let Some(from) = player.set_state(EntityState::CELEBRATING, self.state.step) {
                                 self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
@@ -976,6 +976,7 @@ impl Game {
                             for j in 0..self.entities.players.len() {
                                 if j != i {
                                     let player = &mut self.entities.players[j];
+                                    player.xp += 0.1;
                                     if let Some(from) = player.set_state(EntityState::IDLE, self.state.step) {
                                         self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
                                             model_ref: player.data.model_ref,
