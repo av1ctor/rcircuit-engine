@@ -758,18 +758,8 @@ impl Game {
                 }
             };
 
-            // when training, it's better to just use target's position
-            let path = if self.options.training {
-                Path3::new(vec![
-                    player.data.pos.clone(),
-                    target_pos.clone()
-                ])
-            }
-            // when playing, move around obstacles
-            else {
-                self.map.find_path_to_target(
-                    &player.data.pos, &target_pos)
-            };
+            let path = self.map.find_path_to_target(
+                &player.data.pos, &target_pos);
 
             let target_pos = if path.nodes.len() > 0 {
                 let pos = path.nodes[1].clone();
@@ -836,18 +826,19 @@ impl Game {
     ) {
         let dir = FORWARD.apply_quaternion(&rot);
         
-        let translation = dir.mul(vel)
+        let transl = dir.mul(vel)
             .mul_scalar(delta_time);
 
         let player = &self.entities.players[num];
-        let next_pos = player.data.pos.add(&translation);
+        let next_pos = player.data.pos.add(&transl);
         
-        if let Some(constrained_pos) = 
+        if let Some(corrected_pos) = 
             self.map.move_along_surface(&player.data.pos, &next_pos) {            
-            if constrained_pos.length_sq() != next_pos.length_sq() {
+            if (corrected_pos.x - next_pos.x).abs() > f32::EPSILON ||
+                (corrected_pos.z - next_pos.z).abs() > f32::EPSILON {
                 let player = &mut self.entities.players[num];
                 player.preserve();
-                player.data.pos = constrained_pos
+                player.data.pos = corrected_pos
                     .add(&Vector3::new(0.0, -consts::NAVMESH_CELL_HEIGHT * 0.8, 0.0));
                 if !forced {
                     player.action = action.into();
@@ -856,17 +847,18 @@ impl Game {
                 }
             }
             else {
-                let constrained_translation = if !self.options.training {
+                let corrected_transl = if !self.options.training {
                     self.collision.move_player(
-                        num, translation, &self.entities, delta_time)
+                        num, transl, &self.entities, delta_time)
                 }
                 else {
-                    translation
+                    transl
                 };
 
                 let player = &mut self.entities.players[num];
                 player.preserve();
-                player.data.pos.add_mut(&constrained_translation);
+                player.data.pos.add_mut(&corrected_transl);
+                player.data.pos.y = corrected_pos.y - (consts::NAVMESH_CELL_HEIGHT * 0.8);
                 if !forced {
                     player.action = action.into();
                     player.data.rot = rot.clone();
