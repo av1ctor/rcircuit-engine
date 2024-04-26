@@ -48,7 +48,7 @@ impl Env<EntityState> for Game {
         skill: &str
     ) -> usize {
         match skill {
-            "seek-target" => PlayerSeekTargetAction::COUNT,
+            consts::SEEK_TARGET_SKILL => PlayerSeekTargetAction::COUNT,
             _ => panic!("Unknown skill")
         }        
     }
@@ -58,7 +58,7 @@ impl Env<EntityState> for Game {
         skill: &str
     ) -> usize {
         match skill {
-            "seek-target" => SEEK_TARGET_NUM_FEATURES * self.options.fov.rays,
+            consts::SEEK_TARGET_SKILL => SEEK_TARGET_NUM_FEATURES * self.options.fov.rays,
             _ => panic!("Unknown skill")
         }   
     }
@@ -150,7 +150,7 @@ impl Env<EntityState> for Game {
                     EnvPlayer {
                         active: p.is_moving(),
                         skill: if p.is_moving() {
-                            "seek-target".to_string()
+                            consts::SEEK_TARGET_SKILL.to_string()
                         } else {
                             "".to_string()
                         },

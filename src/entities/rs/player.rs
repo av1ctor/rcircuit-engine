@@ -273,7 +273,7 @@ impl Player {
         }
 
         HashMap::from([
-            ("seek-target".to_string(), obs),
+            (consts::SEEK_TARGET_SKILL.to_string(), obs),
         ])
     }
 

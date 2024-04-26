@@ -28,6 +28,9 @@ pub const EXIT_WIDTH: f32 = 1.0;
 pub const EXIT_HEIGHT: f32 = 3.0;
 pub const EXIT_RADIUS: f32 = 3.0;
 
+// skills required to play
+pub const SEEK_TARGET_SKILL: &str = "seek-target#in@15&out@3&actions@FRL"; // actions: Forward, Right, Left
+
 // maps
 pub const MAP_ID_CONTAINERS: GameMapId = 0;
 pub const MAP_ID_LABYRINTH: GameMapId = 1;
