@@ -38,15 +38,11 @@ pub enum PlayerSeekTargetAction {
 }
 
 impl TryFrom<usize> for PlayerSeekTargetAction {
-    fn try_from(v: usize) -> Result<Self, Self::Error> {
-        if v == Self::MoveForward as usize {
-            Ok(Self::MoveForward)
-        } else if v == Self::TurnRight as usize {
-            Ok(Self::TurnRight)
-        } else if v == Self::TurnLeft as usize { 
-            Ok(Self::TurnLeft)
-        } else {
-            Err("Unknown".to_string())
+    fn try_from(
+        value: usize
+    ) -> Result<Self, Self::Error> {
+        unsafe {
+            Ok(std::mem::transmute(value as u32))
         }
     }
 
