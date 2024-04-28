@@ -923,30 +923,39 @@ impl Game {
             if player.is_visible() && !player.is_dead_or_dying() {
                 player.reward = 0.0;
 
-                if player.is_moving() {
-                    let rot = match action {
+            if player.is_moving() {
+                    let (rot, vel) = match action {
                         None => {
-                            player.data.rot.clone()
+                            (
+                                player.data.rot.clone(), 
+                                player.vel.mul_scalar(0.5)
+                            )
                         },
                         Some(action) => {
                             match PlayerSeekTargetAction::try_from(action.clone()).unwrap() {
                                 PlayerSeekTargetAction::MoveForward =>
-                                    player.data.rot.clone(),
+                                    (
+                                        player.data.rot.clone(), 
+                                        player.vel.clone()
+                                    ),
                                 PlayerSeekTargetAction::TurnRight => {
-                                    player.data.rot.mul(
-                                        &Quaternion::from_axis_and_angle(&UP, player.turn_angle)
+                                    (
+                                        player.data.rot.mul(
+                                            &Quaternion::from_axis_and_angle(&UP, player.turn_angle)), 
+                                        player.vel.mul_scalar(0.9)
                                     )
                                 },
                                 PlayerSeekTargetAction::TurnLeft => {
-                                    player.data.rot.mul(
-                                        &Quaternion::from_axis_and_angle(&UP, -player.turn_angle)
+                                    (
+                                        player.data.rot.mul(
+                                            &Quaternion::from_axis_and_angle(&UP, -player.turn_angle)), 
+                                        player.vel.mul_scalar(0.9)
                                     )
-                                }
+                                },
                             }
                         }
                     };
 
-                    let vel = player.vel.clone();
                     self.move_player(i, action, &rot, &vel, delta_time, false);
                 }
             }
