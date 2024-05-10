@@ -24,9 +24,8 @@ pub const NPC_WIDTH: f32 = 1.0;
 pub const NPC_HEIGHT: f32 = 1.8;
 pub const NPC_RADIUS: f32 = 0.7;
 
-pub const EXIT_WIDTH: f32 = 1.0;
-pub const EXIT_HEIGHT: f32 = 3.0;
-pub const EXIT_RADIUS: f32 = 3.0;
+pub const EXIT_HEIGHT: f32 = 0.25;
+pub const EXIT_RADIUS: f32 = 0.5;
 
 // skills required to play
 pub const SEEK_TARGET_SKILL: &str = "seek-target#in@15&out@3&actions@FRL"; // actions: Forward, Right, Left

@@ -509,9 +509,9 @@ impl Game {
                 loc.0, 
                 loc.1, 
                 Vector3::new(
-                    consts::EXIT_RADIUS, 
-                    consts::EXIT_RADIUS, 
-                    0.2
+                    consts::EXIT_RADIUS * 2.0, 
+                    consts::EXIT_HEIGHT, 
+                    consts::EXIT_RADIUS * 2.0
                 ),
                 consts::EXIT_RADIUS,
                 EntityState::WAITING,
@@ -978,6 +978,14 @@ impl Game {
                             let player = &mut self.entities.players[i];
                             player.reward += consts::REWARD_EXIT_REACHED;
                             player.xp += 1.0;
+
+                            // put player above the exit stage
+                            player.data.pos.y += consts::EXIT_HEIGHT;
+                            self.events.push(GameEvent::EntityMoved(EntityMovedEvent{
+                                model_ref: player.data.model_ref,
+                                pos: player.data.pos,
+                                rot: player.data.rot,
+                            }));
                             
                             if let Some(from) = player.set_state(EntityState::CELEBRATING, self.state.step) {
                                 self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
@@ -987,7 +995,7 @@ impl Game {
                                 }));
                             }
 
-                            // all other players player should become idle
+                            // all other players should become idle
                             for j in 0..self.entities.players.len() {
                                 if j != i {
                                     let player = &mut self.entities.players[j];
