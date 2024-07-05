@@ -28,7 +28,12 @@ pub const EXIT_HEIGHT: f32 = 0.25;
 pub const EXIT_RADIUS: f32 = 0.5;
 
 // skills required to play
-pub const SEEK_TARGET_SKILL: &str = "seek-target#in@15&out@3&actions@FRL"; // actions: Forward, Right, Left
+pub const SEEK_TARGET_SKILL: &str = "seek-target#in@15&out@3&actions@FRL";  // actions: Forward, Right, Left
+pub const HAND_COMBAT_SKILL: &str = "hand-combat#in@5&out@3&actions@IDA";   // actions: Idle, Defend, Attack
+pub const SKILLS: &[&str] = &[SEEK_TARGET_SKILL, HAND_COMBAT_SKILL];
+
+pub const SEEK_TARGET_NUM_FEATURES: usize = 1;                              // Similarity to target: 0.0..1.0 (0.0 == opposite direction)
+pub const HAND_COMBAT_NUM_FEATURES: usize = 1 + 1 + 1 + 1;                  // Idle: 0.0|1.0, Defending: ditto, Attacking: ditto, Taking hit: ditto
 
 // maps
 pub const MAP_ID_CONTAINERS: GameMapId = 0;

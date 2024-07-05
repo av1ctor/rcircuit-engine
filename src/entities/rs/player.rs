@@ -19,14 +19,13 @@ use crate::{
         Entity, EntityData, EntityState, 
         EntityType, EntityVisibility
     }, 
-    engine::sensor::{
-        Sensor, SensorReading, 
-        SensorReadingHit, SensorReadingTarget
+    engine::seek_target_sensor::{
+        SeekTargetSensor, SeekTargetSensorReading, 
+        SeekTargetSensorReadingHit, SeekTargetSensorReadingTarget
     }, 
     map::Map
 };
-
-pub const SEEK_TARGET_NUM_FEATURES: usize = 1;
+use super::Npc;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, EnumCount)]
 #[repr(C)]
@@ -59,6 +58,42 @@ impl From<&Option<usize>> for PlayerSeekTargetAction {
             }
             else {
                 PlayerSeekTargetAction::default()
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, EnumCount)]
+#[repr(C)]
+pub enum PlayerHandCombatAction {
+    #[default]
+    Idle,
+    Defend,
+    Attack,
+}
+
+impl TryFrom<usize> for PlayerHandCombatAction {
+    fn try_from(
+        value: usize
+    ) -> Result<Self, Self::Error> {
+        unsafe {
+            Ok(std::mem::transmute(value as u32))
+        }
+    }
+
+    type Error = String;
+}
+
+impl From<&Option<usize>> for PlayerHandCombatAction {
+    fn from(
+        value: &Option<usize>
+    ) -> Self {
+        unsafe { 
+            if let Some(action) = value {
+                std::mem::transmute(*action as u32) 
+            }
+            else {
+                PlayerHandCombatAction::default()
             }
         }
     }
@@ -124,15 +159,17 @@ pub struct Player {
     pub health: f32,
     pub reward: f32,
     pub xp: f32,
-    pub action: PlayerSeekTargetAction,
+    pub seek_target_action: PlayerSeekTargetAction,
+    #[serde(skip)]
+    pub hand_combat_npc: Option<*const Npc>,
     #[serde(skip)]
     pub path_ref: ModelRef,
     #[serde(skip)]
-    pub sensor_ref: ModelRef,
+    pub seek_target_sensor_ref: ModelRef,
     #[serde(skip)]
     pub readings_ref: ModelRef,
     #[serde(skip)]
-    pub sensor: Sensor,
+    pub seek_target_sensor: SeekTargetSensor,
     #[serde(skip)]
     pub history: CircularBuffer<10, PlayerHistory>,
 }
@@ -147,7 +184,7 @@ impl Player {
         vis: EntityVisibility,
         model_ref: ModelRef,
         path_ref: ModelRef,
-        sensor_ref: ModelRef,
+        seek_target_sensor_ref: ModelRef,
         readings_ref: ModelRef,
         rng: &mut StdRng
     ) -> Player {
@@ -180,11 +217,12 @@ impl Player {
             health: 100.0, 
             reward: 0.0,
             xp: options.xp,
-            action: PlayerSeekTargetAction::default(),
+            seek_target_action: PlayerSeekTargetAction::default(),
+            hand_combat_npc: None,
             path_ref,
-            sensor_ref,
+            seek_target_sensor_ref,
             readings_ref,
-            sensor: Sensor::default(),
+            seek_target_sensor: SeekTargetSensor::default(),
             history: CircularBuffer::<10, PlayerHistory>::new(),
         }
     }
@@ -218,9 +256,9 @@ impl Player {
     ) -> Quaternion {
         let mut sum_sim = 0.0;
         
-        let mut rots_weights = self.sensor.readings.iter()
+        let mut rots_weights = self.seek_target_sensor.readings.iter()
             .filter(|r| 
-                if let SensorReading::Target(_) = r {
+                if let SeekTargetSensorReading::Target(_) = r {
                     true
                 } 
                 else {
@@ -228,7 +266,7 @@ impl Player {
                 }
             )
             .map(|r| {
-                if let SensorReading::Target(t) = r {
+                if let SeekTargetSensorReading::Target(t) = r {
                     sum_sim += t.sim;
                     (t.rot, t.sim)
                 }
@@ -251,25 +289,49 @@ impl Player {
             )
         }
     }
-    
-    pub fn to_obs(
+
+    fn seek_target_to_obs(
         &self
-    ) -> EnvObs {
+    ) -> Vec<f32> {
         let mut obs = vec![];
 
-        for r in &self.sensor.readings {
+        for r in &self.seek_target_sensor.readings {
             obs.push(match r {
-                SensorReading::Target(r) => {
+                SeekTargetSensorReading::Target(r) => {
                     r.sim
                 },
-                SensorReading::Hit(_) => {
+                SeekTargetSensorReading::Hit(_) => {
                     0.0
                 },
             });
         }
 
+        obs
+    }
+
+    fn hand_combat_to_obs(
+        &self
+    ) -> Vec<f32> {
+        if let Some(npc) = self.hand_combat_npc {
+            let data = unsafe { &(*npc).data };
+            vec![
+                if data.state == EntityState::IDLE {1.0} else {0.0},            // Idle: 0.0|1.0
+                0.0,                                                            // Defending: ditto
+                if data.state == EntityState::PUNCHING {1.0} else {0.0},        // Attacking: ditto
+                if data.state == EntityState::HIT {1.0} else {0.0},             // Taking hit: ditto
+            ]
+        }
+        else {
+            vec![0.0, 0.0, 0.0, 0.0]
+        }
+    }
+    
+    pub fn to_obs(
+        &self
+    ) -> EnvObs {
         HashMap::from([
-            (consts::SEEK_TARGET_SKILL.to_string(), obs),
+            (consts::SEEK_TARGET_SKILL.to_string(), self.seek_target_to_obs()),
+            (consts::HAND_COMBAT_SKILL.to_string(), self.hand_combat_to_obs()),
         ])
     }
 
@@ -277,17 +339,17 @@ impl Player {
         &mut self
     ) {
         self.history.push_back(PlayerHistory { 
-            action: self.action.clone(),
+            action: self.seek_target_action.clone(),
             rot: self.data.rot.clone(),
         });
     }
 
-    pub fn get_sensor_readings(
+    pub fn get_seek_target_sensor_readings(
         &self,
         target_pos: &Vector3,
         fov: &PlayerFOV,
         map: &mut Map
-    ) -> (bool, Vec<SensorReading>) {
+    ) -> (bool, Vec<SeekTargetSensorReading>) {
         let target_dir = FORWARD.apply_quaternion(
             &Quaternion::from_axis_and_angle(
                 &UP,
@@ -311,13 +373,13 @@ impl Player {
                 if let Some(t) = map.calc_distance_to_closest_wall(
                     &self.data.pos, &sensor_pos) {
                     has_hits = true;
-                    SensorReading::Hit(SensorReadingHit{
+                    SeekTargetSensorReading::Hit(SeekTargetSensorReadingHit{
                         t,
                         pos: sensor_pos,
                         dir,
                     })
                 } else {
-                    SensorReading::Target(SensorReadingTarget { 
+                    SeekTargetSensorReading::Target(SeekTargetSensorReadingTarget { 
                         sim: dir.dot(&target_dir).max(0.0), 
                         pos: sensor_pos,
                         dir,
@@ -332,9 +394,9 @@ impl Player {
         (has_hits, readings)
     }
 
-    pub fn gen_vis_sensor_readings(
+    pub fn gen_vis_seek_target_sensor_readings(
         pos: &Vector3,
-        readings: &Vec<SensorReading>,
+        readings: &Vec<SeekTargetSensorReading>,
         max_dist: f32
     ) -> (Vec<Vector3>, Vec<Vector3>) {
         
@@ -343,9 +405,9 @@ impl Player {
 
         for r in readings {
             match r {
-                SensorReading::Hit(_) => {
+                SeekTargetSensorReading::Hit(_) => {
                 }
-                SensorReading::Target(r) => {
+                SeekTargetSensorReading::Target(r) => {
                     sensor_vtx.push(pos.clone());
                     sensor_vtx.push(r.pos);
                     

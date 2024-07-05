@@ -2,7 +2,7 @@ pub mod game;
 pub mod collision_mng;
 pub mod spawn_loc_mng;
 pub mod asset;
-pub mod sensor;
+pub mod seek_target_sensor;
 
 use neuralarena_cdk::models::instance::{
     InstancePlayerEntity,

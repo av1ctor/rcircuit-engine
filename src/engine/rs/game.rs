@@ -21,7 +21,7 @@ use crate::{
         Entity, EntityData, EntityState, EntityType, EntityVisibility, 
         Npc, 
         Object, ObjectType, 
-        Player, PlayerSeekTargetAction, SEEK_TARGET_NUM_FEATURES
+        Player, PlayerHandCombatAction, PlayerSeekTargetAction
     }, 
     event::*, 
     map::Map
@@ -30,7 +30,7 @@ use super::{
     asset::{get_game_assets, GameAssetRef}, 
     collision_mng::CollisionAvoidanceManager, 
     spawn_loc_mng::SpawnLocManager,
-    sensor::Sensor
+    seek_target_sensor::SeekTargetSensor
 };
 
 impl Env<EntityState> for Game {
@@ -48,8 +48,12 @@ impl Env<EntityState> for Game {
         skill: &str
     ) -> usize {
         match skill {
-            consts::SEEK_TARGET_SKILL => PlayerSeekTargetAction::COUNT,
-            _ => panic!("Unknown skill")
+            consts::SEEK_TARGET_SKILL => 
+                PlayerSeekTargetAction::COUNT,
+            consts::HAND_COMBAT_SKILL => 
+                PlayerHandCombatAction::COUNT,
+            _ => 
+                panic!("Unknown skill: {}", skill)
         }        
     }
 
@@ -58,8 +62,12 @@ impl Env<EntityState> for Game {
         skill: &str
     ) -> usize {
         match skill {
-            consts::SEEK_TARGET_SKILL => SEEK_TARGET_NUM_FEATURES * self.options.fov.rays,
-            _ => panic!("Unknown skill")
+            consts::SEEK_TARGET_SKILL => 
+                consts::SEEK_TARGET_NUM_FEATURES * self.options.fov.rays,
+            consts::HAND_COMBAT_SKILL => 
+                consts::HAND_COMBAT_NUM_FEATURES,
+            _ => 
+                panic!("Unknown skill: {}", skill)
         }   
     }
 
@@ -148,11 +156,11 @@ impl Env<EntityState> for Game {
                 .iter()
                 .map(|p| {
                     EnvPlayer {
-                        active: p.is_moving(),
+                        active: !p.is_dead_or_dying(),
                         skill: if p.is_moving() {
                             consts::SEEK_TARGET_SKILL.to_string()
                         } else {
-                            "".to_string()
+                            consts::HAND_COMBAT_SKILL.to_string()
                         },
                         reward: p.reward,
                         obs: p.to_obs(),
@@ -780,13 +788,13 @@ impl Game {
             };
 
 
-            readings[i] = player.get_sensor_readings(
+            readings[i] = player.get_seek_target_sensor_readings(
                 &target_pos, &self.options.fov, &mut self.map);
         }
 
         for i in 0..self.entities.players.len() {
             let player = &mut self.entities.players[i];
-            player.sensor = Sensor {
+            player.seek_target_sensor = SeekTargetSensor {
                 has_hits: readings[i].0,
                 readings: readings[i].1.to_owned(),
             };
@@ -797,7 +805,7 @@ impl Game {
                     player.path_ref, 
                     paths[i].nodes.clone()
                 );
-                let (_sensor_vtx, readings_vtx) = Player::gen_vis_sensor_readings(
+                let (_sensor_vtx, readings_vtx) = Player::gen_vis_seek_target_sensor_readings(
                     &player.data.pos, 
                     &readings[i].1,
                     self.options.fov.max_dist
@@ -841,7 +849,7 @@ impl Game {
                 player.data.pos = corrected_pos
                     .add(&Vector3::new(0.0, -consts::NAVMESH_CELL_HEIGHT * 0.8, 0.0));
                 if !forced {
-                    player.action = action.into();
+                    player.seek_target_action = action.into();
                     player.data.rot = player.calc_rot_away_from_hit();
                     player.reward += consts::PENALTY_WALL;
                 }
@@ -860,7 +868,7 @@ impl Game {
                 player.data.pos.add_mut(&corrected_transl);
                 player.data.pos.y = corrected_pos.y - (consts::NAVMESH_CELL_HEIGHT * 0.8);
                 if !forced {
-                    player.action = action.into();
+                    player.seek_target_action = action.into();
                     player.data.rot = rot.clone();
                 }
             }
@@ -923,7 +931,7 @@ impl Game {
             if player.is_visible() && !player.is_dead_or_dying() {
                 player.reward = 0.0;
 
-            if player.is_moving() {
+                if player.is_moving() {
                     let (rot, vel) = match action {
                         None => {
                             (
@@ -1019,8 +1027,9 @@ impl Game {
                         self.find_closest_npc(&player.data.pos, Some(player.data.radius)) {
 
                         let player = &mut self.entities.players[i];
-                        //if moving, start attacking (and, at same time, don't let the player get too close to the this NPC)
+                        // if moving, start attacking (and, at same time, don't let the player get too close to the this NPC)
                         if player.is_moving() {
+                            player.hand_combat_npc = Some(&self.entities.npcs[npc_num]);
                             player.reward += consts::REWARD_ATTACK_HIT;
     
                             if let Some(from) = player.set_state(EntityState::ATTACKING, self.state.step) {
