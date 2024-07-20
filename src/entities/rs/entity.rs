@@ -139,11 +139,11 @@ pub trait Entity {
     }
     
     #[inline(always)]
-    fn is_dead_or_dying(
+    fn is_alive(
         &self 
     ) -> bool {
-        self.get_data().state == EntityState::DYING || 
-        self.get_data().state == EntityState::DEAD
+        self.get_data().state != EntityState::DYING &&
+        self.get_data().state != EntityState::DEAD
     }
 
     #[inline(always)]

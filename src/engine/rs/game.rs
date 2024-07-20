@@ -113,7 +113,7 @@ impl Env<EntityState> for Game {
             active_players: self.options.num_players,
         };
 
-        self.build_players_sensors(renderer);
+        self.build_seek_target_players_sensors(renderer);
 
         self.entities.players
             .iter()
@@ -147,7 +147,7 @@ impl Env<EntityState> for Game {
 
         self.update_objects(delta_time, rng);
         
-        self.build_players_sensors(renderer);
+        self.build_seek_target_players_sensors(renderer);
 
         EnvStep {
             terminated: self.state.status != GameStatus::RUNNING,
@@ -156,7 +156,7 @@ impl Env<EntityState> for Game {
                 .iter()
                 .map(|p| {
                     EnvPlayer {
-                        active: !p.is_dead_or_dying(),
+                        active: p.is_visible() && p.is_alive(),
                         skill: if p.is_moving() {
                             consts::SEEK_TARGET_SKILL.to_string()
                         } else {
@@ -564,7 +564,7 @@ impl Game {
     ) {
         let exit = self.entities.objects.iter_mut().find(|o|
             o.typ == ObjectType::EXIT && 
-            !o.is_visible() && !o.is_dead_or_dying()
+            !o.is_visible() && o.is_alive()
         );
 
         if let Some(obj) = exit {
@@ -587,7 +587,7 @@ impl Game {
         &mut self
     ) {
         if let Some(npc) = self.entities.npcs.iter_mut().find(|n|
-            !n.is_visible() && !n.is_dead_or_dying()
+            !n.is_visible() && n.is_alive()
         ) {
             npc.data.vis = EntityVisibility::VISIBLE;
             
@@ -651,7 +651,7 @@ impl Game {
 
         for i in player_indexes {
             let player = &self.entities.players[i];
-            if player.is_visible() && !player.is_dead_or_dying() {
+            if player.is_visible() && player.is_alive() {
                 let distance_sq = pos.sub(&player.data.pos).length_sq();
                 if distance_sq < min_distance_sq {
                     min_distance_sq = distance_sq;
@@ -685,7 +685,7 @@ impl Game {
         let mut res = None;
 
         for (i, npc) in self.entities.npcs.iter().enumerate().filter(|(_, n)| 
-            n.is_visible() && !n.is_dead_or_dying()
+            n.is_visible() && n.is_alive()
         ) {
             let distance_sq = pos.sub(&npc.data.pos).length_sq();
             if distance_sq < min_distance_sq {
@@ -707,7 +707,7 @@ impl Game {
 
         for obj in self.entities.objects.iter().filter(|o| 
             o.typ == typ &&
-            o.is_visible() && !o.is_dead_or_dying()
+            o.is_visible() && o.is_alive()
         ) {
             let distance = pos.sub(&obj.data.pos).length();
             if distance < min_distance {
@@ -720,7 +720,7 @@ impl Game {
     }
 
     #[cfg_attr(target_arch = "wasm32", allow(unused_variables))]
-    fn build_players_sensors(
+    fn build_seek_target_players_sensors(
         &mut self,
         renderer: &mut dyn Renderer<EntityState>
     ) {
@@ -928,7 +928,7 @@ impl Game {
             let i = *p;
 
             let player = &mut self.entities.players[i];
-            if player.is_visible() && !player.is_dead_or_dying() {
+            if player.is_visible() && player.is_alive() {
                 player.reward = 0.0;
 
                 if player.is_moving() {
@@ -974,7 +974,7 @@ impl Game {
             let i = *p;
 
             let player = &self.entities.players[i];
-            if player.is_visible() && !player.is_dead_or_dying() {
+            if player.is_visible() && player.is_alive() {
                 // all brains eaten? check if exit reached
                 if player.num_brains >= self.options.min_keys {
                     let exit = self.entities.objects.iter().find(|o| o.typ == ObjectType::EXIT);
@@ -1126,7 +1126,7 @@ impl Game {
         // 2nd: check environment
         for i in 0..self.entities.npcs.len() {
             let npc = &self.entities.npcs[i];
-            if npc.is_visible() && !npc.is_dead_or_dying() {
+            if npc.is_visible() && npc.is_alive() {
                 // any player close enough?
                 if let Some((player_num, player, distance_sq)) = 
                     self.find_closest_player_shuffled(&npc.data.pos, Some(3.0), rng) {
