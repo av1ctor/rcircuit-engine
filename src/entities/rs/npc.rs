@@ -6,9 +6,9 @@ use three_rs::math::{
     Quaternion
 };
 use neuralarena_cdk::models::renderer::ModelRef;
-use crate::entities::{
+use crate::{consts, entities::{
     Entity, EntityData, EntityState, EntityType, EntityVisibility
-};
+}};
 
 const STATE_TRANSITIONS: &[Option<EntityState>] = &[
     /* WAITING: */      Some(EntityState::IDLE),
@@ -70,6 +70,23 @@ impl Npc {
         assert!(STATE_TRANSITIONS.len() == EntityState::COUNT);
 
         self.update_state_ex(STATE_TRANSITIONS, step)
+    }
+
+    pub fn take_hit(
+        &mut self,
+        step: usize
+    ) -> Option<EntityState> {
+        self.health += consts::PENALTY_HIT;
+        if self.health <= 0.0 {
+            return Some(EntityState::DYING);
+        }
+
+        if self.data.state != EntityState::HIT && 
+            (self.data.state == EntityState::IDLE || self.state_elapsed(step) >= 0.75) {
+            return Some(EntityState::HIT);
+        }
+
+        None
     }
 }
 

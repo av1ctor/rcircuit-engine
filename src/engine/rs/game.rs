@@ -9,13 +9,13 @@ use three_rs::math::{
 };
 use neuralarena_cdk::models::{
     assets::{Asset, AssetRef}, 
-    env::{Env, EnvAction, EnvObs, EnvPlayer, EnvPlayerOptions, EnvStep}, 
+    env::{Env, EnvAction, EnvSkill, EnvObs, EnvPlayer, EnvPlayerOptions, EnvStep}, 
     game::{GameInfo, GameMapId}, 
     instance::{InstanceEntities, InstancePlayer}, 
     renderer::Renderer
 };
 use crate::{
-    consts, 
+    consts::{self, HAND_COMBAT_SKILL, SEEK_TARGET_SKILL}, 
     engine::{Game, GameEntities, GameOptions, GameState, GameStatus, MapInfo}, 
     entities::{
         Entity, EntityData, EntityState, EntityType, EntityVisibility, 
@@ -45,9 +45,9 @@ impl Env<EntityState> for Game {
     
     fn get_num_actions(
         &self,
-        skill: &str
+        skill: &EnvSkill
     ) -> usize {
-        match skill {
+        match skill.as_str() {
             consts::SEEK_TARGET_SKILL => 
                 PlayerSeekTargetAction::COUNT,
             consts::HAND_COMBAT_SKILL => 
@@ -59,9 +59,9 @@ impl Env<EntityState> for Game {
 
     fn get_num_obs(
         &self,
-        skill: &str
+        skill: &EnvSkill
     ) -> usize {
-        match skill {
+        match skill.as_str() {
             consts::SEEK_TARGET_SKILL => 
                 consts::SEEK_TARGET_NUM_FEATURES * self.options.fov.rays,
             consts::HAND_COMBAT_SKILL => 
@@ -73,7 +73,7 @@ impl Env<EntityState> for Game {
 
     fn random_action(
         &mut self,
-        skill: &str,
+        skill: &EnvSkill,
         rng: &mut StdRng
     ) -> EnvAction {
         rng.gen::<usize>() % self.get_num_actions(skill)
@@ -125,7 +125,7 @@ impl Env<EntityState> for Game {
 
     fn step(
         &mut self, 
-        actions: &Vec<(usize, Option<EnvAction>)>, 
+        actions: &Vec<(usize, (EnvSkill, Option<EnvAction>))>, 
         delta_time: f32,
         renderer: &mut dyn Renderer<EntityState>,
         rng: &mut StdRng,
@@ -157,7 +157,7 @@ impl Env<EntityState> for Game {
                 .map(|p| {
                     EnvPlayer {
                         active: p.is_visible() && p.is_alive(),
-                        skill: if p.is_moving() {
+                        skill: if p.hand_combat_npc.is_none() {
                             consts::SEEK_TARGET_SKILL.to_string()
                         } else {
                             consts::HAND_COMBAT_SKILL.to_string()
@@ -586,6 +586,11 @@ impl Game {
     fn show_next_npc(
         &mut self
     ) {
+        // players should not be in combat with the last active NPC, because it is dying
+        for player in &mut self.entities.players {
+            player.hand_combat_npc = None;
+        }
+
         if let Some(npc) = self.entities.npcs.iter_mut().find(|n|
             !n.is_visible() && n.is_alive()
         ) {
@@ -611,11 +616,13 @@ impl Game {
         num: usize
     ) {
         self.state.active_players -= 1;
+        // no player left? game over..
         if self.state.active_players == 0 {
             self.state.status = GameStatus::FINISHED;
             self.state.winner = None;
         }
 
+        // turn player invisible
         let player = &mut self.entities.players[num];
                     
         player.data.vis = EntityVisibility::HIDDEN;
@@ -631,6 +638,7 @@ impl Game {
     ) {
         let npc = &mut self.entities.npcs[num];
         
+        // turn the npc invisible
         npc.data.vis = EntityVisibility::HIDDEN;
         self.events.push(GameEvent::EntityVisChanged(EntityVisChangedEvent {
             visible: false,
@@ -826,7 +834,6 @@ impl Game {
     fn move_player(
         &mut self,
         num: usize,
-        action: &Option<usize>,
         rot: &Quaternion,
         vel: &Vector3,
         delta_time: f32,
@@ -849,7 +856,6 @@ impl Game {
                 player.data.pos = corrected_pos
                     .add(&Vector3::new(0.0, -consts::NAVMESH_CELL_HEIGHT * 0.8, 0.0));
                 if !forced {
-                    player.seek_target_action = action.into();
                     player.data.rot = player.calc_rot_away_from_hit();
                     player.reward += consts::PENALTY_WALL;
                 }
@@ -868,7 +874,6 @@ impl Game {
                 player.data.pos.add_mut(&corrected_transl);
                 player.data.pos.y = corrected_pos.y - (consts::NAVMESH_CELL_HEIGHT * 0.8);
                 if !forced {
-                    player.seek_target_action = action.into();
                     player.data.rot = rot.clone();
                 }
             }
@@ -898,7 +903,7 @@ impl Game {
 
     fn update_players(
         &mut self, 
-        actions: &Vec<(usize, Option<usize>)>, 
+        actions: &Vec<(usize, (EnvSkill, Option<EnvAction>))>, 
         delta_time: f32,
         _rng: &mut StdRng,
     ) {
@@ -906,6 +911,7 @@ impl Game {
         let mut killed_idxs = vec![];
         for player in self.entities.players.iter_mut()
             .filter(|p| p.is_visible()) {
+            player.reward = 0.0;
             if let Some((from, to)) = player.update_state(self.state.step) {
                 self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
                     model_ref: player.data.model_ref,
@@ -923,57 +929,32 @@ impl Game {
             self.kill_player(num);
         }
 
-        // 2nd: move player
-        for (p, action) in actions {
-            let i = *p;
+        // 2nd: let each player perform its action (move, combat)
+        for (num, skill_action) in actions {
+            let player_num = *num;
 
-            let player = &mut self.entities.players[i];
+            let player = &self.entities.players[player_num];
             if player.is_visible() && player.is_alive() {
-                player.reward = 0.0;
+                match skill_action.0.as_str() {
+                    SEEK_TARGET_SKILL => {
+                        let (rot, vel) = player.handle_seek_target_action(skill_action.1);
+                        self.move_player(player_num, &rot, &vel, delta_time, false);
+                    },
+                    HAND_COMBAT_SKILL => {
 
-                if player.is_moving() {
-                    let (rot, vel) = match action {
-                        None => {
-                            (
-                                player.data.rot.clone(), 
-                                player.vel.mul_scalar(0.5)
-                            )
-                        },
-                        Some(action) => {
-                            match PlayerSeekTargetAction::try_from(action.clone()).unwrap() {
-                                PlayerSeekTargetAction::MoveForward =>
-                                    (
-                                        player.data.rot.clone(), 
-                                        player.vel.clone()
-                                    ),
-                                PlayerSeekTargetAction::TurnRight => {
-                                    (
-                                        player.data.rot.mul(
-                                            &Quaternion::from_axis_and_angle(&UP, player.turn_angle)), 
-                                        player.vel.mul_scalar(0.9)
-                                    )
-                                },
-                                PlayerSeekTargetAction::TurnLeft => {
-                                    (
-                                        player.data.rot.mul(
-                                            &Quaternion::from_axis_and_angle(&UP, -player.turn_angle)), 
-                                        player.vel.mul_scalar(0.9)
-                                    )
-                                },
-                            }
-                        }
-                    };
+                    },
 
-                    self.move_player(i, action, &rot, &vel, delta_time, false);
+                    _ => {
+                    }
                 }
             }
         }
 
         // 3rd: check environment
-        for (p, _) in actions {
-            let i = *p;
+        for (num, _) in actions {
+            let player_num = *num;
 
-            let player = &self.entities.players[i];
+            let player = &self.entities.players[player_num];
             if player.is_visible() && player.is_alive() {
                 // all brains eaten? check if exit reached
                 if player.num_brains >= self.options.min_keys {
@@ -981,9 +962,9 @@ impl Game {
                     if let Some(exit) = exit {
                         if Self::check_exit(player, exit) {
                             self.state.status = GameStatus::FINISHED;
-                            self.state.winner = Some(i);
+                            self.state.winner = Some(player_num);
                             
-                            let player = &mut self.entities.players[i];
+                            let player = &mut self.entities.players[player_num];
                             player.reward += consts::REWARD_EXIT_REACHED;
                             player.xp += 1.0;
 
@@ -1004,9 +985,9 @@ impl Game {
                             }
 
                             // all other players should become idle
-                            for j in 0..self.entities.players.len() {
-                                if j != i {
-                                    let player = &mut self.entities.players[j];
+                            for i in 0..self.entities.players.len() {
+                                if i != player_num {
+                                    let player = &mut self.entities.players[i];
                                     player.xp += 0.1;
                                     if let Some(from) = player.set_state(EntityState::IDLE, self.state.step) {
                                         self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
@@ -1026,7 +1007,7 @@ impl Game {
                     if let Some((npc_num, _)) = 
                         self.find_closest_npc(&player.data.pos, Some(player.data.radius)) {
 
-                        let player = &mut self.entities.players[i];
+                        let player = &mut self.entities.players[player_num];
                         // if moving, start attacking (and, at same time, don't let the player get too close to the this NPC)
                         if player.is_moving() {
                             player.hand_combat_npc = Some(&self.entities.npcs[npc_num]);
@@ -1041,40 +1022,35 @@ impl Game {
                             }
 
                             let npc = &mut self.entities.npcs[npc_num];
-                            npc.health += consts::PENALTY_HIT;
-                            // NPC has no health left? kill it and show another one
-                            if npc.health <= 0.0 {
-                                if let Some(from) = npc.set_state(EntityState::DYING, self.state.step) {
+                            let npc_state = npc.take_hit(self.state.step);
+                            if let Some(npc_state) = npc_state {
+                                if let Some(from) = npc.set_state(npc_state, self.state.step) {
                                     self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
                                         model_ref: npc.data.model_ref,
                                         from,
-                                        to: npc.data.state
+                                        to: npc_state
                                     }));
-                                }
 
-                                player.num_brains += 1;
-                                if player.num_brains == self.options.min_keys {
-                                    self.show_exit();
-                                } 
-                                
-                                self.show_next_npc();
-                            }
-                            else {
-                                if npc.data.state != EntityState::HIT && 
-                                    (npc.data.state == EntityState::IDLE || npc.state_elapsed(self.state.step) >= 0.75) {
-                                    if let Some(from) = npc.set_state(EntityState::HIT, self.state.step) {
-                                        self.events.push(GameEvent::EntityStateChanged(EntityStateChangedEvent {
-                                            model_ref: npc.data.model_ref,
-                                            from,
-                                            to: npc.data.state
-                                        }));
+                                    match npc_state {
+                                        EntityState::DYING => {
+                                            player.num_brains += 1;
+                                            if player.num_brains == self.options.min_keys {
+                                                self.show_exit();
+                                            } 
+                                            
+                                            self.show_next_npc();
+                                        },
+                                        EntityState::HIT => {
+
+                                        },
+                                        _ => {}
                                     }
                                 }
                             }
                         }
 
                         // make the player face the NPC
-                        let player = &mut self.entities.players[i];
+                        let player = &mut self.entities.players[player_num];
                         if !player.is_idle() {
                             let npc = &self.entities.npcs[npc_num];
                             let target_rot = Quaternion::from_axis_and_angle(
@@ -1177,7 +1153,6 @@ impl Game {
                                 );
                                 self.move_player(
                                     player_num, 
-                                    &None, 
                                     &inverse_rot, 
                                     &Vector3::new(consts::PLAYER_VELOCITY, 0.0, consts::PLAYER_VELOCITY),
                                     delta_time, 

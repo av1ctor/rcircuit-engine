@@ -10,7 +10,7 @@ use three_rs::math::{
     vector3::{FORWARD, UP}
 };
 use neuralarena_cdk::models::{
-    env::{EnvObs, EnvPlayerOptions}, 
+    env::{EnvAction, EnvObs, EnvPlayerOptions}, 
     renderer::ModelRef
 };
 use crate::{
@@ -146,7 +146,6 @@ impl Default for PlayerSensor {
 
 #[derive(Clone, Debug, Default)]
 pub struct PlayerHistory {
-    pub action: PlayerSeekTargetAction,
     pub rot: Quaternion,
 }
 
@@ -159,7 +158,6 @@ pub struct Player {
     pub health: f32,
     pub reward: f32,
     pub xp: f32,
-    pub seek_target_action: PlayerSeekTargetAction,
     #[serde(skip)]
     pub hand_combat_npc: Option<*const Npc>,
     #[serde(skip)]
@@ -217,7 +215,6 @@ impl Player {
             health: 100.0, 
             reward: 0.0,
             xp: options.xp,
-            seek_target_action: PlayerSeekTargetAction::default(),
             hand_combat_npc: None,
             path_ref,
             seek_target_sensor_ref,
@@ -240,6 +237,43 @@ impl Player {
         &self 
     ) -> bool {
         self.data.state == EntityState::ATTACKING
+    }
+
+    pub fn handle_seek_target_action(
+        &self,
+        action: Option<EnvAction>
+    ) -> (Quaternion, Vector3) {
+        match action {
+            None => {
+                (
+                    self.data.rot.clone(), 
+                    self.vel.mul_scalar(0.5)
+                )
+            },
+            Some(action) => {
+                match PlayerSeekTargetAction::try_from(action).unwrap() {
+                    PlayerSeekTargetAction::MoveForward =>
+                        (
+                            self.data.rot.clone(), 
+                            self.vel.clone()
+                        ),
+                    PlayerSeekTargetAction::TurnRight => {
+                        (
+                            self.data.rot.mul(
+                                &Quaternion::from_axis_and_angle(&UP, self.turn_angle)), 
+                            self.vel.mul_scalar(0.9)
+                        )
+                    },
+                    PlayerSeekTargetAction::TurnLeft => {
+                        (
+                            self.data.rot.mul(
+                                &Quaternion::from_axis_and_angle(&UP, -self.turn_angle)), 
+                            self.vel.mul_scalar(0.9)
+                        )
+                    },
+                }
+            }
+        }
     }
     
     pub fn mean_rot(
@@ -339,7 +373,6 @@ impl Player {
         &mut self
     ) {
         self.history.push_back(PlayerHistory { 
-            action: self.seek_target_action.clone(),
             rot: self.data.rot.clone(),
         });
     }
